@@ -49,7 +49,8 @@ class PluginManager:
             logger.error(f'Plugins folder not found: {self.pluginsFolderPath}')
             return False
         
-        for root, dirs, files in os.walk(self.pluginsFolderPath):
-            for dir in dirs:
-                pluginFolder = os.path.join(root, dir)
-                plugin = Plugin(pluginFolder)
+        for dir in os.scandir(self.pluginsFolderPath):
+            if not dir.is_dir():
+                continue
+            pluginFolder = os.path.join(self.pluginsFolderPath, dir)
+            plugin = Plugin(pluginFolder)

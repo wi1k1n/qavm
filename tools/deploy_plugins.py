@@ -1,6 +1,7 @@
 import os, shutil, hashlib
 import importlib.util
 
+IGNORE_DIRS_LIST = set(['__pycache__'])
 
 def file_hash(file_path):
     """Compute the hash of a file."""
@@ -56,7 +57,10 @@ def DeployFolder(sourceFolderPath: str, targetFolderPath: str) -> None:
     
     # Double check if there are any files in the target folder that are not in the source folder
     leftoverFiles = set()
+    global IGNORE_DIRS_LIST
     for root, dirs, files in os.walk(targetFolderPath):
+        # TODO: this line below accounts for paths in IGNORE_DIRS_LIST relative to plugins folder (e.g. inner folders with same names would still trigger exception)
+        dirs[:] = [d for d in dirs if os.path.relpath(os.path.join(root, d), targetFolderPath) not in IGNORE_DIRS_LIST]
         for file in files:
             target_file_path = os.path.join(root, file)
             if os.path.abspath(target_file_path) not in pluginFiles:
