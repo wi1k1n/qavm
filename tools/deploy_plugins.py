@@ -68,7 +68,8 @@ def DeployFolder(sourceFolderPath: str, targetFolderPath: str) -> None:
     if len(leftoverFiles):
         print(f'> Leftover files found:')
         for file in leftoverFiles:
-            print(f'\t{file}')
+            path, fileName = os.path.split(file)
+            print(f'\t{fileName} in {path}')
         raise ValueError(f'Leftover files found in target folder')
 
 if __name__ == "__main__":

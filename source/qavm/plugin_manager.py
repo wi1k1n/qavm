@@ -6,6 +6,12 @@ logger = logs.logger
 class Plugin:
     def __init__(self, pluginFolderPath: str) -> None:
         self.pluginFolderPath = pluginFolderPath
+        self.module = None
+        
+        self.ID = ''
+        self.VersionMajor = 0
+        self.VersionMinor = 0
+        self.VersionPatch = 0
 
         if not os.path.exists(self.pluginFolderPath):
             logger.error(f'Plugin folder not found: {self.pluginFolderPath}')
@@ -18,8 +24,6 @@ class Plugin:
             logger.error(f'Plugin main file not found: {self.pluginMainFile}')
             return
 
-        self.pluginModule = None
-
         try:
             spec = importlib.util.spec_from_file_location(self.pluginName, self.pluginMainFile)
             plugin = importlib.util.module_from_spec(spec)
@@ -28,16 +32,21 @@ class Plugin:
             pluginID = getattr(plugin, 'PLUGIN_ID', '')
             if not Plugin.ValidatePluginId(pluginID):
                 raise Exception(f'PLUGIN_ID not found for: {self.pluginMainFile}')
+            self.ID = pluginID
             
             pluginVersion = getattr(plugin, 'PLUGIN_VERSION', '')
             if not Plugin.ValidatePluginVersion(pluginVersion):
                 raise Exception(f'PLUGIN_VERSION not found for: {self.pluginMainFile}')
+            self.VersionMajor, self.VersionMinor, self.VersionPatch = [int(v) for v in pluginVersion.split('.')]
             
             logger.info(f'Loaded plugin: {self.pluginName} @ {pluginVersion} ({pluginID})')
-            self.pluginModule = plugin
+            self.module = plugin
         except:
             logger.exception(f'Failed to load plugin: {self.pluginMainFile}')
     
+    def IsValid(self) -> bool:
+        return self.module is not None and self.ID
+
     @staticmethod
     def ValidatePluginId(pluginId: str) -> bool:
         # checks plugin id to be in domain-style format
@@ -53,6 +62,7 @@ class Plugin:
 class PluginManager:
     def __init__(self, pluginsFolderPath: str) -> None:
         self.pluginsFolderPath = pluginsFolderPath
+        self.plugins = dict()
 
         if not os.path.exists(self.pluginsFolderPath):
             os.makedirs(self.pluginsFolderPath)
@@ -68,3 +78,13 @@ class PluginManager:
                 continue
             pluginFolder = os.path.join(self.pluginsFolderPath, dir)
             plugin = Plugin(pluginFolder)
+            
+            if not plugin.IsValid():
+                continue
+
+            if plugin.ID in self.plugins:
+                logger.error(f'Duplicate plugin ID found: {plugin.ID}')
+                continue
+            
+            self.plugins[plugin.ID] = plugin
+            
