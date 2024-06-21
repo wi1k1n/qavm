@@ -14,7 +14,7 @@ import logs
 logger = logs.logger
 
 from qavm_version import LoadVersionInfo
-from plugin_manager import PluginManager, Plugin
+from plugin_manager import PluginManager, Plugin, SoftwareHandler
 import utils
 
 from PyQt6 import QtCore, QtGui
@@ -37,18 +37,21 @@ from window_main import MainWindow
 class PluginSelectionWindow(QMainWindow):
 	pluginSelected = pyqtSignal(str)
 
-	def __init__(self, plugins: list[Plugin], parent: QWidget | None = None) -> None:
+	def __init__(self, plugins: dict[Plugin, dict[str, SoftwareHandler]], parent: QWidget | None = None) -> None:
 		super(PluginSelectionWindow, self).__init__(parent)
 
-		self.setWindowTitle("Select Plugin")
+		self.setWindowTitle("Select Software handler")
 		self.resize(480, 240)
 
 		layout: QVBoxLayout = QVBoxLayout()
-		for plugin in plugins.values():
-			button = QPushButton(f'{plugin.pluginName} @ {plugin.VersionMajor}.{plugin.VersionMinor}.{plugin.VersionPatch} ({plugin.ID})')
-			button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-			button.clicked.connect(partial(self.selectPlugin, plugin.ID))
-			layout.addWidget(button)
+
+		for plugin, handlersList in plugins.items():
+			pluginName = plugin.pluginName
+			for handlerId, handler in handlersList.items():
+				button = QPushButton(f'[{pluginName} @ {plugin.pluginVersion} ({plugin.pluginID})] {handler.name}')
+				button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+				button.clicked.connect(partial(self.selectPlugin, plugin.pluginID))
+				layout.addWidget(button)
 
 		widget: QWidget = QWidget()
 		widget.setLayout(layout)
@@ -63,7 +66,7 @@ class PluginSelectionWindow(QMainWindow):
 
 # Extensive PyQt tutorial: https://realpython.com/python-menus-toolbars/#building-context-or-pop-up-menus-in-pyqt
 class QAVMApp(QApplication):
-	def __init__(self, argv: List[str], plugins: list[Plugin]) -> None:
+	def __init__(self, argv: List[str], plugins: dict[Plugin, dict[str, SoftwareHandler]]) -> None:
 		super().__init__(argv)
 		
 		self.setApplicationName('QAVM')
@@ -128,7 +131,7 @@ if __name__ == "__main__":
 		pluginManager = PluginManager(utils.GetPluginsFolderPath())
 		pluginManager.LoadPlugins()
 
-		app: QAVMApp = QAVMApp(sys.argv, pluginManager.plugins)
+		app: QAVMApp = QAVMApp(sys.argv, pluginManager.GetSoftwareHandlers())
 		sys.exit(app.exec())
 	except Exception as e:
 		logger.exception("QAVM application crashed")
