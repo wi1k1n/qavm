@@ -3,13 +3,13 @@ from qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder
 PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.zbrush'
 PLUGIN_VERSION = '0.1.0'
 
-class C4DQualifier(BaseQualifier):
+class ZBQualifier(BaseQualifier):
 	pass
 
-class C4DDescriptor(BaseDescriptor):
+class ZBDescriptor(BaseDescriptor):
 	pass
 
-class C4DTileBuilder(BaseTileBuilder):
+class ZBTileBuilder(BaseTileBuilder):
 	pass
 
 def RegisterModuleSoftware():
@@ -21,8 +21,8 @@ def RegisterModuleSoftware():
 			# 'author': 'wi1k1n',
 			# 'author_email': 'vfpkjd@gmail.com',
 
-			'qualifier': C4DQualifier,
-			'descriptor': C4DDescriptor,
-			'tile_builder': C4DTileBuilder,
+			'qualifier': ZBQualifier,
+			'descriptor': ZBDescriptor,
+			'tile_builder': ZBTileBuilder,
 		}
 	]

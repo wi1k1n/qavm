@@ -15,6 +15,7 @@ logger = logs.logger
 
 from qavm_version import LoadVersionInfo
 from plugin_manager import PluginManager, Plugin, SoftwareHandler
+from settings_manager import SettingsManager
 import utils
 
 from PyQt6 import QtCore, QtGui
@@ -35,9 +36,9 @@ from PyQt6.QtWidgets import (
 from window_main import MainWindow
 
 class PluginSelectionWindow(QMainWindow):
-	pluginSelected = pyqtSignal(str)
+	pluginSelected = pyqtSignal(str, str)  # (pluginID, softwareID)
 
-	def __init__(self, plugins: dict[Plugin, dict[str, SoftwareHandler]], parent: QWidget | None = None) -> None:
+	def __init__(self, app, parent: QWidget | None = None) -> None:
 		super(PluginSelectionWindow, self).__init__(parent)
 
 		self.setWindowTitle("Select Software handler")
@@ -45,13 +46,15 @@ class PluginSelectionWindow(QMainWindow):
 
 		layout: QVBoxLayout = QVBoxLayout()
 
-		for plugin, handlersList in plugins.items():
-			pluginName = plugin.pluginName
-			for handlerId, handler in handlersList.items():
-				button = QPushButton(f'[{pluginName} @ {plugin.pluginVersion} ({plugin.pluginID})] {handler.name}')
-				button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-				button.clicked.connect(partial(self.selectPlugin, plugin.pluginID))
-				layout.addWidget(button)
+		pluginManager: PluginManager = app.GetPluginManager()
+		swHandlers: list[tuple[str, str, SoftwareHandler]] = pluginManager.GetSoftwareHandlers()  # [pluginID, softwareID, SoftwareHandler]
+
+		for pluginUID, softwareID, softwareHandler in swHandlers:
+			plugin: Plugin = pluginManager.GetPlugin(pluginUID)
+			button = QPushButton(f'[{plugin.GetName()} @ {plugin.GetVersionStr()} ({pluginUID})] {softwareHandler.GetName()} ({softwareID})')
+			button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+			button.clicked.connect(partial(self.selectPlugin, plugin.pluginID, softwareID))
+			layout.addWidget(button)
 
 		widget: QWidget = QWidget()
 		widget.setLayout(layout)
@@ -60,30 +63,45 @@ class PluginSelectionWindow(QMainWindow):
 
 		self.update()
 	
-	def selectPlugin(self, pluginID: str):
-		self.pluginSelected.emit(pluginID)
+	def selectPlugin(self, pluginUID: str, softwareID: str):
+		self.pluginSelected.emit(pluginUID, softwareID)
 		self.close()
 
 # Extensive PyQt tutorial: https://realpython.com/python-menus-toolbars/#building-context-or-pop-up-menus-in-pyqt
 class QAVMApp(QApplication):
-	def __init__(self, argv: List[str], plugins: dict[Plugin, dict[str, SoftwareHandler]]) -> None:
+	def __init__(self, argv: List[str]) -> None:
 		super().__init__(argv)
 		
 		self.setApplicationName('QAVM')
 		self.setOrganizationName('wi1k.in.prod')
 		self.setOrganizationDomain('wi1k.in')
+		
+		self.pluginManager = PluginManager(utils.GetPluginsFolderPath())
+		self.pluginManager.LoadPlugins()
 
-		self.plugins = plugins
+		self.settingsManager = SettingsManager(utils.GetPrefsFolderPath())
+		self.settingsManager.LoadSettings()
+		
+		selectedSoftwareUID = self.settingsManager.GetSelectedSoftwareUID()
+		swHandlers: dict[str, SoftwareHandler] = {f'{pUID}.{sID}': swHandler for pUID, sID, swHandler in self.pluginManager.GetSoftwareHandlers()}  # {softwareUID: SoftwareHandler}
 
-		if len(self.plugins) > 1:
-			self.selectPluginWindow: PluginSelectionWindow = PluginSelectionWindow(self.plugins)
+		if selectedSoftwareUID and selectedSoftwareUID not in swHandlers:
+			logger.warning(f'Selected software plugin not found: {selectedSoftwareUID}')
+
+		if selectedSoftwareUID in swHandlers:
+			logger.info(f'Selected software plugin: {selectedSoftwareUID}')
+			self.startMainWindow()
+		elif len(swHandlers) == 1:
+			logger.info(f'The only software plugin: {list(swHandlers.keys())[0]}')
+			self.startMainWindow()
+		else:
+			self.selectPluginWindow: PluginSelectionWindow = PluginSelectionWindow(self)
 			self.selectPluginWindow.pluginSelected.connect(self.slot_PluginSelected)
 			self.selectPluginWindow.show()
-		else:
-			self.startMainWindow()
 	
-	def slot_PluginSelected(self, pluginID: str):
-		logger.info(f'Selected plugin: {pluginID}')
+	def slot_PluginSelected(self, pluginUID: str, softwareID: str):
+		logger.info(f'Selected software UID: {pluginUID}.{softwareID}')
+		self.settingsManager.SetSelectedSoftwareUID(f'{pluginUID}.{softwareID}')
 		self.startMainWindow()
 	
 	def startMainWindow(self):
@@ -124,14 +142,15 @@ class QAVMApp(QApplication):
 	# def _hideToTray(self):
 	# 	self.trayIcon.setVisible(True)
 
+	def GetPluginManager(self) -> PluginManager:
+		return self.pluginManager
+	def GetSettingsManager(self) -> SettingsManager:
+		return self.settingsManager
+
 if __name__ == "__main__":
 	try:
 		LoadVersionInfo(os.getcwd())
-		
-		pluginManager = PluginManager(utils.GetPluginsFolderPath())
-		pluginManager.LoadPlugins()
-
-		app: QAVMApp = QAVMApp(sys.argv, pluginManager.GetSoftwareHandlers())
+		app: QAVMApp = QAVMApp(sys.argv)
 		sys.exit(app.exec())
 	except Exception as e:
 		logger.exception("QAVM application crashed")

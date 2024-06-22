@@ -12,6 +12,15 @@ class C4DDescriptor(BaseDescriptor):
 class C4DTileBuilder(BaseTileBuilder):
 	pass
 
+class C4DExampleQualifier(BaseQualifier):
+	pass
+
+class C4DExampleDescriptor(BaseDescriptor):
+	pass
+
+class C4DExampleTileBuilder(BaseTileBuilder):
+	pass
+
 def RegisterModuleSoftware():
 	return [
 		{
@@ -27,13 +36,13 @@ def RegisterModuleSoftware():
 		},
 		{
 			'id': 'software.example',  # this is a unique id under the PLUGIN_ID domain
-			'name': 'Cinema 4D - Example',
+			'name': 'C4D - Example',
 			# 'description': 'Cinema 4D software module for QAVM',
 			# 'author': 'wi1k1n',
 			# 'author_email': 'vfpkjd@gmail.com',
 
-			'qualifier': C4DQualifier,
-			'descriptor': C4DDescriptor,
-			'tile_builder': C4DTileBuilder,
+			'qualifier': C4DExampleQualifier,
+			'descriptor': C4DExampleDescriptor,
+			'tile_builder': C4DExampleTileBuilder,
 		}
 	]

@@ -7,14 +7,13 @@ logger = logs.logger
 
 class Module:
     def __init__(self, plugin, regData):
-        softwareId = regData.get('id', None)
-        self.id = f'{plugin.pluginID}.{softwareId}'
+        self.id = regData.get('id', None)
 
 class SoftwareHandler(Module):
     def __init__(self, plugin, regData) -> None:
         super().__init__(plugin, regData)
         
-        if not Plugin.ValidateUID(self.id):
+        if not Plugin.ValidateUID(f'{plugin.GetUID()}.{self.id}'):
             raise Exception(f'Invalid or missing Software ID: {self.id}')
         
         self.name = regData.get('name', self.id)
@@ -28,6 +27,9 @@ class SoftwareHandler(Module):
         self.tileBuilder = regData.get('tile_builder', None)
         if not self.tileBuilder or not issubclass(self.tileBuilder, BaseTileBuilder):
             raise Exception(f'Missing or invalid tile builder for software: {self.id}')
+    
+    def GetName(self) -> str:
+        return self.name
 
 class Plugin:
     def __init__(self, pluginModule: object) -> None:
@@ -36,10 +38,8 @@ class Plugin:
         self.pluginID = ''
         self.pluginVersion = ''
         self.pluginName = self.module.__name__
-        
-        self.valid = False
 
-        self.softwareHandlers = dict()
+        self.softwareHandlers: dict[str, SoftwareHandler] = dict()  # softwareID: SoftwareHandler
 
         # First check if plugin contains PLUGIN_ID and PLUGIN_VERSION
         self.pluginID = getattr(self.module, 'PLUGIN_ID', '')
@@ -51,11 +51,6 @@ class Plugin:
             raise Exception(f'Invalid or missing PLUGIN_VERSION for: {self.module.__name__}')
 
         self.LoadModuleSoftware()
-
-        self.valid = True
-    
-    def IsValid(self) -> bool:
-        return self.valid
     
     def LoadModuleSoftware(self) -> None:
         pluginSoftwareRegisterFunc = getattr(self.module, 'RegisterModuleSoftware', None)
@@ -71,6 +66,21 @@ class Plugin:
                 raise Exception(f'Duplicate software ID found: {self.id}')
             
             self.softwareHandlers[softwareHandler.id] = softwareHandler
+
+    def GetUID(self) -> str:
+        return self.pluginID
+
+    def GetName(self) -> str:
+        return self.pluginName
+    
+    def GetVersionStr(self) -> str:
+        return self.pluginVersion
+    
+    def GetVersion(self) -> tuple[int, int, int]:
+        return tuple(map(int, self.pluginVersion.split('.')))
+    
+    def GetSoftwareHandlers(self) -> dict[str, SoftwareHandler]:
+        return self.softwareHandlers
             
     
     
@@ -90,7 +100,7 @@ class Plugin:
 class PluginManager:
     def __init__(self, pluginsFolderPath: str) -> None:
         self.pluginsFolderPath = pluginsFolderPath
-        self.plugins = dict()
+        self.plugins: dict[str, Plugin] = dict()
 
         if not os.path.exists(self.pluginsFolderPath):
             os.makedirs(self.pluginsFolderPath)
@@ -124,18 +134,21 @@ class PluginManager:
                 spec.loader.exec_module(pluginPyModule)
                 
                 plugin = Plugin(pluginPyModule)
-
-                if not plugin.IsValid():
-                    raise Exception(f'Could not load plugin: {pluginMainFile}')
                 logger.info(f'Loaded plugin: {pluginName}')
-
                 self.plugins[plugin.pluginID] = plugin
             
             except:
                 logger.exception(f'Failed to load plugin: {pluginMainFile}')
     
-    def GetSoftwareHandlers(self) -> dict[Plugin, dict[str, SoftwareHandler]]:
-        softwareHandlers = dict()
+    def GetPlugins(self) -> list[Plugin]:
+        return list(self.plugins.values())
+    
+    def GetPlugin(self, pluginUID: str) -> Plugin:
+        return self.plugins.get(pluginUID, None)
+    
+    def GetSoftwareHandlers(self) -> list[tuple[str, str, SoftwareHandler]]:
+        result: list[tuple[str, str, SoftwareHandler]] = []  # [pluginID, softwareID, SoftwareHandler]
         for plugin in self.plugins.values():
-            softwareHandlers[plugin] = plugin.softwareHandlers
-        return softwareHandlers
+            for softwareID, softwareHandler in plugin.GetSoftwareHandlers().items():
+                result.append((plugin.pluginID, softwareID, softwareHandler))
+        return result
