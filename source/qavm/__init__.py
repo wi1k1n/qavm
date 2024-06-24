@@ -75,6 +75,8 @@ class QAVMApp(QApplication):
 		self.setApplicationName('QAVM')
 		self.setOrganizationName('wi1k.in.prod')
 		self.setOrganizationDomain('wi1k.in')
+
+		self.SetVisuals()
 		
 		self.pluginManager = PluginManager(utils.GetPluginsFolderPath())
 		self.pluginManager.LoadPlugins()
@@ -100,50 +102,22 @@ class QAVMApp(QApplication):
 			self.selectPluginWindow.show()
 	
 	def slot_PluginSelected(self, pluginUID: str, softwareID: str):
-		logger.info(f'Selected software UID: {pluginUID}.{softwareID}')
-		self.settingsManager.SetSelectedSoftwareUID(f'{pluginUID}.{softwareID}')
+		logger.info(f'Selected software UID: {pluginUID}#{softwareID}')
+		self.settingsManager.SetSelectedSoftwareUID(f'{pluginUID}#{softwareID}')
 		self.startMainWindow()
 	
 	def startMainWindow(self):
-		self.mainWindow: MainWindow = MainWindow()
-		# self.mainWindow.hideToTraySignal.connect(self._hideToTray)
-
-		# self.iconApp: QIcon = QIcon(OsPathJoin(IMAGES_FOLDER, 'icon.png'))
-		# self.setWindowIcon(self.iconApp)
-		
+		self.mainWindow: MainWindow = MainWindow(self)
+		self.mainWindow.show()
+	
+	def SetVisuals(self):
 		font: QFont = self.font()
 		# font.setPixelSize(16)
 		self.setFont(font)
 
-		# self.initTray()
-
-		self.mainWindow.show()
-		# self.mainWindow.FirstRunHandler()
-	
-	# def initTray(self):
-	# 	actionExit: QAction = QAction('Exit')
-	# 	actionExit.triggered.connect(sys.exit)
-	# 	trayMenu: QMenu = QMenu()
-	# 	trayMenu.addAction(actionExit)
-
-	# 	self.trayIcon: QSystemTrayIcon = QSystemTrayIcon()
-	# 	self.trayIcon.setIcon(self.iconApp)
-	# 	self.trayIcon.setContextMenu(trayMenu)
-	# 	self.trayIcon.activated.connect(self._activateFromTray)
-	# 	self.trayIcon.setVisible(False)
-	
-	# def _activateFromTray(self, reason):
-	# 	if reason != QSystemTrayIcon.ActivationReason.Context and self.mainWindow.isHidden():
-	# 		self.mainWindow.show()
-	# 		self.mainWindow.activateWindow()
-	# 		self.trayIcon.setVisible(False)
-	# 		# win.restoreState()
-
-	# def _hideToTray(self):
-	# 	self.trayIcon.setVisible(True)
-
 	def GetPluginManager(self) -> PluginManager:
 		return self.pluginManager
+	
 	def GetSettingsManager(self) -> SettingsManager:
 		return self.settingsManager
 
