@@ -127,14 +127,8 @@ class MainWindow(QMainWindow):
 		
 		centralWidget: QTabWidget = QTabWidget()
 
-		scrollWidget = QScrollArea(self)
-		scrollWidget.setWidgetResizable(True)
-
-		flWidget = QWidget(scrollWidget)
-		flWidget.setMinimumWidth(50)
-		self._createFlowLayoutWithBubbles(flWidget)
-
-		scrollWidget.setWidget(flWidget)
+		flWidget = self._createFlowLayoutWithBubbles(self)
+		scrollWidget = self._wrapWidgetInScrollArea(flWidget, self)
 
 		centralWidget.addTab(scrollWidget, "Flow Layout (with bubbles)")
 		centralWidget.addTab(self._createC4DTile(), "C4D Tile")
@@ -145,8 +139,11 @@ class MainWindow(QMainWindow):
 	
 	def _createFlowLayoutWithBubbles(self, parent):
 		TEXT = "I've heard there was a secred chord that David played and it pleased the Lord but you don't really care for music, do you?"
+		
+		flWidget = QWidget(parent)
+		flWidget.setMinimumWidth(50)
 
-		flowLayout = FlowLayout(parent, margin=1, hspacing=0, vspacing=0)
+		flowLayout = FlowLayout(flWidget, margin=1, hspacing=0, vspacing=0)
 		flowLayout.setSpacing(0)
 
 		self._words = []
@@ -157,10 +154,13 @@ class MainWindow(QMainWindow):
 			self._words.append(bubble)
 			flowLayout.addWidget(bubble)
 
-		return flowLayout
+		return flWidget
 	
-	def _wrapWidgetInScrollArea(self, widget. parent):
-		pass
+	def _wrapWidgetInScrollArea(self, widget, parent):
+		scrollWidget = QScrollArea(parent)
+		scrollWidget.setWidgetResizable(True)
+		scrollWidget.setWidget(widget)
+		return scrollWidget
 	
 	def _createC4DTile(self):
 		return QWidget(self)
