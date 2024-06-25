@@ -2,11 +2,11 @@ import sys
 
 from PyQt6.QtCore import Qt, QSize, QRect, QPoint
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen, QFont
-from PyQt6.QtWidgets import QLabel, QSizePolicy, QMainWindow, QVBoxLayout, QApplication, QLayout, QWidget, QStyle, QScrollArea, QTabWidget
+from PyQt6.QtWidgets import QLabel, QSizePolicy, QMainWindow, QVBoxLayout, QApplication, QLayout, QWidget, QStyle, QScrollArea, QTabWidget, QFrame
 
 from flow_layout import FlowLayout
 from bubble import BubbleWidget
-from animated_widget import AnimatedWidget
+from animated_widget import AnimatedWidget, PulsingFrame
 
 class MainWindow(QMainWindow):
 	def __init__(self, parent=None):
@@ -21,6 +21,7 @@ class MainWindow(QMainWindow):
 		flWidget = self._createFlowLayoutWithBubbles(self)
 		scrollWidget = self._wrapWidgetInScrollArea(flWidget, self)
 
+		centralWidget.addTab(PulsingFrame(), "Pulsing Frame")
 		centralWidget.addTab(self._createC4DTile(), "C4D Tile")
 		centralWidget.addTab(scrollWidget, "Flow Layout (with bubbles)")
 		
