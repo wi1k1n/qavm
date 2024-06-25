@@ -13,6 +13,13 @@
             "preLaunchTask": "deploy_plugins",
         },
         {
+            "name": "Python Debugger: Experiments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "experiments/__init__.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python: Current File",
             "type": "debugpy",
             "request": "launch",
