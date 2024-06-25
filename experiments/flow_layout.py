@@ -7,10 +7,13 @@ from PyQt6.QtWidgets import QLabel, QSizePolicy, QMainWindow, QVBoxLayout, QAppl
 # https://stackoverflow.com/a/18069897
 class BubbleWidget(QLabel):
 	def __init__(self, text, bgColor: QColor | None = None, rounding: float = 20, margin: int = 7):
-		super(QLabel, self).__init__(text)
+		super().__init__(text)
 		self.rounding: float = rounding
 		self.roundingMargin: int = margin
 		self.bgColor: QColor | None = bgColor
+
+		m = 5
+		self.setContentsMargins(m, m, m, m)
 
 		# self.mouseLeaveTimer: QTimer = QTimer(self, interval=50, timeout=self._mouseLeaveTimerCallback)
 
@@ -45,19 +48,16 @@ class BubbleWidget(QLabel):
 	# 	self.setFixedSize(self.sizeHint() + QSize(self.roundingMargin, self.roundingMargin) * 2)
 
 	def paintEvent(self, evt: QPaintEvent):
-		# painter: QPainter = QPainter(self)
+		p: QPainter = QPainter(self)
+		penWidth: int = 1 # 2 if self.underMouse() else 1
+		p.setPen(QPen(QColor('black'), penWidth))
+		if self.bgColor is not None:
+			p.setBrush(self.bgColor)
+		p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+		p.drawRoundedRect(penWidth, penWidth, self.width() - penWidth * 2, self.height() - penWidth * 2, self.rounding, self.rounding)
+		# p.drawRect(penWidth, penWidth, self.width() - penWidth * 2, self.height() - penWidth * 2)
 
-
-		
-		# penWidth: int = 2 # 2 if self.underMouse() else 1
-		# p.setPen(QPen(QColor('black'), penWidth))
-		# # if self.bgColor is not None:
-		# # 	p.setBrush(self.bgColor)
-		
-		# p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-		# p.drawRoundedRect(penWidth, penWidth, self.width() - penWidth * 2, self.height() - penWidth * 2, self.rounding, self.rounding)
-		
-		super(QLabel, self).paintEvent(evt)
+		super().paintEvent(evt)
 
 
 
@@ -69,11 +69,12 @@ class BubbleWidget(QLabel):
 
 # FlowLayout implementation is stolen from: https://stackoverflow.com/a/41643802/5765191
 class FlowLayout(QLayout):
-	def __init__(self, parent=None, margin=-1, hspacing=-1, vspacing=-1):
+	def __init__(self, parent=None, margin=0, hspacing=0, vspacing=0):
 		super(FlowLayout, self).__init__(parent)
 		self._hspacing = hspacing
 		self._vspacing = vspacing
 		self._items = []
+
 		self.setContentsMargins(margin, margin, margin, margin)
 
 	def __del__(self):
@@ -83,18 +84,10 @@ class FlowLayout(QLayout):
 		self._items.append(item)
 
 	def horizontalSpacing(self):
-		if self._hspacing >= 0:
-			return self._hspacing
-		else:
-			return self.smartSpacing(
-				QStyle.PixelMetric.PM_LayoutHorizontalSpacing)
+		return self._hspacing
 
 	def verticalSpacing(self):
-		if self._vspacing >= 0:
-			return self._vspacing
-		else:
-			return self.smartSpacing(
-				QStyle.PixelMetric.PM_LayoutVerticalSpacing)
+		return self._vspacing
 
 	def count(self):
 		return len(self._items)
@@ -114,7 +107,7 @@ class FlowLayout(QLayout):
 		return True
 
 	def heightForWidth(self, width):
-		return self.doLayout(QRect(0, 0, width, 0), True)
+		return self.doLayout(QRect(0, 0, width, 0), testonly=True)
 
 	def setGeometry(self, rect):
 		super(FlowLayout, self).setGeometry(rect)
@@ -128,8 +121,7 @@ class FlowLayout(QLayout):
 		for item in self._items:
 			size = size.expandedTo(item.minimumSize())
 		left, top, right, bottom = self.getContentsMargins()
-		size += QSize(left + right, top + bottom)
-		return size
+		return size + QSize(left + right, top + bottom)
 
 	def doLayout(self, rect, testonly):
 		left, top, right, bottom = self.getContentsMargins()
@@ -138,17 +130,8 @@ class FlowLayout(QLayout):
 		y = effective.y()
 		lineheight = 0
 		for item in self._items:
-			widget = item.widget()
 			hspace = self.horizontalSpacing()
-			if hspace == -1:
-				hspace = widget.style().layoutSpacing(
-					QSizePolicy.PushButton,
-					QSizePolicy.PushButton, Qt.Horizontal)
 			vspace = self.verticalSpacing()
-			if vspace == -1:
-				vspace = widget.style().layoutSpacing(
-					QSizePolicy.PushButton,
-					QSizePolicy.PushButton, Qt.Vertical)
 			nextX = x + item.sizeHint().width() + hspace
 			if nextX - hspace > effective.right() and lineheight > 0:
 				x = effective.x()
@@ -156,20 +139,10 @@ class FlowLayout(QLayout):
 				nextX = x + item.sizeHint().width() + hspace
 				lineheight = 0
 			if not testonly:
-				item.setGeometry(
-					QRect(QPoint(x, y), item.sizeHint()))
+				item.setGeometry(QRect(QPoint(x, y), item.sizeHint()))
 			x = nextX
 			lineheight = max(lineheight, item.sizeHint().height())
 		return y + lineheight - rect.y() + bottom
-
-	def smartSpacing(self, pm):
-		parent = self.parent()
-		if parent is None:
-			return -1
-		elif parent.isWidgetType():
-			return parent.style().pixelMetric(pm, None, parent)
-		else:
-			return parent.spacing()
 		
 
 
@@ -192,12 +165,13 @@ class MainWindow(QMainWindow):
 		self.mainArea.setWidgetResizable(True)
 		widget = QWidget(self.mainArea)
 		widget.setMinimumWidth(50)
-		layout = FlowLayout(widget)
+		layout = FlowLayout(widget, margin=0, hspacing=0, vspacing=0)
+		layout.setSpacing(0)
 		self.words = []
 		for word in TEXT.split():
 			label = BubbleWidget(word, QColor('lightblue'))
 			# label = QLabel(word)
-			# label.setFont(QFont('SblHebrew', 30))
+			label.setFont(QFont('SblHebrew', 30))
 			label.setFixedWidth(label.sizeHint().width())
 			self.words.append(label)
 			layout.addWidget(label)
