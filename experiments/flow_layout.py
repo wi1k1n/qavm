@@ -2,50 +2,16 @@ import sys
 
 from PyQt6.QtCore import Qt, QSize, QRect, QPoint
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen, QFont
-from PyQt6.QtWidgets import QLabel, QSizePolicy, QMainWindow, QVBoxLayout, QApplication, QLayout, QWidget, QStyle, QScrollArea
+from PyQt6.QtWidgets import QLabel, QSizePolicy, QMainWindow, QVBoxLayout, QApplication, QLayout, QWidget, QStyle, QScrollArea, QTabWidget
 
-# https://stackoverflow.com/a/18069897
+# Bubble implementation is taken from https://stackoverflow.com/a/18069897 and modified
 class BubbleWidget(QLabel):
 	def __init__(self, text, bgColor: QColor | None = None, rounding: float = 20, margin: int = 7):
 		super().__init__(text)
 		self.rounding: float = rounding
 		self.roundingMargin: int = margin
 		self.bgColor: QColor | None = bgColor
-
-		m = 5
-		self.setContentsMargins(m, m, m, m)
-
-		# self.mouseLeaveTimer: QTimer = QTimer(self, interval=50, timeout=self._mouseLeaveTimerCallback)
-
-		# self.setContentsMargins(margin, margin, margin, margin)
-		# self.setAlignment(Qt.AlignCenter)
-		# self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-		
-		# TODO: not a lot of sense without masking ondrag-pixmap in DraggableQLabel
-		# path = QPainterPath()
-		# path.addRoundedRect(QRectF(self.rect()), rounding, rounding)
-		# self.maskRegion = QRegion(path.toFillPolygon().toPolygon())
-		# self.setMask(self.maskRegion)
-		
-		# self.setMouseTracking(True)
-	
-	# def _mouseLeaveTimerCallback(self):
-	# 	self.mouseLeaveTimer.stop()
-	# 	self.update()
-
-	# def mouseMoveEvent(self, e: QMouseEvent):
-	# 	self.mouseLeaveTimer.start()
-	# 	self.update()
-	# 	return super().mouseMoveEvent(e)
-
-	# def SetColor(self, bgColor: QColor | None):
-	# 	self.bgColor = bgColor
-	# 	self.update()
-	
-	# def SetText(self, txt: str):
-	# 	self.setText(txt)
-	# 	self.setFixedSize(1, 1) # doesn't work without manually shrinking it first
-	# 	self.setFixedSize(self.sizeHint() + QSize(self.roundingMargin, self.roundingMargin) * 2)
+		self.setContentsMargins(margin, margin, margin, margin)
 
 	def paintEvent(self, evt: QPaintEvent):
 		p: QPainter = QPainter(self)
@@ -55,8 +21,6 @@ class BubbleWidget(QLabel):
 			p.setBrush(self.bgColor)
 		p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 		p.drawRoundedRect(penWidth, penWidth, self.width() - penWidth * 2, self.height() - penWidth * 2, self.rounding, self.rounding)
-		# p.drawRect(penWidth, penWidth, self.width() - penWidth * 2, self.height() - penWidth * 2)
-
 		super().paintEvent(evt)
 
 
@@ -67,7 +31,7 @@ class BubbleWidget(QLabel):
 
 
 
-# FlowLayout implementation is stolen from: https://stackoverflow.com/a/41643802/5765191
+# FlowLayout implementation is taken from https://stackoverflow.com/a/41643802/5765191 and modified
 class FlowLayout(QLayout):
 	def __init__(self, parent=None, margin=0, hspacing=0, vspacing=0):
 		super(FlowLayout, self).__init__(parent)
@@ -121,7 +85,8 @@ class FlowLayout(QLayout):
 		for item in self._items:
 			size = size.expandedTo(item.minimumSize())
 		left, top, right, bottom = self.getContentsMargins()
-		return size + QSize(left + right, top + bottom)
+		size += QSize(left + right, top + bottom)
+		return size
 
 	def doLayout(self, rect, testonly):
 		left, top, right, bottom = self.getContentsMargins()
@@ -156,27 +121,49 @@ class MainWindow(QMainWindow):
 	def __init__(self, parent=None):
 		super(MainWindow, self).__init__(parent)
 		
-		TEXT = "I've heard there was a secred chord that David played and it pleased the Lord but you don't really care for music, do you?"
 		self.setWindowTitle("Experiments - Flow Layout")
-		self.resize(1420, 840)
+		self.resize(800, 600)
 		self.setMinimumSize(350, 250)
 		
-		self.mainArea = QScrollArea(self)
-		self.mainArea.setWidgetResizable(True)
-		widget = QWidget(self.mainArea)
-		widget.setMinimumWidth(50)
-		layout = FlowLayout(widget, margin=0, hspacing=0, vspacing=0)
-		layout.setSpacing(0)
-		self.words = []
+		centralWidget: QTabWidget = QTabWidget()
+
+		scrollWidget = QScrollArea(self)
+		scrollWidget.setWidgetResizable(True)
+
+		flWidget = QWidget(scrollWidget)
+		flWidget.setMinimumWidth(50)
+		self._createFlowLayoutWithBubbles(flWidget)
+
+		scrollWidget.setWidget(flWidget)
+
+		centralWidget.addTab(scrollWidget, "Flow Layout (with bubbles)")
+		centralWidget.addTab(self._createC4DTile(), "C4D Tile")
+		
+		self.setCentralWidget(centralWidget)
+		
+		# self.setCentralWidget(flowLayoutWidget)
+	
+	def _createFlowLayoutWithBubbles(self, parent):
+		TEXT = "I've heard there was a secred chord that David played and it pleased the Lord but you don't really care for music, do you?"
+
+		flowLayout = FlowLayout(parent, margin=1, hspacing=0, vspacing=0)
+		flowLayout.setSpacing(0)
+
+		self._words = []
 		for word in TEXT.split():
-			label = BubbleWidget(word, QColor('lightblue'))
-			# label = QLabel(word)
-			label.setFont(QFont('SblHebrew', 30))
-			label.setFixedWidth(label.sizeHint().width())
-			self.words.append(label)
-			layout.addWidget(label)
-		self.mainArea.setWidget(widget)
-		self.setCentralWidget(self.mainArea)
+			bubble = BubbleWidget(word, QColor('lightblue'))
+			bubble.setFont(QFont('SblHebrew', 30))
+			bubble.setFixedWidth(bubble.sizeHint().width())
+			self._words.append(bubble)
+			flowLayout.addWidget(bubble)
+
+		return flowLayout
+	
+	def _wrapWidgetInScrollArea(self, widget. parent):
+		pass
+	
+	def _createC4DTile(self):
+		return QWidget(self)
 
 class ExperimentApp(QApplication):
 	def __init__(self, argv):
