@@ -1,3 +1,5 @@
+# Contains some QAVM API related utility functions
+
 def ValidateQualifierConfig(config):
 	if not isinstance(config, dict):
 		return False

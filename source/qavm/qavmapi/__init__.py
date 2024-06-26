@@ -31,7 +31,12 @@ class BaseQualifier(object):
 
 class BaseDescriptor(object):
 	def __init__(self, dirPath: str, fileContents: dict[str, str | bytes]):
-		pass
+		self.dirPath = dirPath
+
+	def GetTileData(self) -> dict:
+		return {
+			'dirPath': self.dirPath,
+		}
 
 	def __str__(self):
 		return 'BaseDescriptor'

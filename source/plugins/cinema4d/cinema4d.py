@@ -25,11 +25,11 @@ class C4DQualifier(BaseQualifier):
 
 class C4DDescriptor(BaseDescriptor):
 	def __init__(self, dirPath: str, fileContents: dict[str, str | bytes]):
-		self.dirPath = dirPath
+		super().__init__(dirPath, fileContents)
 
 		self.buildString = ''  # from the build.txt
-		self.majorVersion = ''  # R25 or 2024
-		self.subversion = ''  # e.g. 106 for R26, 4.1 for 2024
+		self.majorVersion = 'R2024'  # R25 or 2024
+		self.subversion = '4.1'  # e.g. 106 for R26, 4.1 for 2024
 		self.commitRef = ''  # e.g. CL363640.28201 for R25, db1a05477b8f_1095604919 for 2024
 		self.buildLink = ''
 
@@ -39,9 +39,16 @@ class C4DDescriptor(BaseDescriptor):
 
 		self.dateInstalled = ''
 		self.dateBuild = ''  # date when the build was created
-
+	
+	def GetTileData(self) -> dict:
+		ret = super().GetTileData()
+		ret['majorVersion'] = self.majorVersion
+		ret['subversion'] = self.subversion
+		return ret
+	
 	def __str__(self):
 		return f'C4D: {os.path.basename(self.dirPath)}'
+	
 	def __repr__(self):
 		return self.__str__()
 

@@ -25,8 +25,6 @@ class QAVMApp(QApplication):
 		self.setApplicationName('QAVM')
 		self.setOrganizationName('wi1k.in.prod')
 		self.setOrganizationDomain('wi1k.in')
-
-		self.SetVisuals()
 		
 		self.pluginManager = PluginManager(utils.GetPluginsFolderPath())
 		self.pluginManager.LoadPlugins()
@@ -59,11 +57,6 @@ class QAVMApp(QApplication):
 	def startMainWindow(self):
 		self.mainWindow: MainWindow = MainWindow(self)
 		self.mainWindow.show()
-	
-	def SetVisuals(self):
-		font: QFont = self.font()
-		# font.setPixelSize(16)
-		self.setFont(font)
 
 	def GetPluginManager(self) -> PluginManager:
 		return self.pluginManager

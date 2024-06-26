@@ -1,13 +1,17 @@
 import os
 
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtWidgets import (
+	QMainWindow, QWidget, QVBoxLayout, QLabel, QTabWidget, QScrollArea
+)
+
 from manager_plugin import PluginManager, SoftwareHandler
 from manager_settings import SettingsManager
 
 from qavmapi import BaseDescriptor, BaseSettings
 import qavmapi_utils
-
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel
+from utils_gui import FlowLayout, BubbleWidget, StaticBorderWidget
 
 import logs
 logger = logs.logger
@@ -34,6 +38,8 @@ class MainWindow(QMainWindow):
 	def __init__(self, app, parent: QWidget | None = None) -> None:
 		super(MainWindow, self).__init__(parent)
 
+		self.app = app
+
 		self.setWindowTitle("QAVM")
 		self.resize(1420, 840)
 		self.setMinimumSize(350, 250)
@@ -42,8 +48,87 @@ class MainWindow(QMainWindow):
 
 		layout: QVBoxLayout = QVBoxLayout()
 
-		pluginManager: PluginManager = app.GetPluginManager()
-		settingsManager: SettingsManager = app.GetSettingsManager()
+		tabsWidget: QTabWidget = QTabWidget()
+
+		tilesWidget = self._createTilesWidget(self._scanSoftware(), self)
+		tabsWidget.addTab(tilesWidget, "Tiles")
+		
+		self.setCentralWidget(tabsWidget)
+	
+	
+	def _createTilesWidget(self, descs: list[BaseDescriptor], parent: QWidget):
+		tiles: list[QWidget] = list()
+
+		for desc in descs:
+			tile = self._createTileWidget(desc, QColor(100, 100, 100), parent)
+			tiles.append(tile)
+
+		flWidget = self._createFlowLayoutWithFromWidgets(self, tiles)
+		scrollWidget = self._wrapWidgetInScrollArea(flWidget, self)
+
+		return scrollWidget
+	def _createTileWidget(self, desc: BaseDescriptor, accentColor: QColor, parent: QWidget):
+		descWidget = self._createDescWidget(desc, self)
+		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, accentColor, self)
+		return animatedBorderWidget
+	def _createDescWidget(self, desc: BaseDescriptor, parent: QWidget):
+		descWidget = QWidget(parent)
+
+		parentBGColor = parent.palette().color(parent.backgroundRole())
+		descWidget.setStyleSheet(f"background-color: {parentBGColor.name()};")
+		# DEBUG # descWidget.setStyleSheet("background-color: rgb(200, 200, 255);")
+		
+		descLayout = QVBoxLayout(descWidget)
+		descLayout.setContentsMargins(0, 0, 0, 0)
+		descLayout.setSpacing(0)
+
+		tileData: dict = desc.GetTileData()
+
+		for key, value in tileData.items():
+			label = QLabel(f'{key}: {value}')
+			label.setFont(QFont('SblHebrew', 10))
+			label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+			# DEBUG # label.setStyleSheet("background-color: pink;")
+			descLayout.addWidget(label)
+
+		descWidget.setFixedSize(descWidget.minimumSizeHint())
+
+		return descWidget
+	def _wrapWidgetInAnimatedBorder(self, widget, accentColor: QColor, parent):
+		tailColor = QColor(accentColor)
+		tailColor.setAlpha(30)
+		
+		animBorderWidget = StaticBorderWidget(accentColor)
+		animBorderLayout = animBorderWidget.layout()
+		borderThickness = 5
+		animBorderLayout.setContentsMargins(borderThickness, borderThickness, borderThickness, borderThickness)
+		animBorderLayout.addWidget(widget)
+		animBorderWidget.setFixedSize(animBorderWidget.minimumSizeHint())
+		return animBorderWidget
+	def _createFlowLayoutWithFromWidgets(self, parent, widgets: list[QWidget]):
+		flWidget = QWidget(parent)
+		flWidget.setMinimumWidth(50)
+
+		flowLayout = FlowLayout(flWidget, margin=1, hspacing=0, vspacing=0)
+		flowLayout.setSpacing(0)
+
+		for widget in widgets:
+			widget.setFixedWidth(widget.sizeHint().width())
+			flowLayout.addWidget(widget)
+
+		return flWidget
+	def _wrapWidgetInScrollArea(self, widget, parent):
+		scrollWidget = QScrollArea(parent)
+		scrollWidget.setWidgetResizable(True)
+		scrollWidget.setWidget(widget)
+		return scrollWidget
+
+
+
+
+	def _scanSoftware(self) -> list[BaseDescriptor]:
+		pluginManager: PluginManager = self.app.GetPluginManager()
+		settingsManager: SettingsManager = self.app.GetSettingsManager()
 
 		softwareHandler: SoftwareHandler
 		softwareHandler = pluginManager.GetSoftwareHandler(settingsManager.GetSelectedSoftwareUID())
@@ -55,7 +140,6 @@ class MainWindow(QMainWindow):
 		if not settingsClass:
 			settingsClass = BaseSettings
 
-		
 		searchPaths = settingsManager.GetSearchPaths()
 		searchPaths = qualifier.ProcessSearchPaths(searchPaths)
 
@@ -90,7 +174,7 @@ class MainWindow(QMainWindow):
 		def GetFileContents(filePath: str) -> dict[str, str | bytes]:
 			return dict()
 		
-		softwareDescs = list()
+		softwareDescs: list[BaseDescriptor] = list()
 
 		MAX_DEPTH = 1  # TODO: make this a settings value
 		currentDepthLevel: int = 0
@@ -116,22 +200,4 @@ class MainWindow(QMainWindow):
 			searchPathsList = subfoldersSearchPathsList
 			currentDepthLevel += 1
 		
-		print(softwareDescs)
-
-
-		for swDesc in softwareDescs:
-			label = QLabel(str(swDesc))
-			layout.addWidget(label)
-
-		widget: QWidget = QWidget()
-		widget.setLayout(layout)
-
-		self.setCentralWidget(widget)
-
-		self.update()
-
-		# self.createMenuBar()
-		# self.createToolBar()
-		# self.createStatusBar()
-
-		self.update()
+		return softwareDescs
