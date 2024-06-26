@@ -21,8 +21,8 @@ class MainWindow(QMainWindow):
 		flWidget = self._createFlowLayoutWithBubbles(self)
 		scrollWidget = self._wrapWidgetInScrollArea(flWidget, self)
 
-		centralWidget.addTab(PulsingFrame(), "Pulsing Frame")
 		centralWidget.addTab(self._createC4DTile(), "C4D Tile")
+		centralWidget.addTab(PulsingFrame(), "Pulsing Frame")
 		centralWidget.addTab(scrollWidget, "Flow Layout (with bubbles)")
 		
 		self.setCentralWidget(centralWidget)
@@ -55,7 +55,15 @@ class MainWindow(QMainWindow):
 		return scrollWidget
 	
 	def _createC4DTile(self):
-		return AnimatedWidget(self)
+		
+		w = QWidget(self)
+		lo = QVBoxLayout(w)
+
+		for idx in range(1, 2):
+			pulsingBCWidget = AnimatedWidget(self, [f"AnimatedWidget#{idx}", "R22", "R23", "R24", "R25"])
+			lo.addWidget(pulsingBCWidget)
+
+		return w
 
 class ExperimentApp(QApplication):
 	def __init__(self, argv):
