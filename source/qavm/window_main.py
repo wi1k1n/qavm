@@ -1,7 +1,7 @@
 import os
 
-from plugin_manager import PluginManager, SoftwareHandler
-from settings_manager import SettingsManager
+from manager_plugin import PluginManager, SoftwareHandler
+from manager_settings import SettingsManager
 
 from qavmapi import BaseDescriptor, BaseSettings
 import qavmapi_utils
@@ -55,6 +55,7 @@ class MainWindow(QMainWindow):
 		if not settingsClass:
 			settingsClass = BaseSettings
 
+		
 		searchPaths = settingsManager.GetSearchPaths()
 		searchPaths = qualifier.ProcessSearchPaths(searchPaths)
 
@@ -91,7 +92,7 @@ class MainWindow(QMainWindow):
 		
 		softwareDescs = list()
 
-		MAX_DEPTH = 2  # TODO: make this a settings value
+		MAX_DEPTH = 1  # TODO: make this a settings value
 		currentDepthLevel: int = 0
 		searchPathsList = set(searchPaths)
 		while currentDepthLevel < MAX_DEPTH:
@@ -116,10 +117,6 @@ class MainWindow(QMainWindow):
 			currentDepthLevel += 1
 		
 		print(softwareDescs)
-
-		
-
-		
 
 
 		for swDesc in softwareDescs:
