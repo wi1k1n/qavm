@@ -1,9 +1,9 @@
 import os
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtGui import QColor, QFont, QAction, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
-	QMainWindow, QWidget, QVBoxLayout, QLabel, QTabWidget, QScrollArea
+	QMainWindow, QWidget, QVBoxLayout, QLabel, QTabWidget, QScrollArea, QStatusBar
 )
 
 from manager_plugin import PluginManager, SoftwareHandler
@@ -46,15 +46,99 @@ class MainWindow(QMainWindow):
 
 		self.dialogsManager: DialogsManager = DialogsManager(self)
 
-		layout: QVBoxLayout = QVBoxLayout()
+		self._setupActions()
+		self._setupMenuBar()
+		self._setupStatusBar()
 
+		self._setupCentralWidget()
+
+	def _setupActions(self):
+		self.actionSave = QAction("&Save tags and tiles", self)
+		self.actionSave.setShortcut(QKeySequence.StandardKey.Save)
+
+		self.actionPrefs = QAction(QIcon(":preferences.svg"), "&Preferences", self)
+		self.actionPrefs.setShortcut("Ctrl+E")
+
+		self.actionExit = QAction("&Exit", self)
+		self.actionAbout = QAction("&About", self)
+		self.actionShortcuts = QAction("&Shortcuts", self)
+		self.actionShortcuts.setShortcut("F1")
+		self.actionReportBug = QAction("&Report a bug", self)
+		self.actionReportBug.setShortcut("Ctrl+Shift+B")
+		self.actionCheckUpdates = QAction("&Check for updates", self)
+		
+		self.actionRefresh = QAction("&Refresh", self)
+		self.actionRefresh.setShortcut(QKeySequence.StandardKey.Refresh)
+		self.actionRescan = QAction("Re&scan", self)
+		self.actionRescan.setShortcut("Ctrl+F5")
+
+		self.actionTags = QAction("&Tags", self)
+		self.actionTags.setShortcut("Ctrl+T")
+
+		self.actionFiltersort = QAction("Filte&r/Sort", self)
+		self.actionFiltersort.setShortcut("Ctrl+F")
+
+		self.actionFoldAll = QAction("Toggle &fold all", self)
+		self.actionFoldAll.setShortcut("Ctrl+A")
+
+		# self._createGroupActions()
+		
+		# self.actionSave.triggered.connect(self._storeData)
+		# self.actionPrefs.triggered.connect(self.openPreferences)
+		# self.actionExit.triggered.connect(sys.exit)
+		# self.actionAbout.triggered.connect(self.about)
+		# self.actionCheckUpdates.triggered.connect(CheckForUpdates)
+		# self.actionShortcuts.triggered.connect(self.help)
+		# self.actionReportBug.triggered.connect(lambda: self._showActivateDialog('trackbugs'))
+		# self.actionRefresh.triggered.connect(lambda: self.updateTilesWidget())
+		# self.actionRescan.triggered.connect(self.rescan)
+		# self.actionTags.triggered.connect(self.toggleOpenTagsWindow)
+		# self.actionFiltersort.triggered.connect(self.toggleOpenFilterSortWindow)
+		# self.actionFoldAll.triggered.connect(self._toggleFoldAllC4DGroups)
+		
+		# # Adding help tips
+		# newTip = "Create a new file"
+		# self.newAction.setStatusTip(newTip)
+		# self.newAction.setToolTip(newTip)
+	def _setupMenuBar(self):
+		menuBar = self.menuBar()
+		
+		fileMenu = menuBar.addMenu('&File')
+		fileMenu.addAction(self.actionSave)
+		fileMenu.addSeparator()
+		fileMenu.addAction(self.actionPrefs)
+		fileMenu.addSeparator()
+		fileMenu.addAction(self.actionExit)
+		
+		editMenu = menuBar.addMenu("&Edit")
+		editMenu.addAction(self.actionRefresh)
+		editMenu.addAction(self.actionRescan)
+		editMenu.addSeparator()
+		editMenu.addAction(self.actionTags)
+		editMenu.addAction(self.actionFiltersort)
+		
+		viewMenu = menuBar.addMenu("&View")
+		viewMenu.addAction(self.actionFoldAll)
+		viewMenu.addSeparator()
+		# for k, action in self.actionsGrouping.items():
+		# 	viewMenu.addAction(action)
+
+		helpMenu = menuBar.addMenu("&Help")
+		helpMenu.addAction(self.actionShortcuts)
+		helpMenu.addAction(self.actionReportBug)
+		helpMenu.addAction(self.actionCheckUpdates)
+		helpMenu.addAction(self.actionAbout)
+	def _setupStatusBar(self):
+		self.statusBar = QStatusBar()
+		self.setStatusBar(self.statusBar)
+
+	def _setupCentralWidget(self):
 		tabsWidget: QTabWidget = QTabWidget()
 
 		tilesWidget = self._createTilesWidget(self._scanSoftware(), self)
 		tabsWidget.addTab(tilesWidget, "Tiles")
 		
 		self.setCentralWidget(tabsWidget)
-	
 	
 	def _createTilesWidget(self, descs: list[BaseDescriptor], parent: QWidget):
 		tiles: list[QWidget] = list()
