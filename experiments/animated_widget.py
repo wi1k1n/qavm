@@ -4,6 +4,38 @@ from PyQt6.QtCore import Qt, QPropertyAnimation, pyqtProperty, QPoint, QRect, QE
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen, QFont, QPalette
 from PyQt6.QtWidgets import QLabel, QSizePolicy, QMainWindow, QVBoxLayout, QApplication, QLayout, QWidget, QStyle, QScrollArea, QTabWidget, QFrame
 
+class PulsingBorderWidget(QFrame):
+	def __init__(self, accentColor: QColor, tailColor: QColor, parent=None):
+		super().__init__(parent)
+
+		self._accentColor = accentColor
+		self._tailColor = tailColor
+
+		self._bgColor = tailColor
+		self.bgColorAnim = QPropertyAnimation(self, b'bgColor')
+		self.bgColorAnim.setStartValue(accentColor)
+		self.bgColorAnim.setKeyValueAt(0.5, tailColor)
+		self.bgColorAnim.setEndValue(accentColor)
+		self.bgColorAnim.setDuration(2000)
+		self.bgColorAnim.setLoopCount(-1)
+		self.bgColorAnim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+		self.bgColorAnim.start()
+
+		self.setLayout(QVBoxLayout(self))
+
+	def _getBackgroundColorStyle(self):
+		cssColorString = f"rgba({self._bgColor.red()}, {self._bgColor.green()}, {self._bgColor.blue()}, {self._bgColor.alpha()})"
+		return (f"background-color: {cssColorString}")
+	
+	@pyqtProperty(QColor)
+	def bgColor(self):
+		return self._bgColor
+	
+	@bgColor.setter
+	def bgColor(self, clr):
+		self._bgColor = clr
+		self.setStyleSheet(self._getBackgroundColorStyle())
+
 class RunningBorderWidget(QFrame):
 	def __init__(self, accentColor: QColor, tailColor: QColor, parent=None):
 		super().__init__(parent)
@@ -13,13 +45,13 @@ class RunningBorderWidget(QFrame):
 		
 		self.setStyleSheet(self._getBackgroundColorGradientStyle(0))
 
-		self._backgroundGradientDirection = 0
-		self.color_anim = QPropertyAnimation(self, b'bgGradientDirection')
-		self.color_anim.setStartValue(360)
-		self.color_anim.setEndValue(0)
-		self.color_anim.setDuration(2000)
-		self.color_anim.setLoopCount(-1)
-		self.color_anim.start()
+		self._bgGradientDirection = 0
+		self.bgGradientAnim = QPropertyAnimation(self, b'bgGradientDirection')
+		self.bgGradientAnim.setStartValue(360)
+		self.bgGradientAnim.setEndValue(0)
+		self.bgGradientAnim.setDuration(2000)
+		self.bgGradientAnim.setLoopCount(-1)
+		self.bgGradientAnim.start()
 
 		self.setLayout(QVBoxLayout(self))
 
@@ -35,15 +67,29 @@ class RunningBorderWidget(QFrame):
 	
 	@pyqtProperty(int)
 	def bgGradientDirection(self):
-		return self._backgroundGradientDirection
+		return self._bgGradientDirection
 	
 	@bgGradientDirection.setter
 	def bgGradientDirection(self, dir):
-		self._backgroundGradientDirection = dir
+		self._bgGradientDirection = dir
 		self.setStyleSheet(self._getBackgroundColorGradientStyle(dir))
 
+class StaticBorderWidget(QFrame):
+	def __init__(self, color: QColor, parent=None):
+		super().__init__(parent)
 
-class AnimatedWidget(QFrame):
+		self._color = color
+		self.setStyleSheet(self._getBackgroundColorStyle())
+		self.setLayout(QVBoxLayout(self))
+
+	def _getBackgroundColorStyle(self):
+		cssColorString = f"rgba({self._color.red()}, {self._color.green()}, {self._color.blue()}, {self._color.alpha()})"
+		return (f"background-color: {cssColorString}")
+
+
+
+
+class AnimatedWidget_Deprecated(QFrame):
 	def __init__(self, parent=None, texts=[]):
 		super().__init__(parent)
 		# self.resize(600, 600)
@@ -115,51 +161,3 @@ class AnimatedWidget(QFrame):
 		palette.setColor(QPalette.ColorRole.Window, self._backColor)
 		self.setPalette(palette)
 		self.setAutoFillBackground(True)
-
-
-class PulsingFrame(QFrame):
-		def __init__(self, parent=None):
-				super().__init__(parent)
-				
-				# Set up the layout and add QLabels
-				self.layout = QVBoxLayout(self)
-				self.labels = ["Label 1", "Label 2", "Label 3"]
-				for text in self.labels:
-						label = QLabel(text)
-						label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-						label.setStyleSheet("color: darkblue; font-size: 16px;")
-						self.layout.addWidget(label)
-				
-				# Set the initial style
-				self._border_color = QColor(255, 0, 0)
-				self.setStyleSheet(f"""
-						QFrame {{
-								background-color: pink;
-								border: 2px solid {self._border_color.name()};
-						}}
-				""")
-				
-				# Initialize the animation
-				self.animation = QPropertyAnimation(self, b"borderColor")
-				self.animation.setDuration(1000)  # 1 second
-				self.animation.setLoopCount(-1)  # Infinite loop
-				self.animation.setStartValue(QColor(255, 0, 0))
-				self.animation.setEndValue(QColor(255, 255, 255))
-				self.animation.setEasingCurve(QEasingCurve.Type.InOutBack)
-				
-				# Start the animation
-				self.animation.start()
-				
-		@pyqtProperty(QColor)
-		def borderColor(self):
-				return self._border_color
-
-		@borderColor.setter
-		def borderColor(self, color):
-				self._border_color = color
-				self.setStyleSheet(f"""
-						QFrame {{
-								background-color: pink;
-								border: 2px solid {self._border_color.name()};
-						}}
-				""")

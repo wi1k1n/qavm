@@ -1,14 +1,20 @@
 import sys
+from enum import Enum
 
 from PyQt6.QtCore import Qt, QSize, QRect, QPoint
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen, QFont
-from PyQt6.QtWidgets import QLabel, QSizePolicy, QMainWindow, QVBoxLayout, QApplication, QLayout, QWidget, QStyle, QScrollArea, QTabWidget, QFrame
+from PyQt6.QtWidgets import QLabel, QSizePolicy, QMainWindow, QVBoxLayout, QApplication, QLayout, QWidget, QStyle, QScrollArea, QTabWidget, QFrame, QHBoxLayout, QGridLayout
 
 from flow_layout import FlowLayout
 from bubble import BubbleWidget
-from animated_widget import AnimatedWidget, RunningBorderWidget
+from animated_widget import StaticBorderWidget, PulsingBorderWidget, RunningBorderWidget
 from dnd_widget import DragDropWidget
 
+class C4DTileAnimationType(Enum):
+	NONE = 0
+	STATIC = 1
+	RUNNING = 2
+	PULSING = 3
 class MainWindow(QMainWindow):
 	def __init__(self, parent=None):
 		super(MainWindow, self).__init__(parent)
@@ -56,12 +62,21 @@ class MainWindow(QMainWindow):
 		return scrollWidget
 	
 	def _createC4DTiles(self, parent: QWidget):
-		c4dTileWidget = self._createC4DTile(parent)
-		return c4dTileWidget
+		wrapWidget = QWidget(parent)
+		wrapLayout = QGridLayout(wrapWidget)
+
+		for idxType, type in enumerate([C4DTileAnimationType.NONE, C4DTileAnimationType.STATIC, C4DTileAnimationType.RUNNING, C4DTileAnimationType.PULSING]):
+			for idxColor, color in enumerate([QColor('red'), QColor('orange'), QColor('green')]):
+				wrapLayout.addWidget(self._createC4DTile(type, color, parent), idxType, idxColor)
+
+		return wrapWidget
 	
-	def _createC4DTile(self, parent: QWidget):
+	def _createC4DTile(self, type: C4DTileAnimationType, accentColor: QColor, parent: QWidget):
 		descWidget = self._createC4DDescWidget(self)
-		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, self)
+		if type == C4DTileAnimationType.NONE:
+			return descWidget
+		
+		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, type, accentColor, self)
 		return animatedBorderWidget
 
 	def _createC4DDescWidget(self, parent: QWidget):
@@ -86,10 +101,20 @@ class MainWindow(QMainWindow):
 
 		return descWidget
 	
-	def _wrapWidgetInAnimatedBorder(self, widget, parent):
-		accentColor = QColor(50, 255, 50, 255)
-		tailColor = QColor(50, 255, 50, 30)
-		animBorderWidget = RunningBorderWidget(accentColor, tailColor, parent)
+	def _wrapWidgetInAnimatedBorder(self, widget, type: C4DTileAnimationType.RUNNING, accentColor: QColor, parent):
+		tailColor = QColor(accentColor)
+		tailColor.setAlpha(30)
+		
+		animBorderWidget = None
+		if type == C4DTileAnimationType.STATIC:
+			animBorderWidget = StaticBorderWidget(accentColor)
+		elif type == C4DTileAnimationType.RUNNING:
+			animBorderWidget = RunningBorderWidget(accentColor, tailColor, parent)
+		elif type == C4DTileAnimationType.PULSING:
+			animBorderWidget = PulsingBorderWidget(accentColor, tailColor, parent)
+		else:
+			raise ValueError("Invalid C4DTileAnimationType")
+		
 		animBorderLayout = animBorderWidget.layout()
 		borderThickness = 5
 		animBorderLayout.setContentsMargins(borderThickness, borderThickness, borderThickness, borderThickness)
