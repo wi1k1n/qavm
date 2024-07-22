@@ -1,4 +1,5 @@
-import os
+import os  # TODO: Get rid of os.path in favor of pathlib
+from pathlib import Path
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QFont, QAction, QIcon, QKeySequence
@@ -12,24 +13,25 @@ from manager_settings import SettingsManager
 from qavmapi import BaseDescriptor, BaseSettings
 import qavmapi_utils
 from utils_gui import FlowLayout, BubbleWidget, StaticBorderWidget
+import utils
 
 import logs
 logger = logs.logger
 
 
-# class SettingsWindowExample(QMainWindow):
-# 	def __init__(self, app, parent: QWidget | None = None) -> None:
-# 		super(MainWindow, self).__init__(parent)
+class SettingsWindowExample(QMainWindow):
+	def __init__(self, app, parent: QWidget | None = None) -> None:
+		super().__init__(parent)
 
-# 		self.setWindowTitle("QAVM - Settings")
-# 		self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint) # | Qt.WindowStaysOnTopHint) # https://pythonprogramminglanguage.com/pyqt5-window-flags/
-# 		self.resize(400, 400)
+		self.setWindowTitle("QAVM - Settings")
+		# self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint) # | Qt.WindowStaysOnTopHint) # https://pythonprogramminglanguage.com/pyqt5-window-flags/
+		self.resize(400, 400)
 
 class DialogsManager:
 	def __init__(self, parent: QMainWindow) -> None:
 		self.parent = parent
 		
-		# self.settings = SettingsWindowExample(self)
+		self.settings = SettingsWindowExample(self)
 
 	def GetPreferencesWindow(self):
 		return self.preferences
@@ -233,7 +235,7 @@ class MainWindow(QMainWindow):
 		
 		def getFileListIgnoreError(pathDir: str) -> list[str]:
 			try:
-				fileList: list[str] = [os.path.join(pathDir, f) for f in os.listdir(pathDir)]
+				fileList: list[str] = [Path(pathDir)/f for f in os.listdir(pathDir)]
 				return list(filter(lambda f: os.path.isfile(f), fileList))
 			except:
 				logger.warning(f'Failed to get file list: {pathDir}')
@@ -241,18 +243,25 @@ class MainWindow(QMainWindow):
 		
 		def getDirListIgnoreError(pathDir: str) -> list[str]:
 			try:
-				dirList: list[str] = [os.path.join(pathDir, d) for d in os.listdir(pathDir)]
+				dirList: list[str] = [Path(pathDir)/d for d in os.listdir(pathDir)]
 				return list(filter(lambda d: os.path.isdir(d), dirList))
 			except:
 				logger.warning(f'Failed to get dir list: {pathDir}')
 			return list()
 		
-		def TryPassFileMask(dirPath: str, positiveFiles: list[str], negativeFiles: list[str]) -> bool:
-			files = {os.path.relpath(fp, dirPath).casefold() for fp in getFileListIgnoreError(dirPath)}
-			if len(positiveFiles) > len({f.casefold() for f in positiveFiles}.intersection(files)):
-				return False
-			if len({f.casefold() for f in negativeFiles}.intersection(files)):
-				return False
+		def TryPassFileMask(dirPath: str, config: dict[str, list[str]]) -> bool:
+			for file in config['requiredFileList']:
+				if not os.path.isfile(os.path.join(dirPath, file)):
+					return False
+			for folder in config['requiredDirList']:
+				if not os.path.isdir(os.path.join(dirPath, folder)):
+					return False
+			for file in config['negativeFileList']:
+				if os.path.isfile(os.path.join(dirPath, file)):
+					return False
+			for folder in config['negativeDirList']:
+				if os.path.isdir(os.path.join(dirPath, folder)):
+					return False
 			return True
 		
 		def GetFileContents(filePath: str) -> dict[str, str | bytes]:
@@ -270,7 +279,7 @@ class MainWindow(QMainWindow):
 				subdirs: set[str] = set()
 				# for dir in dirs:
 				for dir in sorted(dirs):
-					passed = TryPassFileMask(dir, config['requiredFileList'], config['negativeFileList'])
+					passed = TryPassFileMask(dir, config)
 					if not passed:
 						subdirs.update(set(getDirListIgnoreError(dir)))
 						continue

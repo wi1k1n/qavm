@@ -170,7 +170,9 @@ class PluginManager:
                 result.append((plugin.pluginID, softwareID, softwareHandler))
         return result
     
-    def GetSoftwareHandler(self, softwareUID: str) -> tuple[str, str, SoftwareHandler]:
+    def GetSoftwareHandler(self, softwareUID: str) -> SoftwareHandler:
+        if '#' not in softwareUID:
+            return None
         pluginUID, softwareID = softwareUID.split('#')
         plugin = self.GetPlugin(pluginUID)
         if not plugin:

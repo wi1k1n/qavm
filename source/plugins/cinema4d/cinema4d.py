@@ -14,10 +14,20 @@ class C4DQualifier(BaseQualifier):
 			'c4dpy.exe',
 			'Cinema 4D.exe',
 			'cineware.dll',
-			'sdk.zip'
+			'resource/version.h',
+			'sdk.zip',
+		]
+		ret['requiredDirList'] = [
+			'corelibs',
+			'resource',
 		]
 		ret['negativeFileList'] = []
-		ret['fileContentsList'] = []
+		ret['negativeDirList'] = []
+
+		ret['fileContentsList'] = [
+			'resource/version.h',
+			'plugincache.txt',
+		]
 		return ret
 	
 	def Identify(self, currentPath: str, fileContents: dict[str, str | bytes]) -> list[str]:

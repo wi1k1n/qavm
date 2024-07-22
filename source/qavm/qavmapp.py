@@ -33,16 +33,18 @@ class QAVMApp(QApplication):
 		self.settingsManager.LoadSettings()
 		
 		selectedSoftwareUID = self.settingsManager.GetSelectedSoftwareUID()
-		swHandlers: dict[str, SoftwareHandler] = {f'{pUID}.{sID}': swHandler for pUID, sID, swHandler in self.pluginManager.GetSoftwareHandlers()}  # {softwareUID: SoftwareHandler}
+		swHandlers: dict[str, SoftwareHandler] = {f'{pUID}#{sID}': swHandler for pUID, sID, swHandler in self.pluginManager.GetSoftwareHandlers()}  # {softwareUID: SoftwareHandler}
 
 		if selectedSoftwareUID and selectedSoftwareUID not in swHandlers:
 			logger.warning(f'Selected software plugin not found: {selectedSoftwareUID}')
 
 		if selectedSoftwareUID in swHandlers:
 			logger.info(f'Selected software plugin: {selectedSoftwareUID}')
+			self.settingsManager.SetSelectedSoftwareUID(selectedSoftwareUID)
 			self.startMainWindow()
 		elif len(swHandlers) == 1:
 			logger.info(f'The only software plugin: {list(swHandlers.keys())[0]}')
+			self.settingsManager.SetSelectedSoftwareUID(list(swHandlers.keys())[0])
 			self.startMainWindow()
 		else:
 			self.selectPluginWindow: PluginSelectionWindow = PluginSelectionWindow(self)
