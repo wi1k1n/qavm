@@ -233,14 +233,6 @@ class MainWindow(QMainWindow):
 		if not qavmapi_utils.ValidateQualifierConfig(config):
 			raise Exception('Invalid Qualifier config')
 		
-		def getFileListIgnoreError(pathDir: str) -> list[str]:
-			try:
-				fileList: list[str] = [Path(pathDir)/f for f in os.listdir(pathDir)]
-				return list(filter(lambda f: os.path.isfile(f), fileList))
-			except:
-				logger.warning(f'Failed to get file list: {pathDir}')
-			return list()
-		
 		def getDirListIgnoreError(pathDir: str) -> list[str]:
 			try:
 				dirList: list[str] = [Path(pathDir)/d for d in os.listdir(pathDir)]
@@ -264,8 +256,15 @@ class MainWindow(QMainWindow):
 					return False
 			return True
 		
-		def GetFileContents(filePath: str) -> dict[str, str | bytes]:
-			return dict()
+		def GetFileContents(dirPath: str, config: dict[str, list[str]]) -> dict[str, str | bytes]:
+			fileContents = dict()
+			for file, isBinary, lengthLimit in config['fileContentsList']:
+				try:
+					with open(os.path.join(dirPath, file), 'rb' if isBinary else 'r') as f:
+						fileContents[file] = f.read(lengthLimit if lengthLimit else -1)
+				except Exception as e:
+					logger.warning(f'Failed to read file "{os.path.join(dirPath, file)}": {e}')
+			return fileContents
 		
 		softwareDescs: list[BaseDescriptor] = list()
 
@@ -284,7 +283,7 @@ class MainWindow(QMainWindow):
 						subdirs.update(set(getDirListIgnoreError(dir)))
 						continue
 
-					fileContents = GetFileContents(dir)
+					fileContents: dict[str, str | bytes] = GetFileContents(dir, config)
 					if not qualifier.Identify(dir, fileContents):
 						subdirs.update(set(getDirListIgnoreError(dir)))
 						continue

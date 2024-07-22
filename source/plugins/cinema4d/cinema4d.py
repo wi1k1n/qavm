@@ -24,14 +24,20 @@ class C4DQualifier(BaseQualifier):
 		ret['negativeFileList'] = []
 		ret['negativeDirList'] = []
 
-		ret['fileContentsList'] = [
-			'resource/version.h',
-			'plugincache.txt',
+		ret['fileContentsList'] = [  # list of tuples: (filename, isBinary, lengthLimit)
+			('resource/version.h', False, 0),
+			('plugincache.txt', False, 0),
 		]
 		return ret
 	
 	def Identify(self, currentPath: str, fileContents: dict[str, str | bytes]) -> list[str]:
-		return True
+		if 'resource/version.h' not in fileContents:
+			return False
+		versionContent: str = fileContents['resource/version.h']
+		return '#define C4D_V1' in versionContent \
+			and '#define C4D_V2' in versionContent \
+			and '#define C4D_V3' in versionContent \
+			and '#define C4D_V4' in versionContent  # TODO: improve using regex
 
 class C4DDescriptor(BaseDescriptor):
 	def __init__(self, dirPath: str, fileContents: dict[str, str | bytes]):

@@ -21,9 +21,12 @@ class BaseQualifier(object):
 	def GetIdentificationConfig(self) -> dict:
 		""" Sets the identification mask for the qualifier."""
 		return {
-			'requiredFileList': [],
-			'negativeFileList': [],
-			'fileContentsList': [],
+			'requiredFileList': [],  # list of files that MUST be present
+			'requiredDirList': [],  # list of directories that MUST be present
+			'negativeFileList': [],  # list of files that MUST NOT be present
+			'negativeDirList': [],  # list of directories that MUST NOT be present
+
+			'fileContentsList': [],  # list of files to be read from the disk: tuples: (filename, isBinary, lengthLimit)
 		}
 
 	def Identify(self, currentPath: str, fileContents: dict[str, str | bytes]) -> list[str]:

@@ -15,6 +15,6 @@ def ValidateQualifierConfig(config):
 		and checkAttrList(config, 'requiredDirList', str) \
 		and checkAttrList(config, 'negativeFileList', str) \
 		and checkAttrList(config, 'negativeDirList', str) \
-		and checkAttrList(config, 'fileContentsList', str)
+		and checkAttrList(config, 'fileContentsList', tuple)
 	
 	return True
