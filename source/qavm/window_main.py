@@ -231,7 +231,8 @@ class MainWindow(QMainWindow):
 					with open(os.path.join(dirPath, file), 'rb' if isBinary else 'r') as f:
 						fileContents[file] = f.read(lengthLimit if lengthLimit else -1)
 				except Exception as e:
-					logger.warning(f'Failed to read file "{os.path.join(dirPath, file)}": {e}')
+					# logger.warning(f'Failed to read file "{os.path.join(dirPath, file)}": {e}')
+					pass
 			return fileContents
 		
 		softwareDescs: list[BaseDescriptor] = list()

@@ -4,7 +4,7 @@ from qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings
 from qavmapi.gui import StaticBorderWidget
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QColor
+from PyQt6.QtGui import QFont, QColor, QPixmap
 from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout
 
 PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.cinema4d'
@@ -32,6 +32,7 @@ class C4DQualifier(BaseQualifier):
 
 		ret['fileContentsList'] = [  # list of tuples: (filename, isBinary, lengthLimit)
 			('resource/version.h', False, 0),
+			('resource/build.txt', False, 0),
 			('plugincache.txt', False, 0),
 		]
 		return ret
@@ -50,8 +51,12 @@ class C4DDescriptor(BaseDescriptor):
 		super().__init__(dirPath, fileContents)
 
 		self.buildString = ''  # from the build.txt
+		if 'resource/build.txt' in fileContents:
+			self.buildString = fileContents['resource/build.txt']
+		
 		self.majorVersion = 'R2024'  # R25 or 2024
 		self.subversion = '4.1'  # e.g. 106 for R26, 4.1 for 2024
+
 		self.commitRef = ''  # e.g. CL363640.28201 for R25, db1a05477b8f_1095604919 for 2024
 		self.buildLink = ''
 
@@ -85,6 +90,12 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		descLayout.setContentsMargins(0, 0, 0, 0)
 		descLayout.setSpacing(0)
 
+		iconLabel = QLabel(parent)
+		iconLabel.setScaledContents(True)
+		pixMap: QPixmap = QPixmap('./res/icons/c4d-teal.png')
+		iconLabel.setPixmap(pixMap)
+		iconLabel.setFixedSize(64, 64)
+
 		def createQLabel(text) -> QLabel:
 			label = QLabel(text, parent)
 			label.setFont(QFont('SblHebrew', 10))
@@ -92,8 +103,10 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 			# DEBUG # label.setStyleSheet("background-color: pink;")
 			return label
 		
+		descLayout.addWidget(createQLabel(desc.buildString))
+		# descLayout.addWidget(createQLabel(f'{desc.majorVersion} {desc.subversion}'))
+		descLayout.addWidget(iconLabel, alignment=Qt.AlignmentFlag.AlignCenter)
 		descLayout.addWidget(createQLabel(desc.dirPath.name))
-		descLayout.addWidget(createQLabel(f'{desc.majorVersion} {desc.subversion}'))
 
 		descWidget.setFixedSize(descWidget.minimumSizeHint())
 
