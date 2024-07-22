@@ -1,5 +1,9 @@
+from pathlib import Path
+
+from PyQt6.QtWidgets import QWidget, QLabel
+
 ##############################################################################
-########################### QAVM Plugin: Software ############################
+#############################  ##############################
 ##############################################################################
 
 class BaseSettings(object):
@@ -29,17 +33,12 @@ class BaseQualifier(object):
 			'fileContentsList': [],  # list of files to be read from the disk: tuples: (filename, isBinary, lengthLimit)
 		}
 
-	def Identify(self, currentPath: str, fileContents: dict[str, str | bytes]) -> list[str]:
+	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> list[str]:
 		return True
 
 class BaseDescriptor(object):
-	def __init__(self, dirPath: str, fileContents: dict[str, str | bytes]):
-		self.dirPath = dirPath
-
-	def GetTileData(self) -> dict:
-		return {
-			'dirPath': self.dirPath,
-		}
+	def __init__(self, dirPath: Path, fileContents: dict[str, str | bytes]):
+		self.dirPath: Path = dirPath
 
 	def __str__(self):
 		return 'BaseDescriptor'
@@ -51,3 +50,5 @@ class BaseTileBuilder(object):
 	def __init__(self):
 		pass
 
+	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:
+		return QLabel(descriptor.dirPath, parent)

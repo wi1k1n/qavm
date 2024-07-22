@@ -24,8 +24,9 @@ class SoftwareHandler(Module):
         self.descriptorClass = regData.get('descriptor', None)
         if not self.descriptorClass or not issubclass(self.descriptorClass, BaseDescriptor):  # required
             raise Exception(f'Missing or invalid descriptor for software: {self.id}')
-        self.tileBuilderClass = regData.get('tile_builder', None)
-        if not self.tileBuilderClass or not issubclass(self.tileBuilderClass, BaseTileBuilder):  # required
+        self.tileBuilderClasses = regData.get('tile_builders', {})
+        if not self.tileBuilderClasses or not isinstance(self.tileBuilderClasses, dict) or '' not in self.tileBuilderClasses \
+            or not all([f for f in self.tileBuilderClasses.values() if issubclass(f, BaseTileBuilder)]):  # required
             raise Exception(f'Missing or invalid tile builder for software: {self.id}')
         
         self.settingsClass = regData.get('settings', None)  # optional
@@ -37,8 +38,8 @@ class SoftwareHandler(Module):
         return self.qualifierClass
     def GetDescriptorClass(self) -> BaseDescriptor.__class__:
         return self.descriptorClass
-    def GetTileBuilderClass(self) -> BaseTileBuilder.__class__:
-        return self.tileBuilderClass
+    def GetTileBuilderClass(self, context='') -> BaseTileBuilder.__class__:
+        return self.tileBuilderClasses.get(context, self.tileBuilderClasses.get('', None))
     def GetSettingsClass(self) -> BaseSettings.__class__:
         return self.settingsClass
 

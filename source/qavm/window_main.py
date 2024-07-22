@@ -10,9 +10,10 @@ from PyQt6.QtWidgets import (
 from manager_plugin import PluginManager, SoftwareHandler
 from manager_settings import SettingsManager
 
-from qavmapi import BaseDescriptor, BaseSettings
+from qavmapi import BaseDescriptor, BaseSettings, BaseTileBuilder
+from qavmapi.gui import StaticBorderWidget
 import qavmapi_utils
-from utils_gui import FlowLayout, BubbleWidget, StaticBorderWidget
+from utils_gui import FlowLayout, BubbleWidget
 import utils
 
 import logs
@@ -137,60 +138,29 @@ class MainWindow(QMainWindow):
 	def _setupCentralWidget(self):
 		tabsWidget: QTabWidget = QTabWidget()
 
-		tilesWidget = self._createTilesWidget(self._scanSoftware(), self)
+		pluginManager: PluginManager = self.app.GetPluginManager()
+		settingsManager: SettingsManager = self.app.GetSettingsManager()
+		softwareHandler: SoftwareHandler = pluginManager.GetSoftwareHandler(settingsManager.GetSelectedSoftwareUID())
+		descs: list[BaseDescriptor] = self._scanSoftware()
+		defaultTileBuilder = softwareHandler.GetTileBuilderClass()()
+
+		tilesWidget = self._createTilesWidget(descs, defaultTileBuilder, self)
 		tabsWidget.addTab(tilesWidget, "Tiles")
 		
 		self.setCentralWidget(tabsWidget)
 	
-	def _createTilesWidget(self, descs: list[BaseDescriptor], parent: QWidget):
+	def _createTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
 		tiles: list[QWidget] = list()
 
 		for desc in descs:
-			tile = self._createTileWidget(desc, QColor(100, 100, 100), parent)
-			tiles.append(tile)
+			tileWidget = tileBuilder.CreateTileWidget(desc, parent)
+			tiles.append(tileWidget)
 
 		flWidget = self._createFlowLayoutWithFromWidgets(self, tiles)
 		scrollWidget = self._wrapWidgetInScrollArea(flWidget, self)
 
 		return scrollWidget
-	def _createTileWidget(self, desc: BaseDescriptor, accentColor: QColor, parent: QWidget):
-		descWidget = self._createDescWidget(desc, self)
-		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, accentColor, self)
-		return animatedBorderWidget
-	def _createDescWidget(self, desc: BaseDescriptor, parent: QWidget):
-		descWidget = QWidget(parent)
 
-		parentBGColor = parent.palette().color(parent.backgroundRole())
-		descWidget.setStyleSheet(f"background-color: {parentBGColor.name()};")
-		# DEBUG # descWidget.setStyleSheet("background-color: rgb(200, 200, 255);")
-		
-		descLayout = QVBoxLayout(descWidget)
-		descLayout.setContentsMargins(0, 0, 0, 0)
-		descLayout.setSpacing(0)
-
-		tileData: dict = desc.GetTileData()
-
-		for key, value in tileData.items():
-			label = QLabel(f'{key}: {value}')
-			label.setFont(QFont('SblHebrew', 10))
-			label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-			# DEBUG # label.setStyleSheet("background-color: pink;")
-			descLayout.addWidget(label)
-
-		descWidget.setFixedSize(descWidget.minimumSizeHint())
-
-		return descWidget
-	def _wrapWidgetInAnimatedBorder(self, widget, accentColor: QColor, parent):
-		tailColor = QColor(accentColor)
-		tailColor.setAlpha(30)
-		
-		animBorderWidget = StaticBorderWidget(accentColor)
-		animBorderLayout = animBorderWidget.layout()
-		borderThickness = 5
-		animBorderLayout.setContentsMargins(borderThickness, borderThickness, borderThickness, borderThickness)
-		animBorderLayout.addWidget(widget)
-		animBorderWidget.setFixedSize(animBorderWidget.minimumSizeHint())
-		return animBorderWidget
 	def _createFlowLayoutWithFromWidgets(self, parent, widgets: list[QWidget]):
 		flWidget = QWidget(parent)
 		flWidget.setMinimumWidth(50)
@@ -203,6 +173,7 @@ class MainWindow(QMainWindow):
 			flowLayout.addWidget(widget)
 
 		return flWidget
+	
 	def _wrapWidgetInScrollArea(self, widget, parent):
 		scrollWidget = QScrollArea(parent)
 		scrollWidget.setWidgetResizable(True)
@@ -215,13 +186,10 @@ class MainWindow(QMainWindow):
 	def _scanSoftware(self) -> list[BaseDescriptor]:
 		pluginManager: PluginManager = self.app.GetPluginManager()
 		settingsManager: SettingsManager = self.app.GetSettingsManager()
-
-		softwareHandler: SoftwareHandler
-		softwareHandler = pluginManager.GetSoftwareHandler(settingsManager.GetSelectedSoftwareUID())
+		softwareHandler: SoftwareHandler = pluginManager.GetSoftwareHandler(settingsManager.GetSelectedSoftwareUID())
 
 		qualifier = softwareHandler.GetQualifierClass()()
 		descriptorClass = softwareHandler.GetDescriptorClass()
-		# tileBuilder = softwareHandler.GetTileBuilderClass()()
 		settingsClass = softwareHandler.GetSettingsClass()
 		if not settingsClass:
 			settingsClass = BaseSettings
@@ -233,15 +201,15 @@ class MainWindow(QMainWindow):
 		if not qavmapi_utils.ValidateQualifierConfig(config):
 			raise Exception('Invalid Qualifier config')
 		
-		def getDirListIgnoreError(pathDir: str) -> list[str]:
+		def getDirListIgnoreError(pathDir: str) -> list[Path]:
 			try:
-				dirList: list[str] = [Path(pathDir)/d for d in os.listdir(pathDir)]
+				dirList: list[Path] = [Path(pathDir)/d for d in os.listdir(pathDir)]
 				return list(filter(lambda d: os.path.isdir(d), dirList))
 			except:
 				logger.warning(f'Failed to get dir list: {pathDir}')
 			return list()
 		
-		def TryPassFileMask(dirPath: str, config: dict[str, list[str]]) -> bool:
+		def TryPassFileMask(dirPath: Path, config: dict[str, list[str]]) -> bool:
 			for file in config['requiredFileList']:
 				if not os.path.isfile(os.path.join(dirPath, file)):
 					return False
@@ -256,7 +224,7 @@ class MainWindow(QMainWindow):
 					return False
 			return True
 		
-		def GetFileContents(dirPath: str, config: dict[str, list[str]]) -> dict[str, str | bytes]:
+		def GetFileContents(dirPath: Path, config: dict[str, list[str]]) -> dict[str, str | bytes]:
 			fileContents = dict()
 			for file, isBinary, lengthLimit in config['fileContentsList']:
 				try:
@@ -274,7 +242,7 @@ class MainWindow(QMainWindow):
 		while currentDepthLevel < MAX_DEPTH:
 			subfoldersSearchPathsList = set()
 			for searchPath in searchPathsList:
-				dirs: set[str] = set(getDirListIgnoreError(searchPath))
+				dirs: set[Path] = set(getDirListIgnoreError(searchPath))
 				subdirs: set[str] = set()
 				# for dir in dirs:
 				for dir in sorted(dirs):

@@ -11,6 +11,7 @@ def file_hash(file_path):
             hash_algo.update(chunk)
     return hash_algo.hexdigest()
 
+# TODO: using hardlink is potentially easier
 def DeployFolder(sourceFolderPath: str, targetFolderPath: str) -> None:
     sourceFolderPath = os.path.abspath(sourceFolderPath)
     targetFolderPath = os.path.abspath(targetFolderPath)
