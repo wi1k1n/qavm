@@ -5,7 +5,7 @@ logger = logs.logger
 
 from manager_plugin import PluginManager, SoftwareHandler
 from manager_settings import SettingsManager
-import utils
+import qavmapi.utils as utils
 
 from PyQt6.QtGui import (
     QFont

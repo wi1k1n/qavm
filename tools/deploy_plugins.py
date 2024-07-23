@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     sourcePluginsFolderPath = os.path.join('source', 'plugins')
 
-    spec = importlib.util.spec_from_file_location('qavm_utils', os.path.join('source', 'qavm', 'utils.py'))
+    spec = importlib.util.spec_from_file_location('qavm_utils', os.path.join('source', 'qavm', 'qavmapi', 'utils.py'))
     qavm_utils = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(qavm_utils)
     if not hasattr(qavm_utils, 'GetPluginsFolderPath'):
