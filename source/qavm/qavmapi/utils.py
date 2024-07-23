@@ -10,7 +10,12 @@ def GetPrefsFolderPath() -> str:
 
 def GetAppDataPath() -> str:
 	"""Returns the path to the AppData folder for the current user."""
-	return os.getenv('APPDATA')
+	if PlatformWindows():
+		return os.getenv('APPDATA')
+	# if PlatformLinux():
+	# 	return os.path.expanduser('~')
+	if PlatformMacOS():
+		return os.path.expanduser('~/Library/Preferences')
 
 
 def PlatformWindows():

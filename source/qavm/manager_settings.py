@@ -1,3 +1,4 @@
+import qavmapi.utils as utils
 
 import logs
 logger = logs.logger
@@ -7,9 +8,14 @@ class SettingsManager:
 		self.prefsFolderPath: str = prefsFolderPath
 
 		self.selectedSoftwareUID: str = ''
-		self.searchPaths: list[str] = [
-			'C:\\Program Files'
-		]
+		if utils.PlatformWindows():
+			self.searchPaths: list[str] = [
+				'C:\\Program Files'
+			]
+		elif utils.PlatformMacOS():
+			self.searchPaths: list[str] = [
+				'/Applications'
+			]
 		self.searchSubfoldersDepth: int = 2
 	
 	def LoadSettings(self):

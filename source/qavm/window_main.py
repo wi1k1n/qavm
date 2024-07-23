@@ -14,7 +14,7 @@ from qavmapi import BaseDescriptor, BaseSettings, BaseTileBuilder
 from qavmapi.gui import StaticBorderWidget
 import qavmapi_utils
 from utils_gui import FlowLayout, BubbleWidget
-import utils
+import qavmapi.utils as utils
 
 import logs
 logger = logs.logger
@@ -211,16 +211,16 @@ class MainWindow(QMainWindow):
 		
 		def TryPassFileMask(dirPath: Path, config: dict[str, list[str]]) -> bool:
 			for file in config['requiredFileList']:
-				if not os.path.isfile(os.path.join(dirPath, file)):
+				if not (dirPath / file).is_file():
 					return False
 			for folder in config['requiredDirList']:
-				if not os.path.isdir(os.path.join(dirPath, folder)):
+				if not (dirPath / folder).is_dir():
 					return False
 			for file in config['negativeFileList']:
-				if os.path.isfile(os.path.join(dirPath, file)):
+				if (dirPath / file).is_file():
 					return False
 			for folder in config['negativeDirList']:
-				if os.path.isdir(os.path.join(dirPath, folder)):
+				if (dirPath / folder).is_dir():
 					return False
 			return True
 		
@@ -228,6 +228,7 @@ class MainWindow(QMainWindow):
 			fileContents = dict()
 			for file, isBinary, lengthLimit in config['fileContentsList']:
 				try:
+					# TODO: use pathlib instead
 					with open(os.path.join(dirPath, file), 'rb' if isBinary else 'r') as f:
 						fileContents[file] = f.read(lengthLimit if lengthLimit else -1)
 				except Exception as e:

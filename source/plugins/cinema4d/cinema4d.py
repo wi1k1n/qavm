@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings
 from qavmapi.gui import StaticBorderWidget
+import qavmapi.utils as utils
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor, QPixmap
@@ -17,23 +18,32 @@ class C4DQualifier(BaseQualifier):
 	def GetIdentificationConfig(self) -> dict:
 		ret = dict()
 		ret['requiredFileList'] = [
-			'c4dpy.exe',
-			'Cinema 4D.exe',
-			'cineware.dll',
 			'resource/version.h',
-			'sdk.zip',
+			'resource/build.txt',
 		]
+		if utils.PlatformWindows():
+			ret['requiredFileList'] = [
+				'c4dpy.exe',
+				'Cinema 4D.exe',
+				'cineware.dll',
+			]
+
 		ret['requiredDirList'] = [
 			'corelibs',
 			'resource',
 		]
+		if utils.PlatformMacOS():
+			ret['requiredDirList'].append('Cinema 4D.app')
+			ret['requiredDirList'].append('c4dpy.app')
+			ret['requiredDirList'].append('cineware.bundle')
+
 		ret['negativeFileList'] = []
 		ret['negativeDirList'] = []
 
 		ret['fileContentsList'] = [  # list of tuples: (filename, isBinary, lengthLimit)
 			('resource/version.h', False, 0),
 			('resource/build.txt', False, 0),
-			('plugincache.txt', False, 0),
+			('plugincache.txt', False, 0),  # TODO: this is created by a backend plugin
 		]
 		return ret
 	

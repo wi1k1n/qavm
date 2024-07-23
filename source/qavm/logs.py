@@ -1,5 +1,5 @@
 import sys, os, logging
-import utils
+import qavmapi.utils as utils
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
