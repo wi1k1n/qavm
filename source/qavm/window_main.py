@@ -2,9 +2,10 @@ import os  # TODO: Get rid of os.path in favor of pathlib
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QFont, QAction, QIcon, QKeySequence
+from PyQt6.QtGui import QColor, QFont, QAction, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-	QMainWindow, QWidget, QVBoxLayout, QLabel, QTabWidget, QScrollArea, QStatusBar
+	QMainWindow, QWidget, QVBoxLayout, QLabel, QTabWidget, QScrollArea, QStatusBar,
+	QListWidgetItem, QListWidget, QPushButton, QHBoxLayout
 )
 
 from manager_plugin import PluginManager, SoftwareHandler
@@ -20,13 +21,32 @@ import logs
 logger = logs.logger
 
 
-class SettingsWindowExample(QMainWindow):
+class SettingsWindowExample(QWidget):
 	def __init__(self, app, parent: QWidget | None = None) -> None:
 		super().__init__(parent)
 
 		self.setWindowTitle("QAVM - Settings")
-		# self.setWindowFlags(Qt.Window | Qt.WindowCloseButtonHint) # | Qt.WindowStaysOnTopHint) # https://pythonprogramminglanguage.com/pyqt5-window-flags/
 		self.resize(400, 400)
+		
+		menu_widget = QListWidget()
+		for i in range(10):
+			item = QListWidgetItem(f"Item {i}")
+			item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+			menu_widget.addItem(item)
+
+		text_widget = QLabel("This is my text here")
+		button = QPushButton("Something")
+
+		content_layout = QVBoxLayout()
+		content_layout.addWidget(text_widget)
+		content_layout.addWidget(button)
+		main_widget = QWidget()
+		main_widget.setLayout(content_layout)
+
+		layout = QHBoxLayout()
+		layout.addWidget(menu_widget, 1)
+		layout.addWidget(main_widget, 4)
+		self.setLayout(layout)
 
 class DialogsManager:
 	def __init__(self, parent: QMainWindow) -> None:
@@ -56,33 +76,36 @@ class MainWindow(QMainWindow):
 		self._setupCentralWidget()
 
 	def _setupActions(self):
-		self.actionSave = QAction("&Save tags and tiles", self)
-		self.actionSave.setShortcut(QKeySequence.StandardKey.Save)
+		# self.actionSave = QAction("&Save tags and tiles", self)
+		# self.actionSave.setShortcut(QKeySequence.StandardKey.Save)
 
 		self.actionPrefs = QAction(QIcon(":preferences.svg"), "&Preferences", self)
 		self.actionPrefs.setShortcut("Ctrl+E")
+		self.actionPrefs.triggered.connect(self.dialogsManager.settings.show)
 
-		self.actionExit = QAction("&Exit", self)
-		self.actionAbout = QAction("&About", self)
-		self.actionShortcuts = QAction("&Shortcuts", self)
-		self.actionShortcuts.setShortcut("F1")
-		self.actionReportBug = QAction("&Report a bug", self)
-		self.actionReportBug.setShortcut("Ctrl+Shift+B")
-		self.actionCheckUpdates = QAction("&Check for updates", self)
+		self.actionExit = QAction("&Exit", self, shortcut=QKeySequence.StandardKey.Quit)
+		self.actionExit.triggered.connect(self.close)
+
+		# self.actionAbout = QAction("&About", self)
+		# self.actionShortcuts = QAction("&Shortcuts", self)
+		# self.actionShortcuts.setShortcut("F1")
+		# self.actionReportBug = QAction("&Report a bug", self)
+		# self.actionReportBug.setShortcut("Ctrl+Shift+B")
+		# self.actionCheckUpdates = QAction("&Check for updates", self)
 		
-		self.actionRefresh = QAction("&Refresh", self)
-		self.actionRefresh.setShortcut(QKeySequence.StandardKey.Refresh)
-		self.actionRescan = QAction("Re&scan", self)
-		self.actionRescan.setShortcut("Ctrl+F5")
+		# self.actionRefresh = QAction("&Refresh", self)
+		# self.actionRefresh.setShortcut(QKeySequence.StandardKey.Refresh)
+		# self.actionRescan = QAction("Re&scan", self)
+		# self.actionRescan.setShortcut("Ctrl+F5")
 
-		self.actionTags = QAction("&Tags", self)
-		self.actionTags.setShortcut("Ctrl+T")
+		# self.actionTags = QAction("&Tags", self)
+		# self.actionTags.setShortcut("Ctrl+T")
 
-		self.actionFiltersort = QAction("Filte&r/Sort", self)
-		self.actionFiltersort.setShortcut("Ctrl+F")
+		# self.actionFiltersort = QAction("Filte&r/Sort", self)
+		# self.actionFiltersort.setShortcut("Ctrl+F")
 
-		self.actionFoldAll = QAction("Toggle &fold all", self)
-		self.actionFoldAll.setShortcut("Ctrl+A")
+		# self.actionFoldAll = QAction("Toggle &fold all", self)
+		# self.actionFoldAll.setShortcut("Ctrl+A")
 
 		# self._createGroupActions()
 		
@@ -103,34 +126,37 @@ class MainWindow(QMainWindow):
 		# newTip = "Create a new file"
 		# self.newAction.setStatusTip(newTip)
 		# self.newAction.setToolTip(newTip)
+
 	def _setupMenuBar(self):
 		menuBar = self.menuBar()
+		menuBar.setNativeMenuBar(True)
 		
 		fileMenu = menuBar.addMenu('&File')
-		fileMenu.addAction(self.actionSave)
-		fileMenu.addSeparator()
-		fileMenu.addAction(self.actionPrefs)
-		fileMenu.addSeparator()
+		# fileMenu.addAction(self.actionSave)
+		# fileMenu.addSeparator()
 		fileMenu.addAction(self.actionExit)
 		
 		editMenu = menuBar.addMenu("&Edit")
-		editMenu.addAction(self.actionRefresh)
-		editMenu.addAction(self.actionRescan)
-		editMenu.addSeparator()
-		editMenu.addAction(self.actionTags)
-		editMenu.addAction(self.actionFiltersort)
+		# editMenu.addAction(self.actionRefresh)
+		# editMenu.addAction(self.actionRescan)
+		# editMenu.addSeparator()
+		# editMenu.addAction(self.actionTags)
+		# editMenu.addAction(self.actionFiltersort)
+		# fileMenu.addSeparator()
+		editMenu.addAction(self.actionPrefs)
 		
 		viewMenu = menuBar.addMenu("&View")
-		viewMenu.addAction(self.actionFoldAll)
-		viewMenu.addSeparator()
-		# for k, action in self.actionsGrouping.items():
-		# 	viewMenu.addAction(action)
+		# viewMenu.addAction(self.actionFoldAll)
+		# viewMenu.addSeparator()
+		# # for k, action in self.actionsGrouping.items():
+		# # 	viewMenu.addAction(action)
 
 		helpMenu = menuBar.addMenu("&Help")
-		helpMenu.addAction(self.actionShortcuts)
-		helpMenu.addAction(self.actionReportBug)
-		helpMenu.addAction(self.actionCheckUpdates)
-		helpMenu.addAction(self.actionAbout)
+		# helpMenu.addAction(self.actionShortcuts)
+		# helpMenu.addAction(self.actionReportBug)
+		# helpMenu.addAction(self.actionCheckUpdates)
+		# helpMenu.addAction(self.actionAbout)
+	
 	def _setupStatusBar(self):
 		self.statusBar = QStatusBar()
 		self.setStatusBar(self.statusBar)
