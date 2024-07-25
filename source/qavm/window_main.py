@@ -26,27 +26,33 @@ class SettingsWindowExample(QWidget):
 		super().__init__(parent)
 
 		self.setWindowTitle("QAVM - Settings")
-		self.resize(400, 400)
+		self.resize(600, 600)
+		self.setMinimumHeight(300)
 		
-		menu_widget = QListWidget()
-		for i in range(10):
-			item = QListWidgetItem(f"Item {i}")
+		def createMenuItem(text: str) -> QListWidgetItem:
+			item = QListWidgetItem(text)
 			item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-			menu_widget.addItem(item)
+			return item
+		
+		menuWidget = QListWidget()
+		menuWidget.addItem(createMenuItem("General"))
+		menuWidget.addItem(createMenuItem("Software"))
+		menuWidget.addItem(createMenuItem("Plugins"))
+		menuWidget.setMinimumWidth(menuWidget.minimumSizeHint().width() + 20)
+		menuWidget.setMaximumWidth(200)
 
-		text_widget = QLabel("This is my text here")
-		button = QPushButton("Something")
+		contentWidget = QLabel("This is my text here")
 
-		content_layout = QVBoxLayout()
-		content_layout.addWidget(text_widget)
-		content_layout.addWidget(button)
-		main_widget = QWidget()
-		main_widget.setLayout(content_layout)
+		contentLayout = QVBoxLayout()
+		contentLayout.addWidget(contentWidget)
 
-		layout = QHBoxLayout()
-		layout.addWidget(menu_widget, 1)
-		layout.addWidget(main_widget, 4)
-		self.setLayout(layout)
+		contentWidget = QWidget()
+		contentWidget.setLayout(contentLayout)
+
+		mainLayout = QHBoxLayout()
+		mainLayout.addWidget(menuWidget, 1)
+		mainLayout.addWidget(contentWidget, 3)
+		self.setLayout(mainLayout)
 
 class DialogsManager:
 	def __init__(self, parent: QMainWindow) -> None:
@@ -171,9 +177,14 @@ class MainWindow(QMainWindow):
 		defaultTileBuilder = softwareHandler.GetTileBuilderClass()()
 
 		tilesWidget = self._createTilesWidget(descs, defaultTileBuilder, self)
+		freeMoveWidget = self._createFreeMoveWidget(descs, defaultTileBuilder, self)
 		tabsWidget.addTab(tilesWidget, "Tiles")
+		tabsWidget.addTab(freeMoveWidget, "Free Move")
 		
 		self.setCentralWidget(tabsWidget)
+	
+	def _createFreeMoveWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
+		return QLabel("Freemove", parent)
 	
 	def _createTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
 		tiles: list[QWidget] = list()
@@ -191,7 +202,7 @@ class MainWindow(QMainWindow):
 		flWidget = QWidget(parent)
 		flWidget.setMinimumWidth(50)
 
-		flowLayout = FlowLayout(flWidget, margin=1, hspacing=0, vspacing=0)
+		flowLayout = FlowLayout(flWidget, margin=5, hspacing=5, vspacing=5)
 		flowLayout.setSpacing(0)
 
 		for widget in widgets:

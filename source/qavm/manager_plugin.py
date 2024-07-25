@@ -1,4 +1,5 @@
 import importlib.util, os, re
+from pathlib import Path
 
 from qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings
 
@@ -116,33 +117,29 @@ class Plugin:
 
 
 class PluginManager:
-    def __init__(self, pluginsFolderPath: str) -> None:
-        self.pluginsFolderPath = pluginsFolderPath
+    def __init__(self, app, pluginsFolderPath: Path) -> None:
+        self.app = app
+        self.pluginsFolderPath: Path = pluginsFolderPath
         self.plugins: dict[str, Plugin] = dict()
 
-        if not os.path.exists(self.pluginsFolderPath):
-            os.makedirs(self.pluginsFolderPath)
+        if not self.pluginsFolderPath.exists():
+            self.pluginsFolderPath.mkdir(parents=True)
             logger.info(f'Created plugins folder: {self.pluginsFolderPath}')
 
     def LoadPlugins(self) -> bool:
-        if not os.path.exists(self.pluginsFolderPath):
+        if not self.pluginsFolderPath.exists():
             logger.error(f'Plugins folder not found: {self.pluginsFolderPath}')
             return False
         
         # Iterate over plugins
-        for dir in os.scandir(self.pluginsFolderPath):
-            if not dir.is_dir():
+        for pluginFolderPath in self.pluginsFolderPath.iterdir():
+            if not pluginFolderPath.is_dir():
                 continue
             
-            pluginFolderPath = os.path.join(self.pluginsFolderPath, dir)
-            if not os.path.exists(pluginFolderPath):
-                logger.error(f'Plugin folder not found: {pluginFolderPath}')
-                return
-            
-            pluginName = os.path.basename(pluginFolderPath)
-            pluginMainFile = os.path.join(pluginFolderPath, f'{pluginName}.py')
+            pluginName = pluginFolderPath.name
+            pluginMainFile = pluginFolderPath/f'{pluginName}.py'
 
-            if not os.path.exists(pluginMainFile):
+            if not pluginMainFile.exists():
                 logger.error(f'Plugin main file not found: {pluginMainFile}')
                 return
 

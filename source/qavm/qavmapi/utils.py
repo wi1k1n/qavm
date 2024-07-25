@@ -1,21 +1,22 @@
+from pathlib import Path
 import os, platform
 
-def GetPluginsFolderPath() -> str:
-	return os.path.join(GetPrefsFolderPath(), 'plugins')
+def GetPluginsFolderPath() -> Path:
+	return GetPrefsFolderPath()/'plugins'
 
-def GetPrefsFolderPath() -> str:
-	path: str = os.path.join(GetAppDataPath(), 'qamv')
+def GetPrefsFolderPath() -> Path:
+	path: str = GetAppDataPath()/'qamv'
 	os.makedirs(path, exist_ok=True)
 	return path
 
-def GetAppDataPath() -> str:
+def GetAppDataPath() -> Path:
 	"""Returns the path to the AppData folder for the current user."""
 	if PlatformWindows():
-		return os.getenv('APPDATA')
+		return Path(os.getenv('APPDATA'))
 	# if PlatformLinux():
 	# 	return os.path.expanduser('~')
 	if PlatformMacOS():
-		return os.path.expanduser('~/Library/Preferences')
+		return Path.home()/'Library/Preferences'
 
 
 def PlatformWindows():

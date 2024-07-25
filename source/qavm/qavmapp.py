@@ -26,10 +26,10 @@ class QAVMApp(QApplication):
 		self.setOrganizationName('wi1k.in.prod')
 		self.setOrganizationDomain('wi1k.in')
 		
-		self.pluginManager = PluginManager(utils.GetPluginsFolderPath())
+		self.pluginManager = PluginManager(self, utils.GetPluginsFolderPath())
 		self.pluginManager.LoadPlugins()
 
-		self.settingsManager = SettingsManager(utils.GetPrefsFolderPath())
+		self.settingsManager = SettingsManager(self, utils.GetPrefsFolderPath())
 		self.settingsManager.LoadSettings()
 		
 		selectedSoftwareUID = self.settingsManager.GetSelectedSoftwareUID()
