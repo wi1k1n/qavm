@@ -9,10 +9,14 @@ from PyQt6.QtWidgets import QWidget, QLabel
 class BaseSettings(object):
 	pass
 
+class BaseSoftwareSettings(BaseSettings):
+	pass
+
 ##############################################################################
 ########################### QAVM Plugin: Software ############################
 ##############################################################################
 
+# TODO: rename this and others to BaseSoftwareQualifier?
 class BaseQualifier(object):
 	def __init__(self):
 		pass

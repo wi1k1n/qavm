@@ -4,7 +4,7 @@ from pathlib import Path
 import qavmapi.utils as utils
 
 from qavmapi import BaseSettings
-from manager_plugin import SoftwareHandler
+from manager_plugin import PluginManager, SoftwareHandler, SettingsHandler
 
 import logs
 logger = logs.logger
@@ -32,9 +32,8 @@ class SettingsManager:
 	def __init__(self, app, prefsFolderPath: Path):
 		self.app = app
 		self.prefsFolderPath: Path = prefsFolderPath
-
 		self.settings: dict[str, SettingsEntry] = dict()
-		self.settings['selectedSoftwareUID'] = SettingsEntry('selectedSoftwareUID', '')
+		self.moduleSettings: dict[str, BaseSettings] = dict()
 
 		searchPaths: list[str] = []
 		if utils.PlatformWindows():
@@ -45,29 +44,46 @@ class SettingsManager:
 			searchPaths: list[str] = [
 				'/Applications'
 			]
-		self.settings['searchPaths'] = SettingsEntryStringList('searchPaths', searchPaths)
-
-		self.settings['searchSubfoldersDepth'] = SettingsEntry('searchSubfoldersDepth', 2)
-		self.settings['hideOnClose'] = SettingsEntry('hideOnClose', False)
-		self.settings['extractIcons'] = SettingsEntry('extractIcons', True)
+		
+		# Initialize with default values
+		self.settings['_selectedSoftwareUID_'] = SettingsEntry('_selectedSoftwareUID_', '')
+		self.settings['_searchPaths_'] = SettingsEntryStringList('_searchPaths_', searchPaths)
+		self.settings['_searchSubfoldersDepth_'] = SettingsEntry('_searchSubfoldersDepth_', 2)
+		self.settings['_hideOnClose_'] = SettingsEntry('_hideOnClose_', False)
+		self.settings['_extractIcons_'] = SettingsEntry('_extractIcons_', True)
 	
+	""" Load settings from the disk """
 	def LoadSettings(self):
 		logger.info('Loading settings: NotImplemented')
 	
-	def RegisterSoftwareSettings(self):
-		if not self.settings['selectedSoftwareUID'].getValue():
-			raise Exception('No software selected')
-		softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetSoftwareHandler(self.settings['selectedSoftwareUID'].getValue())
-		settings: BaseSettings = softwareHandler.GetSettingsClass()()
+	def LoadModuleSettings(self):
+		pluginManager: PluginManager = self.app.GetPluginManager()
+		settingsModules: list[tuple[str, str, SettingsHandler]] = pluginManager.GetSettingsHandlers()  # [pluginID, moduleID, SettingsHandler]
+		for pluginID, settingsID, settingsHandler in settingsModules:
+			self.moduleSettings[f'{pluginID}#{settingsID}'] = settingsHandler.GetSettingsClass()()
+		
 
+	def GetSelectedSoftwarePluginID(self) -> str:
+		return self.GetSelectedSoftwareUID().split('#')[0]
+	
 	def GetSelectedSoftwareUID(self) -> str:
-		return self.settings['selectedSoftwareUID'].getValue()
+		return self.settings['_selectedSoftwareUID_'].getValue()
+	
+	""" The softwareUID is in the format: PLUGIN_ID#SoftwareID """
 	def SetSelectedSoftwareUID(self, softwareUID: str) -> None:
-		self.settings['selectedSoftwareUID'].setValue(softwareUID)
-		self.RegisterSoftwareSettings()
+		self.settings['_selectedSoftwareUID_'].setValue(softwareUID)
 
 	def GetSearchPaths(self) -> list[str]:
-		return self.settings['searchPaths'].getValue()
-	
+		return self.settings['_searchPaths_'].getValue()
 	def GetSearchSubfoldersDepth(self) -> int:
-		return self.settings['searchSubfoldersDepth'].getValue()
+		return self.settings['_searchSubfoldersDepth_'].getValue()
+	
+	def GetSoftwareSettings(self) -> BaseSettings:
+		if not self.settings['_selectedSoftwareUID_'].getValue():
+			raise Exception('No software selected')
+		softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetSoftwareHandler(self.settings['_selectedSoftwareUID_'].getValue())
+		return softwareHandler.GetSettingsClass()()
+	
+	""" Returns dict of settings modules that are implemented in currently selected plugin: {moduleUID: BaseSettings}. The moduleUID is in form PLUGIN_ID#SettingsModuleID """
+	def GetModuleSettings(self) -> dict[str, BaseSettings]:
+		return self.moduleSettings

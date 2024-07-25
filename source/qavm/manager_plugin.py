@@ -6,18 +6,24 @@ from qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings
 import logs
 logger = logs.logger
 
-class Module:
+class QAVMModule:
 	def __init__(self, plugin, regData):
 		self.id = regData.get('id', None)
 
-class SoftwareHandler(Module):
+class QAVMModuleNamed(QAVMModule):
+	def __init__(self, plugin, regData) -> None:
+		super().__init__(plugin, regData)
+		self.name = regData.get('name', self.id)
+	
+	def GetName(self) -> str:
+		return self.name
+
+class SoftwareHandler(QAVMModuleNamed):
 	def __init__(self, plugin, regData) -> None:
 		super().__init__(plugin, regData)
 		
-		if not Plugin.ValidateID(self.id):
+		if not QAVMPlugin.ValidateID(self.id):
 			raise Exception(f'Invalid or missing Software ID: {self.id}')
-		
-		self.name = regData.get('name', self.id)
 		
 		self.qualifierClass = regData.get('qualifier', None)
 		if not self.qualifierClass or not issubclass(self.qualifierClass, BaseQualifier):  # required
@@ -32,9 +38,6 @@ class SoftwareHandler(Module):
 		
 		self.settingsClass = regData.get('settings', None)  # optional
 	
-	def GetName(self) -> str:
-		return self.name
-	
 	def GetQualifierClass(self) -> BaseQualifier.__class__:
 		return self.qualifierClass
 	def GetDescriptorClass(self) -> BaseDescriptor.__class__:
@@ -44,7 +47,18 @@ class SoftwareHandler(Module):
 	def GetSettingsClass(self) -> BaseSettings.__class__:
 		return self.settingsClass
 
-class Plugin:
+class SettingsHandler(QAVMModuleNamed):
+	def __init__(self, plugin, regData) -> None:
+		super().__init__(plugin, regData)
+
+		self.settingsClass = regData.get('settings', None)
+		if not self.settingsClass or not issubclass(self.settingsClass, BaseSettings):
+			raise Exception(f'Missing or invalid settings for module: {self.id}')
+	
+	def GetSettingsClass(self) -> BaseSettings.__class__:
+		return self.settingsClass
+
+class QAVMPlugin:
 	def __init__(self, pluginModule: object) -> None:
 		self.module = pluginModule
 
@@ -53,21 +67,23 @@ class Plugin:
 		self.pluginName = self.module.__name__
 
 		self.softwareHandlers: dict[str, SoftwareHandler] = dict()  # softwareID: SoftwareHandler
+		self.settingsHandlers: dict[str, SettingsHandler] = dict()  # moduleID: SettingsHandler
 
 		# First check if plugin contains PLUGIN_ID and PLUGIN_VERSION
 		self.pluginID = getattr(self.module, 'PLUGIN_ID', '')
-		if not Plugin.ValidateUID(self.pluginID):
+		if not QAVMPlugin.ValidateUID(self.pluginID):
 			raise Exception(f'Invalid or missing PLUGIN_ID for: {self.module.__name__}')
 		
 		self.pluginVersion = getattr(self.module, 'PLUGIN_VERSION', '')
-		if not Plugin.ValidateVersion(self.pluginVersion):
+		if not QAVMPlugin.ValidateVersion(self.pluginVersion):
 			raise Exception(f'Invalid or missing PLUGIN_VERSION for: {self.module.__name__}')
 
 		self.LoadModuleSoftware()
+		self.LoadModuleSettings()
 	
 	def LoadModuleSoftware(self) -> None:
 		pluginSoftwareRegisterFunc = getattr(self.module, 'RegisterModuleSoftware', None)
-		if pluginSoftwareRegisterFunc is None:
+		if pluginSoftwareRegisterFunc is None or not callable(pluginSoftwareRegisterFunc):
 			return
 		
 		softwareRegDataList = pluginSoftwareRegisterFunc()
@@ -79,6 +95,21 @@ class Plugin:
 				raise Exception(f'Duplicate software ID found: {self.id}')
 			
 			self.softwareHandlers[softwareHandler.id] = softwareHandler
+	
+	def LoadModuleSettings(self) -> None:
+		pluginSettingsRegisterFunc = getattr(self.module, 'RegisterModuleSettings', None)
+		if pluginSettingsRegisterFunc is None or not callable(pluginSettingsRegisterFunc):
+			return
+		
+		moduleSettingsRegDataList = pluginSettingsRegisterFunc()
+
+		for moduleSettingsRegData in moduleSettingsRegDataList:
+			moduleSettings = SettingsHandler(self, moduleSettingsRegData)
+			
+			if moduleSettings.id in self.softwareHandlers:
+				raise Exception(f'Duplicate module ID found: {self.id}')
+			
+			self.settingsHandlers[moduleSettings.id] = moduleSettings
 
 	def GetUID(self) -> str:
 		return self.pluginID
@@ -94,6 +125,9 @@ class Plugin:
 	
 	def GetSoftwareHandlers(self) -> dict[str, SoftwareHandler]:
 		return self.softwareHandlers
+	
+	def GetSettingsHandlers(self) -> dict[str, SettingsHandler]:
+		return self.settingsHandlers
 			
 	
 	
@@ -120,7 +154,7 @@ class PluginManager:
 	def __init__(self, app, pluginsFolderPath: Path) -> None:
 		self.app = app
 		self.pluginsFolderPath: Path = pluginsFolderPath
-		self.plugins: dict[str, Plugin] = dict()
+		self.plugins: dict[str, QAVMPlugin] = dict()
 
 		if not self.pluginsFolderPath.exists():
 			self.pluginsFolderPath.mkdir(parents=True)
@@ -148,26 +182,25 @@ class PluginManager:
 				pluginPyModule = importlib.util.module_from_spec(spec)
 				spec.loader.exec_module(pluginPyModule)
 				
-				plugin = Plugin(pluginPyModule)
+				plugin = QAVMPlugin(pluginPyModule)
 				logger.info(f'Loaded plugin: {pluginName} @ {plugin.GetVersionStr()} ({plugin.GetUID()})')
 				self.plugins[plugin.pluginID] = plugin
 			
 			except:
 				logger.exception(f'Failed to load plugin: {pluginMainFile}')
 	
-	def GetPlugins(self) -> list[Plugin]:
+	def GetPlugins(self) -> list[QAVMPlugin]:
 		return list(self.plugins.values())  # TODO: rewrite with yield
-	
-	def GetPlugin(self, pluginUID: str) -> Plugin:
-		return self.plugins.get(pluginUID, None)
-	
+	def GetPlugin(self, pluginID: str) -> QAVMPlugin:
+		return self.plugins.get(pluginID, None)
+
+
 	def GetSoftwareHandlers(self) -> list[tuple[str, str, SoftwareHandler]]:  # TODO: rewrite with yield
 		result: list[tuple[str, str, SoftwareHandler]] = []  # [pluginID, softwareID, SoftwareHandler]
 		for plugin in self.plugins.values():
 			for softwareID, softwareHandler in plugin.GetSoftwareHandlers().items():
 				result.append((plugin.pluginID, softwareID, softwareHandler))
 		return result
-	
 	def GetSoftwareHandler(self, softwareUID: str) -> SoftwareHandler:
 		if '#' not in softwareUID:
 			return None
@@ -176,3 +209,19 @@ class PluginManager:
 		if not plugin:
 			return None
 		return plugin.GetSoftwareHandlers().get(softwareID, None)
+	
+
+	def GetSettingsHandlers(self) -> list[tuple[str, str, SettingsHandler]]:
+		result: list[tuple[str, str, SettingsHandler]] = []  # [pluginID, moduleID, SettingsHandler]
+		for plugin in self.plugins.values():
+			for moduleID, settingsHandler in plugin.GetSettingsHandlers().items():
+				result.append((plugin.pluginID, moduleID, settingsHandler))
+		return result
+	def GetSettingsHandler(self, settingsUID: str) -> SettingsHandler:
+		if '#' not in settingsUID:
+			return None
+		pluginUID, moduleID = settingsUID.split('#')
+		plugin = self.GetPlugin(pluginUID)
+		if not plugin:
+			return None
+		return plugin.GetSettingsHandlers().get(moduleID, None)

@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
 	QListWidgetItem, QListWidget, QPushButton, QHBoxLayout
 )
 
-from manager_plugin import PluginManager, SoftwareHandler
+from manager_plugin import PluginManager, SoftwareHandler, SettingsHandler
 from manager_settings import SettingsManager
 
 from qavmapi import BaseDescriptor, BaseSettings, BaseTileBuilder
@@ -21,13 +21,17 @@ import logs
 logger = logs.logger
 
 
-class SettingsWindowExample(QWidget):
+class PreferencesWindowExample(QWidget):
 	def __init__(self, app, parent: QWidget | None = None) -> None:
 		super().__init__(parent)
+		self.app = app
 
 		self.setWindowTitle("QAVM - Settings")
 		self.resize(600, 600)
 		self.setMinimumHeight(300)
+		
+		pluginManager: PluginManager = self.app.GetPluginManager()
+		settingsManager: SettingsManager = self.app.GetSettingsManager()
 		
 		def createMenuItem(text: str) -> QListWidgetItem:
 			item = QListWidgetItem(text)
@@ -36,8 +40,11 @@ class SettingsWindowExample(QWidget):
 		
 		menuWidget = QListWidget()
 		menuWidget.addItem(createMenuItem("General"))
-		menuWidget.addItem(createMenuItem("Software"))
-		menuWidget.addItem(createMenuItem("Plugins"))
+		menuWidget.addItem(createMenuItem("Appearance"))
+		menuWidget.addItem(createMenuItem("Shortcuts"))
+		for settingsID, pluginSettings in settingsManager.GetModuleSettings().items():
+			settingsHandler: SettingsHandler = pluginManager.GetSettingsHandler(settingsID)
+			menuWidget.addItem(createMenuItem(settingsHandler.GetName()))
 		menuWidget.setMinimumWidth(menuWidget.minimumSizeHint().width() + 20)
 		menuWidget.setMaximumWidth(200)
 
@@ -54,14 +61,16 @@ class SettingsWindowExample(QWidget):
 		mainLayout.addWidget(contentWidget, 3)
 		self.setLayout(mainLayout)
 
+# TODO: this should be in the app, not in mainwindow!
 class DialogsManager:
-	def __init__(self, parent: QMainWindow) -> None:
+	def __init__(self, app, parent: QMainWindow) -> None:
 		self.parent = parent
-		
-		self.settings = SettingsWindowExample(self)
+		self.app = app
+
+		self.windowPrefs = PreferencesWindowExample(app)
 
 	def GetPreferencesWindow(self):
-		return self.preferences
+		return self.windowPrefs
 
 class MainWindow(QMainWindow):
 	def __init__(self, app, parent: QWidget | None = None) -> None:
@@ -73,7 +82,7 @@ class MainWindow(QMainWindow):
 		self.resize(1420, 840)
 		self.setMinimumSize(350, 250)
 
-		self.dialogsManager: DialogsManager = DialogsManager(self)
+		self.dialogsManager: DialogsManager = DialogsManager(app, self)
 
 		self._setupActions()
 		self._setupMenuBar()
@@ -87,7 +96,7 @@ class MainWindow(QMainWindow):
 
 		self.actionPrefs = QAction(QIcon(":preferences.svg"), "&Preferences", self)
 		self.actionPrefs.setShortcut("Ctrl+E")
-		self.actionPrefs.triggered.connect(self.dialogsManager.settings.show)
+		self.actionPrefs.triggered.connect(self.showPreferences)
 
 		self.actionExit = QAction("&Exit", self, shortcut=QKeySequence.StandardKey.Quit)
 		self.actionExit.triggered.connect(self.close)
@@ -217,7 +226,8 @@ class MainWindow(QMainWindow):
 		scrollWidget.setWidget(widget)
 		return scrollWidget
 
-
+	def showPreferences(self):
+		self.dialogsManager.GetPreferencesWindow().show()
 
 
 	def _scanSoftware(self) -> list[BaseDescriptor]:

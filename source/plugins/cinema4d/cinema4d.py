@@ -1,12 +1,18 @@
 import os
 from pathlib import Path
-from qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings
+from qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseSoftwareSettings
 from qavmapi.gui import StaticBorderWidget
 import qavmapi.utils as utils
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor, QPixmap
 from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout
+
+"""
+QAVM can be extended by plugins. Each plugin is represented by a folder with a python script that has the same name as the folder.
+
+Each plugin can implement multiple modules. Modules can be of different types, e.g. software, settings, etc.
+"""
 
 PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.cinema4d'
 PLUGIN_VERSION = '0.1.0'
@@ -134,7 +140,7 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		animBorderWidget.setFixedSize(animBorderWidget.minimumSizeHint())
 		return animBorderWidget
 
-class C4DSettings(BaseSettings):
+class C4DSettings(BaseSoftwareSettings):
 	pass
 
 
@@ -145,6 +151,9 @@ class C4DExampleQualifier(BaseQualifier):
 class C4DExampleDescriptor(BaseDescriptor):
 	pass
 class C4DExampleTileBuilder(BaseTileBuilder):
+	pass
+
+class MyExampleSettings(BaseSettings):
 	pass
 
 
@@ -182,4 +191,13 @@ def RegisterModuleSoftware():
 		# 		'': C4DExampleTileBuilder,
 		# 	},
 		# }
+	]
+
+def RegisterModuleSettings():
+	return [
+		{
+			'id': 'settings.example',  # this is a unique id under the PLUGIN_ID domain
+			'name': 'My Example Settings',
+			'settings': MyExampleSettings,
+		},
 	]

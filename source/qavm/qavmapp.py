@@ -26,11 +26,11 @@ class QAVMApp(QApplication):
 		self.setOrganizationName('wi1k.in.prod')
 		self.setOrganizationDomain('wi1k.in')
 		
-		self.pluginManager = PluginManager(self, utils.GetPluginsFolderPath())
-		self.pluginManager.LoadPlugins()
-
 		self.settingsManager = SettingsManager(self, utils.GetPrefsFolderPath())
 		self.settingsManager.LoadSettings()
+
+		self.pluginManager = PluginManager(self, utils.GetPluginsFolderPath())
+		self.pluginManager.LoadPlugins()
 		
 		selectedSoftwareUID = self.settingsManager.GetSelectedSoftwareUID()
 		swHandlers: dict[str, SoftwareHandler] = {f'{pUID}#{sID}': swHandler for pUID, sID, swHandler in self.pluginManager.GetSoftwareHandlers()}  # {softwareUID: SoftwareHandler}
@@ -56,7 +56,10 @@ class QAVMApp(QApplication):
 		self.settingsManager.SetSelectedSoftwareUID(f'{pluginUID}#{softwareID}')
 		self.startMainWindow()
 	
+	""" Performs software-specific initialization and opens main window """
 	def startMainWindow(self):
+		self.settingsManager.LoadModuleSettings()
+		
 		self.mainWindow: MainWindow = MainWindow(self)
 		self.mainWindow.show()
 

@@ -3,7 +3,7 @@ from functools import partial
 import logs
 logger = logs.logger
 
-from manager_plugin import PluginManager, Plugin, SoftwareHandler
+from manager_plugin import PluginManager, QAVMPlugin, SoftwareHandler
 from PyQt6.QtCore import (
 	pyqtSignal
 )
@@ -25,9 +25,9 @@ class PluginSelectionWindow(QMainWindow):
 		pluginManager: PluginManager = app.GetPluginManager()
 		swHandlers: list[tuple[str, str, SoftwareHandler]] = pluginManager.GetSoftwareHandlers()  # [pluginID, softwareID, SoftwareHandler]
 
-		for pluginUID, softwareID, softwareHandler in swHandlers:
-			plugin: Plugin = pluginManager.GetPlugin(pluginUID)
-			button = QPushButton(f'[{plugin.GetName()} @ {plugin.GetVersionStr()} ({pluginUID})] {softwareHandler.GetName()} ({softwareID})')
+		for pluginID, softwareID, softwareHandler in swHandlers:
+			plugin: Plugin = pluginManager.GetPlugin(pluginID)
+			button = QPushButton(f'[{plugin.GetName()} @ {plugin.GetVersionStr()} ({pluginID})] {softwareHandler.GetName()} ({softwareID})')
 			button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 			button.clicked.connect(partial(self.selectPlugin, plugin.pluginID, softwareID))
 			layout.addWidget(button)
