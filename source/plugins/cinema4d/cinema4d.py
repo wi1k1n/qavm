@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
-from qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseSoftwareSettings
-from qavmapi.gui import StaticBorderWidget
-import qavmapi.utils as utils
+from qavm.qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseSoftwareSettings
+from qavm.qavmapi.gui import StaticBorderWidget
+import qavm.qavmapi.utils as utils
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor, QPixmap

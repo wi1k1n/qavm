@@ -8,7 +8,7 @@
             "name": "Python Debugger: QAVM",
             "type": "debugpy",
             "request": "launch",
-            "program": "source/qavm/__init__.py",
+            "program": "source/qavm.py",
             "console": "integratedTerminal",
             "preLaunchTask": "deploy_plugins",
         },

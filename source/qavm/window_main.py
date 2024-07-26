@@ -2,22 +2,20 @@ import os  # TODO: Get rid of os.path in favor of pathlib
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QFont, QAction, QIcon, QKeySequence, QShortcut
+from PyQt6.QtGui import QAction, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QVBoxLayout, QLabel, QTabWidget, QScrollArea, QStatusBar,
-	QListWidgetItem, QListWidget, QPushButton, QHBoxLayout
+	QListWidgetItem, QListWidget, QHBoxLayout
 )
 
-from manager_plugin import PluginManager, SoftwareHandler, SettingsHandler
-from manager_settings import SettingsManager
+from qavm.manager_plugin import PluginManager, SoftwareHandler, SettingsHandler
+from qavm.manager_settings import SettingsManager
 
-from qavmapi import BaseDescriptor, BaseSettings, BaseTileBuilder
-from qavmapi.gui import StaticBorderWidget
-import qavmapi_utils
-from utils_gui import FlowLayout, BubbleWidget
-import qavmapi.utils as utils
+from qavm.qavmapi import BaseDescriptor, BaseSettings, BaseTileBuilder
+from qavm.utils_gui import FlowLayout
+import qavm.qavmapi_utils as qavmapi_utils
 
-import logs
+import qavm.logs as logs
 logger = logs.logger
 
 

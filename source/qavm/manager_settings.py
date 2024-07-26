@@ -1,12 +1,12 @@
 import json
 from pathlib import Path
 
-import qavmapi.utils as utils
+import qavm.qavmapi.utils as utils
 
-from qavmapi import BaseSettings
-from manager_plugin import PluginManager, SoftwareHandler, SettingsHandler
+from qavm.qavmapi import BaseSettings
+from qavm.manager_plugin import PluginManager, SoftwareHandler, SettingsHandler
 
-import logs
+import qavm.logs as logs
 logger = logs.logger
 
 class SettingsEntry:

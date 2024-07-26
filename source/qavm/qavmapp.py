@@ -1,11 +1,11 @@
 from typing import List
 
-import logs
+import qavm.logs as logs
 logger = logs.logger
 
-from manager_plugin import PluginManager, SoftwareHandler
-from manager_settings import SettingsManager
-import qavmapi.utils as utils
+from qavm.manager_plugin import PluginManager, SoftwareHandler
+from qavm.manager_settings import SettingsManager
+import qavm.qavmapi.utils as utils
 
 from PyQt6.QtGui import (
     QFont
@@ -14,8 +14,8 @@ from PyQt6.QtWidgets import (
 	QApplication
 )
 
-from window_main import MainWindow
-from window_pluginselect import PluginSelectionWindow
+from qavm.window_main import MainWindow
+from qavm.window_pluginselect import PluginSelectionWindow
 
 # Extensive PyQt tutorial: https://realpython.com/python-menus-toolbars/#building-context-or-pop-up-menus-in-pyqt
 class QAVMApp(QApplication):

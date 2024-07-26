@@ -1,9 +1,9 @@
 from functools import partial
 
-import logs
+import qavm.logs as logs
 logger = logs.logger
 
-from manager_plugin import PluginManager, QAVMPlugin, SoftwareHandler
+from qavm.manager_plugin import PluginManager, QAVMPlugin, SoftwareHandler
 from PyQt6.QtCore import (
 	pyqtSignal
 )

@@ -1,10 +1,10 @@
 import sys, os
 
-import logs
+import qavm.logs as logs
 logger = logs.logger
 
-from qavm_version import LoadVersionInfo
-from qavmapp import QAVMApp
+from qavm.qavm_version import LoadVersionInfo
+from qavm.qavmapp import QAVMApp
 
 from qt_material import apply_stylesheet
 

@@ -1,9 +1,9 @@
 import importlib.util, os, re
 from pathlib import Path
 
-from qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings
+from qavm.qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings
 
-import logs
+import qavm.logs as logs
 logger = logs.logger
 
 class QAVMModule:
