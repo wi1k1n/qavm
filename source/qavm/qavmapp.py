@@ -33,6 +33,7 @@ class QAVMApp(QApplication):
 		self.pluginManager = PluginManager(self, utils.GetPluginsFolderPath())
 		self.pluginManager.LoadPlugins()
 
+		self.settingsManager.LoadModuleSettings()
 		
 		selectedSoftwareUID = self.qavmSettings.GetSelectedSoftwareUID()
 		swHandlers: dict[str, SoftwareHandler] = {f'{pUID}#{sID}': swHandler for pUID, sID, swHandler in self.pluginManager.GetSoftwareHandlers()}  # {softwareUID: SoftwareHandler}
@@ -60,7 +61,7 @@ class QAVMApp(QApplication):
 	
 	""" Performs software-specific initialization and opens main window """
 	def startMainWindow(self):
-		self.settingsManager.LoadModuleSettings()
+		self.settingsManager.LoadSoftwareSettings()
 		
 		self.mainWindow: MainWindow = MainWindow(self)
 		self.mainWindow.show()

@@ -194,19 +194,19 @@ def RegisterModuleSoftware():
 
 
 
-		# {
-		# 	'id': 'software.example',  # this is a unique id under the PLUGIN_ID domain
-		# 	'name': 'C4D - Example',
-		# 	# 'description': 'Cinema 4D software module for QAVM',
-		# 	# 'author': 'wi1k1n',
-		# 	# 'author_email': 'vfpkjd@gmail.com',
+		{
+			'id': 'software.example',  # this is a unique id under the PLUGIN_ID domain
+			'name': 'C4D - Example',
+			# 'description': 'Cinema 4D software module for QAVM',
+			# 'author': 'wi1k1n',
+			# 'author_email': 'vfpkjd@gmail.com',
 
-		# 	'qualifier': C4DExampleQualifier,
-		# 	'descriptor': C4DExampleDescriptor,
-		# 	'tile_builders': {
-		# 		'': C4DExampleTileBuilder,
-		# 	},
-		# }
+			'qualifier': C4DExampleQualifier,
+			'descriptor': C4DExampleDescriptor,
+			'tile_builders': {
+				'': C4DExampleTileBuilder,
+			},
+		}
 	]
 
 def RegisterModuleSettings():

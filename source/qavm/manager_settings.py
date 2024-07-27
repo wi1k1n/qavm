@@ -99,11 +99,21 @@ class SettingsManager:
 		self.prefsFolderPath: Path = prefsFolderPath
 
 		self.qavmSettings: QAVMSettings = QAVMSettings()
+		self.softwareSettings: BaseSettings = None
+
 		self.moduleSettings: dict[str, BaseSettings] = dict()
 
 	def LoadQAVMSettings(self):
 		self.prefsFolderPath.mkdir(parents=True, exist_ok=True)
 		self.qavmSettings.Load()
+	
+	def LoadSoftwareSettings(self):
+		if not self.qavmSettings.GetSelectedSoftwareUID():
+			raise Exception('No software selected')
+		softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
+		if swSettingsClass := softwareHandler.GetSettingsClass():
+			self.softwareSettings = swSettingsClass()
+			self.softwareSettings.Load()
 	
 	def LoadModuleSettings(self):
 		pluginManager: PluginManager = self.app.GetPluginManager()
@@ -116,11 +126,8 @@ class SettingsManager:
 	def GetQAVMSettings(self) -> QAVMSettings:
 		return self.qavmSettings
 	
-	# def GetSoftwareSettings(self) -> BaseSettings:
-	# 	if not self.settings['_selectedSoftwareUID_'].getValue():
-	# 		raise Exception('No software selected')
-	# 	softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetSoftwareHandler(self.settings['_selectedSoftwareUID_'].getValue())
-	# 	return softwareHandler.GetSettingsClass()()
+	def GetSoftwareSettings(self) -> BaseSettings:
+		return self.softwareSettings
 	
 	""" Returns dict of settings modules that are implemented in currently selected plugin: {moduleUID: BaseSettings}. The moduleUID is in form PLUGIN_ID#SettingsModuleID """
 	def GetModuleSettings(self) -> dict[str, BaseSettings]:

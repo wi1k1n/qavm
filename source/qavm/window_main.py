@@ -40,6 +40,12 @@ class PreferencesWindowExample(QWidget):
 		menuWidget.addItem(createMenuItem("General"))
 		menuWidget.addItem(createMenuItem("Appearance"))
 		menuWidget.addItem(createMenuItem("Shortcuts"))
+
+		softwareSettings: BaseSettings = settingsManager.GetSoftwareSettings()
+		if softwareSettings:
+			selSWUID = settingsManager.GetQAVMSettings().GetSelectedSoftwareUID()
+			menuWidget.addItem(createMenuItem(pluginManager.GetSoftwareHandler(selSWUID).name))
+
 		for settingsID, pluginSettings in settingsManager.GetModuleSettings().items():
 			settingsHandler: SettingsHandler = pluginManager.GetSettingsHandler(settingsID)
 			menuWidget.addItem(createMenuItem(settingsHandler.GetName()))

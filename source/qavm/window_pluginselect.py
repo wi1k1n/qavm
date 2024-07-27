@@ -26,7 +26,7 @@ class PluginSelectionWindow(QMainWindow):
 		swHandlers: list[tuple[str, str, SoftwareHandler]] = pluginManager.GetSoftwareHandlers()  # [pluginID, softwareID, SoftwareHandler]
 
 		for pluginID, softwareID, softwareHandler in swHandlers:
-			plugin: Plugin = pluginManager.GetPlugin(pluginID)
+			plugin: QAVMPlugin = pluginManager.GetPlugin(pluginID)
 			button = QPushButton(f'[{plugin.GetName()} @ {plugin.GetVersionStr()} ({pluginID})] {softwareHandler.GetName()} ({softwareID})')
 			button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 			button.clicked.connect(partial(self.selectPlugin, plugin.pluginID, softwareID))

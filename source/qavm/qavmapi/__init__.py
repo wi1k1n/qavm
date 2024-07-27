@@ -60,4 +60,4 @@ class BaseTileBuilder(object):
 		pass
 
 	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:
-		return QLabel(descriptor.dirPath, parent)
+		return QLabel(str(descriptor.dirPath), parent)
