@@ -4,7 +4,7 @@ import qavm.logs as logs
 logger = logs.logger
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
-from qavm.manager_settings import SettingsManager
+from qavm.manager_settings import SettingsManager, QAVMSettings
 import qavm.qavmapi.utils as utils
 
 from PyQt6.QtGui import (
@@ -27,12 +27,14 @@ class QAVMApp(QApplication):
 		self.setOrganizationDomain('wi1k.in')
 		
 		self.settingsManager = SettingsManager(self, utils.GetPrefsFolderPath())
-		self.settingsManager.LoadSettings()
+		self.settingsManager.LoadQAVMSettings()
+		self.qavmSettings: QAVMSettings = self.settingsManager.GetQAVMSettings()
 
 		self.pluginManager = PluginManager(self, utils.GetPluginsFolderPath())
 		self.pluginManager.LoadPlugins()
+
 		
-		selectedSoftwareUID = self.settingsManager.GetSelectedSoftwareUID()
+		selectedSoftwareUID = self.qavmSettings.GetSelectedSoftwareUID()
 		swHandlers: dict[str, SoftwareHandler] = {f'{pUID}#{sID}': swHandler for pUID, sID, swHandler in self.pluginManager.GetSoftwareHandlers()}  # {softwareUID: SoftwareHandler}
 
 		if selectedSoftwareUID and selectedSoftwareUID not in swHandlers:
@@ -40,11 +42,11 @@ class QAVMApp(QApplication):
 
 		if selectedSoftwareUID in swHandlers:
 			logger.info(f'Selected software plugin: {selectedSoftwareUID}')
-			self.settingsManager.SetSelectedSoftwareUID(selectedSoftwareUID)
+			self.qavmSettings.SetSelectedSoftwareUID(selectedSoftwareUID)
 			self.startMainWindow()
 		elif len(swHandlers) == 1:
 			logger.info(f'The only software plugin: {list(swHandlers.keys())[0]}')
-			self.settingsManager.SetSelectedSoftwareUID(list(swHandlers.keys())[0])
+			self.qavmSettings.SetSelectedSoftwareUID(list(swHandlers.keys())[0])
 			self.startMainWindow()
 		else:
 			self.selectPluginWindow: PluginSelectionWindow = PluginSelectionWindow(self)
@@ -53,7 +55,7 @@ class QAVMApp(QApplication):
 	
 	def slot_PluginSelected(self, pluginUID: str, softwareID: str):
 		logger.info(f'Selected software UID: {pluginUID}#{softwareID}')
-		self.settingsManager.SetSelectedSoftwareUID(f'{pluginUID}#{softwareID}')
+		self.qavmSettings.SetSelectedSoftwareUID(f'{pluginUID}#{softwareID}')
 		self.startMainWindow()
 	
 	""" Performs software-specific initialization and opens main window """

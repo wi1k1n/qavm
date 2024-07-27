@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler, SettingsHandler
-from qavm.manager_settings import SettingsManager
+from qavm.manager_settings import SettingsManager, QAVMSettings
 
 from qavm.qavmapi import BaseDescriptor, BaseSettings, BaseTileBuilder
 from qavm.utils_gui import FlowLayout
@@ -75,12 +75,16 @@ class MainWindow(QMainWindow):
 		super(MainWindow, self).__init__(parent)
 
 		self.app = app
+		
+		self.pluginManager: PluginManager = self.app.GetPluginManager()
+		self.settingsManager: SettingsManager = self.app.GetSettingsManager()
+		self.qavmSettings: QAVMSettings = self.settingsManager.GetQAVMSettings()
+
+		self.dialogsManager: DialogsManager = DialogsManager(app, self)
 
 		self.setWindowTitle("QAVM")
 		self.resize(1420, 840)
 		self.setMinimumSize(350, 250)
-
-		self.dialogsManager: DialogsManager = DialogsManager(app, self)
 
 		self._setupActions()
 		self._setupMenuBar()
@@ -177,9 +181,7 @@ class MainWindow(QMainWindow):
 	def _setupCentralWidget(self):
 		tabsWidget: QTabWidget = QTabWidget()
 
-		pluginManager: PluginManager = self.app.GetPluginManager()
-		settingsManager: SettingsManager = self.app.GetSettingsManager()
-		softwareHandler: SoftwareHandler = pluginManager.GetSoftwareHandler(settingsManager.GetSelectedSoftwareUID())
+		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
 		descs: list[BaseDescriptor] = self._scanSoftware()
 		defaultTileBuilder = softwareHandler.GetTileBuilderClass()()
 
@@ -229,9 +231,7 @@ class MainWindow(QMainWindow):
 
 
 	def _scanSoftware(self) -> list[BaseDescriptor]:
-		pluginManager: PluginManager = self.app.GetPluginManager()
-		settingsManager: SettingsManager = self.app.GetSettingsManager()
-		softwareHandler: SoftwareHandler = pluginManager.GetSoftwareHandler(settingsManager.GetSelectedSoftwareUID())
+		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
 
 		qualifier = softwareHandler.GetQualifierClass()()
 		descriptorClass = softwareHandler.GetDescriptorClass()
@@ -239,7 +239,7 @@ class MainWindow(QMainWindow):
 		if not settingsClass:
 			settingsClass = BaseSettings
 
-		searchPaths = settingsManager.GetSearchPaths()
+		searchPaths = self.qavmSettings.GetSearchPaths()
 		searchPaths = qualifier.ProcessSearchPaths(searchPaths)
 
 		config = qualifier.GetIdentificationConfig()

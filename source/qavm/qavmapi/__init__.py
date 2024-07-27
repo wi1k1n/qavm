@@ -7,7 +7,12 @@ from PyQt6.QtWidgets import QWidget, QLabel
 ##############################################################################
 
 class BaseSettings(object):
-	pass
+	def Load(self):
+		pass
+	def Save(self):
+		pass
+	def CreateWidget(self, parent):
+		pass
 
 class BaseSoftwareSettings(BaseSettings):
 	pass

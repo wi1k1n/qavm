@@ -92,6 +92,7 @@ class C4DDescriptor(BaseDescriptor):
 class C4DTileBuilderDefault(BaseTileBuilder):
 	def CreateTileWidget(self, descriptor: C4DDescriptor, parent) -> QWidget:
 		descWidget = self._createDescWidget(descriptor, parent)
+		# return descWidget
 		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, QColor(Qt.GlobalColor.darkGreen), parent)
 		return animatedBorderWidget
 	
@@ -141,7 +142,12 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		return animBorderWidget
 
 class C4DSettings(BaseSoftwareSettings):
-	pass
+	def Load(self):
+		pass
+	def Save(self):
+		pass
+	def CreateWidget(self, parent):
+		pass
 
 
 
@@ -153,8 +159,18 @@ class C4DExampleDescriptor(BaseDescriptor):
 class C4DExampleTileBuilder(BaseTileBuilder):
 	pass
 
-class MyExampleSettings(BaseSettings):
+class MyExampleSettingsContainer:
 	pass
+class MyExampleSettings(BaseSettings):
+	def __init__(self) -> None:
+		super().__init__()
+		self.container: MyExampleSettingsContainer = MyExampleSettingsContainer()
+	def Load(self):
+		pass
+	def Save(self):
+		pass
+	def CreateWidget(self, parent):
+		pass
 
 
 

@@ -2,12 +2,15 @@ from pathlib import Path
 import os, platform
 
 def GetPluginsFolderPath() -> Path:
-	return GetPrefsFolderPath()/'plugins'
+	return GetQAVMDataPath()/'plugins'
 
-def GetPrefsFolderPath() -> Path:
+def GetQAVMDataPath() -> Path:
 	path: str = GetAppDataPath()/'qamv'
 	os.makedirs(path, exist_ok=True)
 	return path
+
+def GetPrefsFolderPath() -> Path:
+	return GetQAVMDataPath()/'preferences'
 
 def GetAppDataPath() -> Path:
 	"""Returns the path to the AppData folder for the current user."""
