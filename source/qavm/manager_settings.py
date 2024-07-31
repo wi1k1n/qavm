@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from PyQt6.QtWidgets import QWidget, QFormLayout, QCheckBox, QLineEdit
+
 import qavm.qavmapi.utils as utils
 
 from qavm.qavmapi import BaseSettings
@@ -73,8 +75,16 @@ class QAVMSettings(BaseSettings):
 		with open(self.prefFilePath, 'w') as f:
 			f.write(self.container.DumpToString())
 
-	def CreateWidget(self, parent):
-		pass
+	def CreateWidget(self, parent: QWidget) -> QWidget:
+		settingsWidget: QWidget = QWidget(parent)
+		formLayout: QFormLayout = QFormLayout(settingsWidget)
+
+		formLayout.addRow('Search paths', QWidget())
+		formLayout.addRow('Search subfolders depth', QLineEdit())
+		formLayout.addRow('Hide on close', QCheckBox())
+		formLayout.addRow('Extract icons', QCheckBox())
+
+		return settingsWidget
 
 	
 	def GetSelectedSoftwarePluginID(self) -> str:
@@ -114,6 +124,7 @@ class SettingsManager:
 		if swSettingsClass := softwareHandler.GetSettingsClass():
 			self.softwareSettings = swSettingsClass()
 			self.softwareSettings.Load()
+			self.app.GetDialogsManager().GetPreferencesWindow().AddSettingsEntry(softwareHandler.GetName(), self.softwareSettings)
 	
 	def LoadModuleSettings(self):
 		pluginManager: PluginManager = self.app.GetPluginManager()
@@ -122,6 +133,7 @@ class SettingsManager:
 			moduleSettings: BaseSettings = settingsHandler.GetSettingsClass()()
 			moduleSettings.Load()
 			self.moduleSettings[f'{pluginID}#{settingsID}'] = moduleSettings
+			self.app.GetDialogsManager().GetPreferencesWindow().AddSettingsEntry(settingsHandler.GetName(), moduleSettings)
 
 	def GetQAVMSettings(self) -> QAVMSettings:
 		return self.qavmSettings

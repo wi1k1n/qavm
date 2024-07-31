@@ -5,6 +5,7 @@ logger = logs.logger
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
 from qavm.manager_settings import SettingsManager, QAVMSettings
+from qavm.manager_dialogs import DialogsManager
 import qavm.qavmapi.utils as utils
 
 from PyQt6.QtGui import (
@@ -33,14 +34,16 @@ class QAVMApp(QApplication):
 		self.pluginManager = PluginManager(self, utils.GetPluginsFolderPath())
 		self.pluginManager.LoadPlugins()
 
+		self.dialogsManager: DialogsManager = DialogsManager(self)
+
 		self.settingsManager.LoadModuleSettings()
 		
+		# Check stored selected software and either show selector window or start main window
 		selectedSoftwareUID = self.qavmSettings.GetSelectedSoftwareUID()
 		swHandlers: dict[str, SoftwareHandler] = {f'{pUID}#{sID}': swHandler for pUID, sID, swHandler in self.pluginManager.GetSoftwareHandlers()}  # {softwareUID: SoftwareHandler}
 
 		if selectedSoftwareUID and selectedSoftwareUID not in swHandlers:
 			logger.warning(f'Selected software plugin not found: {selectedSoftwareUID}')
-
 		if selectedSoftwareUID in swHandlers:
 			logger.info(f'Selected software plugin: {selectedSoftwareUID}')
 			self.qavmSettings.SetSelectedSoftwareUID(selectedSoftwareUID)
@@ -50,9 +53,9 @@ class QAVMApp(QApplication):
 			self.qavmSettings.SetSelectedSoftwareUID(list(swHandlers.keys())[0])
 			self.startMainWindow()
 		else:
-			self.selectPluginWindow: PluginSelectionWindow = PluginSelectionWindow(self)
-			self.selectPluginWindow.pluginSelected.connect(self.slot_PluginSelected)
-			self.selectPluginWindow.show()
+			selectPluginWindow: PluginSelectionWindow = self.dialogsManager.GetPluginSelectionWindow()
+			selectPluginWindow.pluginSelected.connect(self.slot_PluginSelected)
+			selectPluginWindow.show()
 	
 	def slot_PluginSelected(self, pluginUID: str, softwareID: str):
 		logger.info(f'Selected software UID: {pluginUID}#{softwareID}')
@@ -62,12 +65,13 @@ class QAVMApp(QApplication):
 	""" Performs software-specific initialization and opens main window """
 	def startMainWindow(self):
 		self.settingsManager.LoadSoftwareSettings()
-		
-		self.mainWindow: MainWindow = MainWindow(self)
-		self.mainWindow.show()
+		self.dialogsManager.GetMainWindow().show()
 
 	def GetPluginManager(self) -> PluginManager:
 		return self.pluginManager
 	
 	def GetSettingsManager(self) -> SettingsManager:
 		return self.settingsManager
+	
+	def GetDialogsManager(self) -> DialogsManager:
+		return self.dialogsManager

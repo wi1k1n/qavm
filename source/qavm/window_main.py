@@ -1,14 +1,12 @@
 import os  # TODO: Get rid of os.path in favor of pathlib
 from pathlib import Path
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
-	QMainWindow, QWidget, QVBoxLayout, QLabel, QTabWidget, QScrollArea, QStatusBar,
-	QListWidgetItem, QListWidget, QHBoxLayout
+	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar
 )
 
-from qavm.manager_plugin import PluginManager, SoftwareHandler, SettingsHandler
+from qavm.manager_plugin import PluginManager, SoftwareHandler
 from qavm.manager_settings import SettingsManager, QAVMSettings
 
 from qavm.qavmapi import BaseDescriptor, BaseSettings, BaseTileBuilder
@@ -17,64 +15,6 @@ import qavm.qavmapi_utils as qavmapi_utils
 
 import qavm.logs as logs
 logger = logs.logger
-
-
-class PreferencesWindowExample(QWidget):
-	def __init__(self, app, parent: QWidget | None = None) -> None:
-		super().__init__(parent)
-		self.app = app
-
-		self.setWindowTitle("QAVM - Settings")
-		self.resize(600, 600)
-		self.setMinimumHeight(300)
-		
-		pluginManager: PluginManager = self.app.GetPluginManager()
-		settingsManager: SettingsManager = self.app.GetSettingsManager()
-		
-		def createMenuItem(text: str) -> QListWidgetItem:
-			item = QListWidgetItem(text)
-			item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-			return item
-		
-		menuWidget = QListWidget()
-		menuWidget.addItem(createMenuItem("General"))
-		menuWidget.addItem(createMenuItem("Appearance"))
-		menuWidget.addItem(createMenuItem("Shortcuts"))
-
-		softwareSettings: BaseSettings = settingsManager.GetSoftwareSettings()
-		if softwareSettings:
-			selSWUID = settingsManager.GetQAVMSettings().GetSelectedSoftwareUID()
-			menuWidget.addItem(createMenuItem(pluginManager.GetSoftwareHandler(selSWUID).name))
-
-		for settingsID, pluginSettings in settingsManager.GetModuleSettings().items():
-			settingsHandler: SettingsHandler = pluginManager.GetSettingsHandler(settingsID)
-			menuWidget.addItem(createMenuItem(settingsHandler.GetName()))
-		menuWidget.setMinimumWidth(menuWidget.minimumSizeHint().width() + 20)
-		menuWidget.setMaximumWidth(200)
-
-		contentWidget = QLabel("This is my text here")
-
-		contentLayout = QVBoxLayout()
-		contentLayout.addWidget(contentWidget)
-
-		contentWidget = QWidget()
-		contentWidget.setLayout(contentLayout)
-
-		mainLayout = QHBoxLayout()
-		mainLayout.addWidget(menuWidget, 1)
-		mainLayout.addWidget(contentWidget, 3)
-		self.setLayout(mainLayout)
-
-# TODO: this should be in the app, not in mainwindow!
-class DialogsManager:
-	def __init__(self, app, parent: QMainWindow) -> None:
-		self.parent = parent
-		self.app = app
-
-		self.windowPrefs = PreferencesWindowExample(app)
-
-	def GetPreferencesWindow(self):
-		return self.windowPrefs
 
 class MainWindow(QMainWindow):
 	def __init__(self, app, parent: QWidget | None = None) -> None:
@@ -85,8 +25,6 @@ class MainWindow(QMainWindow):
 		self.pluginManager: PluginManager = self.app.GetPluginManager()
 		self.settingsManager: SettingsManager = self.app.GetSettingsManager()
 		self.qavmSettings: QAVMSettings = self.settingsManager.GetQAVMSettings()
-
-		self.dialogsManager: DialogsManager = DialogsManager(app, self)
 
 		self.setWindowTitle("QAVM")
 		self.resize(1420, 840)
@@ -233,7 +171,7 @@ class MainWindow(QMainWindow):
 		return scrollWidget
 
 	def showPreferences(self):
-		self.dialogsManager.GetPreferencesWindow().show()
+		self.app.GetDialogsManager().GetPreferencesWindow().show()
 
 
 	def _scanSoftware(self) -> list[BaseDescriptor]:

@@ -146,8 +146,8 @@ class C4DSettings(BaseSoftwareSettings):
 		pass
 	def Save(self):
 		pass
-	def CreateWidget(self, parent):
-		pass
+	def CreateWidget(self, parent) -> QWidget:
+		return QLabel('C4D Settings', parent)
 
 
 
