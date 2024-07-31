@@ -1,9 +1,10 @@
 import os  # TODO: Get rid of os.path in favor of pathlib
 from pathlib import Path
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
-	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar
+	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
@@ -131,13 +132,31 @@ class MainWindow(QMainWindow):
 
 		tilesWidget = self._createTilesWidget(descs, defaultTileBuilder, self)
 		freeMoveWidget = self._createFreeMoveWidget(descs, defaultTileBuilder, self)
+		tableWidget = self._createTableWidget(descs, defaultTileBuilder, self)
 		tabsWidget.addTab(tilesWidget, "Tiles")
 		tabsWidget.addTab(freeMoveWidget, "Free Move")
+		tabsWidget.addTab(tableWidget, "Details")
 		
 		self.setCentralWidget(tabsWidget)
 	
 	def _createFreeMoveWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
 		return QLabel("Freemove", parent)
+	
+	def _createTableWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
+		tableWidget = QTableWidget(parent)
+		tableWidget.setColumnCount(2)
+		tableWidget.setRowCount(len(descs))
+		tableWidget.setHorizontalHeaderLabels(["Name", "Path"])
+		tableWidget.verticalHeader().setVisible(False)
+		tableWidget.horizontalHeader().setStretchLastSection(True)
+		# tableWidget.horizontalHeader().setSectionResizeMode(0, QTableWidget.ResizeMode.ResizeToContents)
+		# tableWidget.horizontalHeader().setSectionResizeMode(1, QTableWidget.ResizeMode.Stretch)
+		
+		for i, desc in enumerate(descs):
+			tableWidget.setItem(i, 0, QTableWidgetItem(str(desc)))
+			tableWidget.setItem(i, 1, QTableWidgetItem(str(desc.dirPath)))
+		
+		return tableWidget
 	
 	def _createTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
 		tiles: list[QWidget] = list()

@@ -14,9 +14,6 @@ class BaseSettings(object):
 	def CreateWidget(self, parent):
 		pass
 
-class BaseSoftwareSettings(BaseSettings):
-	pass
-
 ##############################################################################
 ########################### QAVM Plugin: Software ############################
 ##############################################################################

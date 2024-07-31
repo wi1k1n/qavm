@@ -1,12 +1,14 @@
-import os
+import os, subprocess
 from pathlib import Path
-from qavm.qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseSoftwareSettings
-from qavm.qavmapi.gui import StaticBorderWidget
+from functools import partial
+
+from qavm.qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings
+from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel
 import qavm.qavmapi.utils as utils
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QProcess
 from PyQt6.QtGui import QFont, QColor, QPixmap
-from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout
+from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMessageBox
 
 """
 QAVM can be extended by plugins. Each plugin is represented by a folder with a python script that has the same name as the folder.
@@ -66,6 +68,9 @@ class C4DDescriptor(BaseDescriptor):
 	def __init__(self, dirPath: Path, fileContents: dict[str, str | bytes]):
 		super().__init__(dirPath, fileContents)
 
+		# From BaseDescriptor:
+		# self.dirPath: Path
+
 		self.buildString = ''  # from the build.txt
 		if 'resource/build.txt' in fileContents:
 			self.buildString = fileContents['resource/build.txt']
@@ -82,6 +87,16 @@ class C4DDescriptor(BaseDescriptor):
 
 		self.dateInstalled = ''
 		self.dateBuild = ''  # date when the build was created
+
+	def GetC4DExecutablePath(self) -> Path | None:
+		if utils.PlatformWindows():
+			if (c4d := self.dirPath/'Cinema 4D.exe').exists():
+				return c4d
+		elif utils.PlatformMacOS():
+			if (c4d := self.dirPath/'Cinema 4D.app').exists():
+				return c4d
+		QMessageBox.warning(None, 'C4D Descriptor', 'Cinema 4D executable not found!')
+		return None
 	
 	def __str__(self):
 		return f'C4D: {os.path.basename(self.dirPath)}'
@@ -91,7 +106,7 @@ class C4DDescriptor(BaseDescriptor):
 
 class C4DTileBuilderDefault(BaseTileBuilder):
 	def CreateTileWidget(self, descriptor: C4DDescriptor, parent) -> QWidget:
-		descWidget = self._createDescWidget(descriptor, parent)
+		descWidget: QWidget = self._createDescWidget(descriptor, parent)
 		# return descWidget
 		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, QColor(Qt.GlobalColor.darkGreen), parent)
 		return animatedBorderWidget
@@ -107,11 +122,12 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		descLayout.setContentsMargins(0, 0, 0, 0)
 		descLayout.setSpacing(0)
 
-		iconLabel = QLabel(parent)
+		iconLabel = ClickableLabel(parent)
 		iconLabel.setScaledContents(True)
 		pixMap: QPixmap = QPixmap('./res/icons/c4d-teal.png')
 		iconLabel.setPixmap(pixMap)
 		iconLabel.setFixedSize(64, 64)
+		iconLabel.clicked.connect(partial(self._iconClicked, desc))
 
 		def createQLabel(text) -> QLabel:
 			label = QLabel(text, parent)
@@ -141,17 +157,19 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		animBorderWidget.setFixedSize(animBorderWidget.minimumSizeHint())
 		return animBorderWidget
 
-class C4DSettings(BaseSoftwareSettings):
-	def Load(self):
-		pass
-	def Save(self):
-		pass
+	def _iconClicked(self, desc: C4DDescriptor):
+		os.startfile(str(desc.GetC4DExecutablePath()), arguments='g_console=true')
+
+class C4DSettings(BaseSettings):
 	def CreateWidget(self, parent) -> QWidget:
 		return QLabel('C4D Settings', parent)
 
 
 
 
+##############################################################################################
+##################### TESTING THINGS #########################################################
+##############################################################################################
 class C4DExampleQualifier(BaseQualifier):
 	pass
 class C4DExampleDescriptor(BaseDescriptor):
@@ -159,18 +177,14 @@ class C4DExampleDescriptor(BaseDescriptor):
 class C4DExampleTileBuilder(BaseTileBuilder):
 	pass
 
-class MyExampleSettingsContainer:
-	pass
 class MyExampleSettings(BaseSettings):
 	def __init__(self) -> None:
 		super().__init__()
-		self.container: MyExampleSettingsContainer = MyExampleSettingsContainer()
-	def Load(self):
-		pass
-	def Save(self):
-		pass
 	def CreateWidget(self, parent):
-		pass
+		return None
+##############################################################################################
+##################### TESTING THINGS #########################################################
+##############################################################################################
 
 
 
