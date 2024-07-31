@@ -1,6 +1,6 @@
 from PyQt6.QtCore import Qt, QSize, QRect, QPoint
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen
-from PyQt6.QtWidgets import QLabel, QVBoxLayout, QLayout, QFrame
+from PyQt6.QtWidgets import QLabel, QLayout
 
 
 # Copied from experiments on 26th of June 2024
@@ -81,9 +81,6 @@ class FlowLayout(QLayout):
 			x = nextX
 			lineheight = max(lineheight, item.sizeHint().height())
 		return y + lineheight - rect.y() + bottom
-
-from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen
-from PyQt6.QtWidgets import QLabel
 
 # Copied from experiments on 26th of June 2024
 # Bubble implementation is taken from https://stackoverflow.com/a/18069897 and modified

@@ -122,9 +122,17 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		descLayout.setContentsMargins(0, 0, 0, 0)
 		descLayout.setSpacing(0)
 
+		pixMap = None
+		if desc.GetC4DExecutablePath().exists():
+			imgBytes: bytes = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())
+			if imgBytes:
+				pixMap = QPixmap()
+				pixMap.loadFromData(imgBytes)
+		if not pixMap:
+			pixMap: QPixmap = QPixmap('./res/icons/c4d-teal.png')
+
 		iconLabel = ClickableLabel(parent)
 		iconLabel.setScaledContents(True)
-		pixMap: QPixmap = QPixmap('./res/icons/c4d-teal.png')
 		iconLabel.setPixmap(pixMap)
 		iconLabel.setFixedSize(64, 64)
 		iconLabel.clicked.connect(partial(self._iconClicked, desc))
