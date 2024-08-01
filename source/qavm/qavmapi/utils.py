@@ -60,7 +60,28 @@ def getFileHash(filePath: Path, hashAlgo='sha256'):
 
 def GetIconFromExecutable(executablePath: Path) -> Path | None:
 	"""Searched for cached icon file and extracts if not found"""
-	iconsCache: dict[str, dict[str, Any]] = dict()
+	
+	"""
+	Icons cache data structure:
+	{
+		"execIndex": {
+			"executablePath1": {
+				"execHash": "sha256[:12]",
+				"iconHash": "sha256[:12]",
+			}, {
+			...
+			}
+		},
+		"iconIndex": {
+			"iconHash1": {
+				"iconFilePath": "iconPath_relative_to_iconsCacheDirPath",
+			}, {
+			...
+			}
+		}
+	}
+	"""
+	iconsCache: dict = dict()
 
 	# Load cache data
 	iconsCacheDirPath: Path = GetQAVMCachePath()/'icons'
@@ -68,24 +89,36 @@ def GetIconFromExecutable(executablePath: Path) -> Path | None:
 	if iconsCacheDataPath.exists():
 		with open(iconsCacheDataPath, 'r') as f:
 			data = json.load(f)
-			if data is not None and isinstance(data, dict) and len(data):
+			if data is not None:
+				# TODO: do a proper validation pass
+				if not isinstance(data, dict) or 'execIndex' not in data or 'iconIndex' not in data:
+					raise Exception('Invalid icons cache data')
 				iconsCache = data
 	
-	# Check if icon is cached
-	icPathToKey: dict[Path, str] = {Path(k): k for k in iconsCache.keys()}
+	execIndex: dict = iconsCache.get('execIndex', dict())
+	iconIndex: dict = iconsCache.get('iconIndex', dict())
+	
+	# Check if executable is indexed
+	icPathToKey: dict[Path, str] = {Path(k): k for k in execIndex.keys()}
 	if executablePath not in icPathToKey:
 		return ExtractIconFromExecutable(executablePath)
 	
-	iconData: dict[str, Any] = iconsCache[icPathToKey[executablePath]]
-	if iconData is None or not isinstance(iconData, dict) \
-			or 'execHash' not in iconData or 'iconFilePath' not in iconData:
+	# Executable is indexed, check if icon is cached
+	execData: dict = execIndex[icPathToKey[executablePath]]
+	if 'iconHash' not in execData or execData['iconHash'] not in iconIndex:
+		return ExtractIconFromExecutable(executablePath)
+	
+	iconData: dict = iconIndex[execData['iconHash']]
+	if 'iconFilePath' not in iconData:
 		return ExtractIconFromExecutable(executablePath)
 	
 	iconPath: Path = iconsCacheDirPath/iconData['iconFilePath']
+	if not iconPath.exists():
+		return ExtractIconFromExecutable(executablePath)
 
 	# Check if executable file has changed
 	execHash: str = getFileHash(executablePath)
-	if execHash.lower() != iconData['execHash'].lower() or not iconPath.exists():
+	if execHash.lower() != execData['execHash'].lower():
 		return ExtractIconFromExecutable(executablePath)
 	
 	return iconPath
@@ -103,31 +136,43 @@ def ExtractIconFromExecutable(executablePath: Path) -> Path | None:
 		logger.error(f'Failed to extract icon from executable: {executablePath}')
 		return None
 	
-	# Cache icon	
+	### Cache icon
 	iconsCacheDirPath: Path = GetQAVMCachePath()/'icons'
 	iconsCacheDataPath: Path = iconsCacheDirPath/'icons-data.json'
-
-	execHash: str = getFileHash(executablePath)
-	iconTargetPath: Path = iconsCacheDirPath/f'{execHash}{iconPath.suffix}'
-	if iconTargetPath.exists():
-		iconTargetPath.unlink()
-	if not iconTargetPath.parent.exists():
-		iconTargetPath.parent.mkdir(parents=True, exist_ok=True)
-	shutil.copy(iconPath, iconTargetPath)
-
-	# Load existing cache data
+	
+	# Load existing cache data. Check GetIconFromExecutable() description for data structure
 	iconsCache: dict[str, dict[str, Any]] = dict()
 	if iconsCacheDataPath.exists():  # TODO: code repetition
 		with open(iconsCacheDataPath, 'r') as f:
 			data = json.load(f)
-			if data is not None and isinstance(data, dict) and len(data):
+			if data is not None and isinstance(data, dict):
 				iconsCache = data
-	
-	# Update current entry
-	iconsCache[str(executablePath)] = {
+
+	execHash: str = getFileHash(executablePath)
+	iconHash: str = getFileHash(iconPath)
+
+	# Update executable index
+	if 'execIndex' not in iconsCache:
+		iconsCache['execIndex'] = dict()
+	iconsCache['execIndex'][str(executablePath)] = {
 		'execHash': execHash,
-		'iconFilePath': str(iconTargetPath.relative_to(iconsCacheDirPath))
+		'iconHash': iconHash
 	}
+
+	if 'iconIndex' not in iconsCache:
+		iconsCache['iconIndex'] = dict()
+	
+	if iconHash not in iconsCache['iconIndex']:
+		iconTargetPath: Path = iconsCacheDirPath/f'{execHash}{iconPath.suffix}'
+		if iconTargetPath.exists():
+			iconTargetPath.unlink()
+		if not iconTargetPath.parent.exists():
+			iconTargetPath.parent.mkdir(parents=True, exist_ok=True)
+		shutil.copy(iconPath, iconTargetPath)
+
+		iconsCache['iconIndex'][iconHash] = {
+			'iconFilePath': str(iconTargetPath.relative_to(iconsCacheDirPath))
+		}
 
 	# Save cache data
 	with open(iconsCacheDataPath, 'w') as f:
