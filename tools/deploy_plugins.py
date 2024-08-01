@@ -1,4 +1,5 @@
 import os, shutil, hashlib
+from pathlib import Path
 import importlib.util
 
 IGNORE_DIRS_LIST = set(['__pycache__'])
@@ -11,8 +12,7 @@ def file_hash(file_path):
 			hash_algo.update(chunk)
 	return hash_algo.hexdigest()
 
-# TODO: using hardlink is potentially easier
-def DeployFolder(sourceFolderPath: str, targetFolderPath: str) -> None:
+def CopyPluginFolder(sourceFolderPath: str, targetFolderPath: str) -> None:
 	sourceFolderPath = os.path.abspath(sourceFolderPath)
 	targetFolderPath = os.path.abspath(targetFolderPath)
 
@@ -73,6 +73,42 @@ def DeployFolder(sourceFolderPath: str, targetFolderPath: str) -> None:
 			print(f'\t{fileName} in {path}')
 		raise ValueError(f'Leftover files found in target folder')
 
+def mainCopyPluginFiles(sourcePluginsFolderPath: str, targetPluginsFolderPath: str):
+	print('--- DEPLOY_MODE: Copying plugin files ---')
+
+	for dir in os.scandir(sourcePluginsFolderPath):
+		if not dir.is_dir():
+			continue
+		sourcePluginFolderPath = dir.path
+		targetPluginFolderPath = os.path.join(targetPluginsFolderPath, dir.name)
+		print(f'> Deploying "{dir.name}"')
+		print(f'\t{sourcePluginFolderPath} -> {targetPluginFolderPath}')
+
+		CopyPluginFolder(sourcePluginFolderPath, targetPluginFolderPath)
+
+def mainCreateJunction(sourcePluginsFolderPath: str, targetPluginsFolderPath: str):
+	print('--- DEPLOY_MODE: Creating junction ---')
+
+	sourcePluginFolderPath: Path = Path(sourcePluginsFolderPath)
+	targetPluginFolderPath: Path = Path(targetPluginsFolderPath)
+
+	if targetPluginFolderPath.exists():
+		if targetPluginFolderPath.is_junction():
+			return print(f'> Target plugins folder is already a junction: {targetPluginFolderPath}')
+		print(f'> Removing target plugins folder: {targetPluginFolderPath}')
+		shutil.rmtree(targetPluginFolderPath)
+	
+	if qavm_utils.PlatformWindows():
+		import _winapi
+		print(f'> Creating junction: {sourcePluginFolderPath} -> {targetPluginFolderPath}')
+		_winapi.CreateJunction(str(sourcePluginFolderPath), str(targetPluginFolderPath))
+		return
+	
+	if qavm_utils.PlatformMacOS():
+		raise NotImplementedError('Not implemented for MacOS yet')
+		os.symlink(sourcePluginFolderPath, targetPluginFolderPath, target_is_directory=True)
+		return print(f'> Created symlink: {sourcePluginFolderPath} -> {targetPluginFolderPath}')
+
 if __name__ == "__main__":
 	print('deploy_plugins.py - START')
 
@@ -85,16 +121,9 @@ if __name__ == "__main__":
 		print('Failed to load source/utils.py')
 		exit(1)
 	targetPluginsFolderPath = qavm_utils.GetPluginsFolderPath()
-	print(f'> Deploying plugins from {sourcePluginsFolderPath} to {targetPluginsFolderPath}')    
+	print(f'> Deploying plugins from {sourcePluginsFolderPath} to {targetPluginsFolderPath}')  
 
-	for dir in os.scandir(sourcePluginsFolderPath):
-		if not dir.is_dir():
-			continue
-		sourcePluginFolderPath = dir.path
-		targetPluginFolderPath = os.path.join(targetPluginsFolderPath, dir.name)
-		print(f'> Deploying "{dir.name}"')
-		print(f'\t{sourcePluginFolderPath} -> {targetPluginFolderPath}')
-
-		DeployFolder(sourcePluginFolderPath, targetPluginFolderPath)
+	# mainCopyPluginFiles(sourcePluginsFolderPath, targetPluginsFolderPath)
+	mainCreateJunction(sourcePluginsFolderPath, targetPluginsFolderPath)
 	
 	print('deploy_plugins.py - FINISHED')
