@@ -98,6 +98,9 @@ class C4DDescriptor(BaseDescriptor):
 		QMessageBox.warning(None, 'C4D Descriptor', 'Cinema 4D executable not found!')
 		return None
 	
+	def __hash__(self) -> int:
+		return super().__hash__() # TODO: should this be robust to dirPath (e.g. when c4d package is moved to another location)?
+	
 	def __str__(self):
 		return f'C4D: {os.path.basename(self.dirPath)}'
 	
@@ -122,14 +125,10 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		descLayout.setContentsMargins(0, 0, 0, 0)
 		descLayout.setSpacing(0)
 
-		pixMap = None
-		if desc.GetC4DExecutablePath().exists():
-			imgBytes: bytes = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())
-			if imgBytes:
-				pixMap = QPixmap()
-				pixMap.loadFromData(imgBytes)
-		if not pixMap:
-			pixMap: QPixmap = QPixmap('./res/icons/c4d-teal.png')
+		iconPath: Path | None = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())
+		if iconPath is None:
+			iconPath: Path = Path('./res/icons/c4d-teal.png')
+		pixMap: QPixmap = QPixmap(str(iconPath))
 
 		iconLabel = ClickableLabel(parent)
 		iconLabel.setScaledContents(True)

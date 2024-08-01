@@ -46,6 +46,9 @@ class BaseDescriptor(object):
 	def __init__(self, dirPath: Path, fileContents: dict[str, str | bytes]):
 		self.dirPath: Path = dirPath
 
+	def __hash__(self) -> int:
+		return hash(self.dirPath)
+
 	def __str__(self):
 		return 'BaseDescriptor'
 	

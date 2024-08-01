@@ -1,12 +1,13 @@
+import os, platform, json, hashlib
 from pathlib import Path
-import os, platform
+from typing import Any
 
 def PlatformWindows():
-    return platform.system() == 'Windows'
+	return platform.system() == 'Windows'
 def PlatformLinux():
-    return platform.system() == 'Linux'
+	return platform.system() == 'Linux'
 def PlatformMacOS():
-    return platform.system() == 'Darwin'
+	return platform.system() == 'Darwin'
 
 
 def GetPluginsFolderPath() -> Path:
@@ -22,6 +23,9 @@ def GetPrefsFolderPath() -> Path:
 
 def GetQAVMTempPath() -> Path:
 	return GetTempDataPath()/'qavm'
+
+def GetQAVMCachePath() -> Path:
+	return GetQAVMDataPath()/'cache'
 
 def GetAppDataPath() -> Path:
 	"""Returns the path to the AppData folder for the current user."""
@@ -46,15 +50,90 @@ def GetTempDataPath() -> Path:
 
 
 
-def GetIconFromExecutable(executablePath: Path) -> bytes:
+def getFileHash(filePath: Path, hashAlgo='sha256'):
+	CHUNKSIZE = 32 * 1024 * 1024  # 32 MB
+	hashFunc = hashlib.new(hashAlgo)
+	with open(filePath, 'rb') as file:
+		while chunk := file.read(CHUNKSIZE):
+			hashFunc.update(chunk)
+	return hashFunc.hexdigest()[:12]
+
+def GetIconFromExecutable(executablePath: Path) -> Path | None:
+	"""Searched for cached icon file and extracts if not found"""
+	iconsCache: dict[str, dict[str, Any]] = dict()
+
+	# Load cache data
+	iconsCacheDirPath: Path = GetQAVMCachePath()/'icons'
+	iconsCacheDataPath: Path = iconsCacheDirPath/'icons-data.json'
+	if iconsCacheDataPath.exists():
+		with open(iconsCacheDataPath, 'r') as f:
+			data = json.load(f)
+			if data is not None and isinstance(data, dict) and len(data):
+				iconsCache = data
+	
+	# Check if icon is cached
+	icPathToKey: dict[Path, str] = {Path(k): k for k in iconsCache.keys()}
+	if executablePath not in icPathToKey:
+		return ExtractIconFromExecutable(executablePath)
+	
+	iconData: dict[str, Any] = iconsCache[icPathToKey[executablePath]]
+	if iconData is None or not isinstance(iconData, dict) \
+			or 'execHash' not in iconData or 'iconFilePath' not in iconData:
+		return ExtractIconFromExecutable(executablePath)
+	
+	iconPath: Path = iconsCacheDirPath/iconData['iconFilePath']
+
+	# Check if executable file has changed
+	execHash: str = getFileHash(executablePath)
+	if execHash.lower() != iconData['execHash'].lower() or not iconPath.exists():
+		return ExtractIconFromExecutable(executablePath)
+	
+	return iconPath
+
+def ExtractIconFromExecutable(executablePath: Path) -> Path | None:
 	"""Extracts the icon from the executable file."""
+	iconPath: Path | None = None
 	if PlatformWindows():
-		return GetIconFromExecutableWindows(executablePath)
+		iconPath = GetIconFromExecutableWindows(executablePath)
 	if PlatformMacOS():
-		return GetIconFromExecutableMacOS(executablePath)
+		iconPath = GetIconFromExecutableMacOS(executablePath)
 	# if PlatformLinux():
-	# 	return GetIconFromExecutableLinux(executablePath)
-	raise Exception('Unsupported platform')
+	# 	iconPath = GetIconFromExecutableLinux(executablePath)
+	if iconPath is None:
+		logger.error(f'Failed to extract icon from executable: {executablePath}')
+		return None
+	
+	# Cache icon	
+	iconsCacheDirPath: Path = GetQAVMCachePath()/'icons'
+	iconsCacheDataPath: Path = iconsCacheDirPath/'icons-data.json'
+
+	execHash: str = getFileHash(executablePath)
+	iconTargetPath: Path = iconsCacheDirPath/f'{execHash}{iconPath.suffix}'
+	if iconTargetPath.exists():
+		iconTargetPath.unlink()
+	if not iconTargetPath.parent.exists():
+		iconTargetPath.parent.mkdir(parents=True, exist_ok=True)
+	shutil.copy(iconPath, iconTargetPath)
+
+	# Load existing cache data
+	iconsCache: dict[str, dict[str, Any]] = dict()
+	if iconsCacheDataPath.exists():  # TODO: code repetition
+		with open(iconsCacheDataPath, 'r') as f:
+			data = json.load(f)
+			if data is not None and isinstance(data, dict) and len(data):
+				iconsCache = data
+	
+	# Update current entry
+	iconsCache[str(executablePath)] = {
+		'execHash': execHash,
+		'iconFilePath': str(iconTargetPath.relative_to(iconsCacheDirPath))
+	}
+
+	# Save cache data
+	with open(iconsCacheDataPath, 'w') as f:
+		json.dump(iconsCache, f)
+
+	return iconPath
 
 ##################################################################################################################
 ############################### TODO: Implement this part as a binding to the C++ code ###########################
@@ -166,12 +245,12 @@ def extract_icon_from_exe(path_7zip: Path, exe_path: Path, inner_icon_file_path:
 
 # b = extract_icons(path7z, executablePath, icon_files, tempPath)
 def extract_icons(path_7zip: Path,
-				  exe_file_path: Path,
-				  icon_files: List[Tuple[str, int]],
+					exe_file_path: Path,
+					icon_files: List[Tuple[str, int]],
 				#   output_dir_path: Path,
-				  temp_output_dir_path: Path,
+					temp_output_dir_path: Path,
 				#   extract_largest_only: bool
-				  ) -> bytes:
+					) -> Path | None:
 	"""Extract icons from executable files, and save them to output directory.
 
 	Args:
@@ -195,11 +274,10 @@ def extract_icons(path_7zip: Path,
 			print("\t\t\t- Failed to extract icon.")
 			continue
 
-		with open(icon_path, "rb") as f:
-			return f.read()
-	return b''
+		return icon_path
+	return None
 
-def GetIconFromExecutableWindows(executablePath: Path) -> bytes:
+def GetIconFromExecutableWindows(executablePath: Path) -> Path | None:
 	if executablePath.suffix.lower() != '.exe':
 		raise Exception('Not an executable file')
 	
@@ -207,7 +285,7 @@ def GetIconFromExecutableWindows(executablePath: Path) -> bytes:
 
 	icon_files: List[Tuple[str, int]] = find_icons_in_exe(path7z, executablePath)
 	if not icon_files:
-		return b''
+		return None
 	
 	tempPath: Path = GetQAVMTempPath()/'icons'
 	return extract_icons(path7z, executablePath, icon_files, tempPath)
