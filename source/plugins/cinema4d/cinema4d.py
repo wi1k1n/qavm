@@ -1,4 +1,5 @@
-import os, subprocess
+import os, subprocess, re
+import datetime as dt
 from pathlib import Path
 from functools import partial
 
@@ -75,8 +76,21 @@ class C4DDescriptor(BaseDescriptor):
 		if 'resource/build.txt' in fileContents:
 			self.buildString = fileContents['resource/build.txt']
 		
-		self.majorVersion = 'R2024'  # R25 or 2024
-		self.subversion = '4.1'  # e.g. 106 for R26, 4.1 for 2024
+		self.versionH: list[int] = [0, 0, 0, 0]  # from the version.h
+		if 'resource/version.h' in fileContents:
+			self.versionH = C4DDescriptor._parseVersionH(fileContents['resource/version.h'])
+		
+		self.majorVersion: str  # R25 or 2024
+		self.subversion = ''  # e.g. 106 for R26, 4.1 for 2024
+		OLDNAMING: bool = self.versionH[0] <= 26
+		self.majorVersion: str = '{}{}'.format('R' if OLDNAMING else '', self.versionH[0])  # TODO: R or S?
+		self.subversion: str = ('' if OLDNAMING else '.').join(map(str, self.versionH[1:4] if OLDNAMING else self.versionH[1:3]))
+
+		self.dirNameAdjusted: str = self._adjustDirname()  # self.dirPath converted to human readable form
+
+		buildTxtPath: Path = self.dirPath/'resource/build.txt'
+		self.dateInstalled = buildTxtPath.stat().st_birthtime
+		self.dateModified = buildTxtPath.stat().st_mtime
 
 		self.commitRef = ''  # e.g. CL363640.28201 for R25, db1a05477b8f_1095604919 for 2024
 		self.buildLink = ''
@@ -85,8 +99,64 @@ class C4DDescriptor(BaseDescriptor):
 		self.redshiftVersion = ''
 		self.redshiftPluginVersion = ''
 
-		self.dateInstalled = ''
 		self.dateBuild = ''  # date when the build was created
+	
+	@staticmethod
+	def _parseVersionH(versionHContent: str) -> list[int]:
+		def _safeCast(val, to_type, default=None):
+			try: return to_type(val)
+			except: return default
+		
+		C4V_VERSION_PART_PREFIX: str = '#define C4D_V'
+		versionPartsArr: list[int] = [0, 0, 0, 0]
+		lines: list[str] = versionHContent.splitlines()
+		for line in lines:
+			for i in range(4):
+				curDefinePart: str = f'{C4V_VERSION_PART_PREFIX}{i + 1}'
+				if line.startswith(curDefinePart):
+					versionPartsArr[i] = _safeCast(line[len(curDefinePart):].strip(), int, -1)
+					break
+		return versionPartsArr
+	
+	def _adjustDirname(self) -> str:
+		RAWFOLDERNAME_MAXLEN = 64
+		folderName: str = self.dirPath.name
+		
+		if folderName.lower().startswith('maxon'): # customer installation
+			return folderName
+		
+		commitHashPattern = re.compile('#[a-zA-Z0-9]{12}')
+		if match := commitHashPattern.search(folderName): # it's a new notation with 12 symbol commit hash
+			if folderName.startswith('C4D'): # it's installation
+				tokens: list[str] = folderName.split(' ')
+				if len(tokens) < 5: return folderName[RAWFOLDERNAME_MAXLEN]
+				return f'{tokens[1]} {tokens[4][:9]}' # branch + commit hash
+			# it's a package
+			tokens: list[str] = folderName.split('_')
+			if len(tokens) < 2: return folderName[RAWFOLDERNAME_MAXLEN]
+			return f'{tokens[0]} {match.group()[:9]}'
+		
+		# it's an old notation with CL
+		if folderName.startswith('C4D'): # it's installation
+			tokens: list[str] = folderName.split(' ')
+			if len(tokens) < 4: return folderName[RAWFOLDERNAME_MAXLEN]
+			return f'{tokens[1]} CL{tokens[-1]}'
+		
+		# it's a package
+		changeListPattern = re.compile('CL\d{6}')
+		if match := changeListPattern.search(folderName): # found CL###### token
+			pos, _ = match.span()
+			tokens: list[str] = [x for x in folderName[:pos].split('.') if x]
+			if len(tokens) < 3: return folderName[RAWFOLDERNAME_MAXLEN]
+			versionTokensNum = 2 # old R notation, e.g. 26.001
+			if len(tokens[0]) == 4: # it's 202X notation
+				if len(tokens) == 3: # it's 2023.000.branch naming scheme
+					versionTokensNum = 2
+				else: # it's 2023.0.0.branch naming scheme
+					versionTokensNum = 3
+			tokens = [''.join(tokens[:versionTokensNum]), '.'.join(tokens[versionTokensNum:])]
+			return f'{tokens[1]} {match.group()}'
+		return folderName[RAWFOLDERNAME_MAXLEN]
 
 	def GetC4DExecutablePath(self) -> Path | None:
 		if utils.PlatformWindows():
@@ -119,11 +189,13 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 
 		parentBGColor = parent.palette().color(parent.backgroundRole())
 		descWidget.setStyleSheet(f"background-color: {parentBGColor.name()};")
-		# DEBUG # descWidget.setStyleSheet("background-color: rgb(200, 200, 255);")
+		# descWidget.setStyleSheet("background-color: rgb(200, 200, 255);") # DEBUG
+		descWidget.setStyleSheet("background-color: rgb(50, 50, 50);") # DEBUG
 		
 		descLayout = QVBoxLayout(descWidget)
-		descLayout.setContentsMargins(0, 0, 0, 0)
-		descLayout.setSpacing(0)
+		margins: int = 5
+		descLayout.setContentsMargins(margins, margins, margins, margins)
+		descLayout.setSpacing(5)
 
 		iconPath: Path | None = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())
 		if iconPath is None:
@@ -136,17 +208,22 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		iconLabel.setFixedSize(64, 64)
 		iconLabel.clicked.connect(partial(self._iconClicked, desc))
 
-		def createQLabel(text) -> QLabel:
+		def createQLabel(text, tooltip: str = '') -> QLabel:
 			label = QLabel(text, parent)
-			label.setFont(QFont('SblHebrew', 10))
+			label.setFont(QFont('SblHebrew'))
 			label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+			label.setToolTip(tooltip)
 			# DEBUG # label.setStyleSheet("background-color: pink;")
 			return label
+		def timestampToStr(timestamp: int, frmt: str = '%d-%b-%y %H:%M:%S') -> str:
+			return dt.datetime.fromtimestamp(timestamp).strftime(frmt)
 		
-		descLayout.addWidget(createQLabel(desc.buildString))
-		# descLayout.addWidget(createQLabel(f'{desc.majorVersion} {desc.subversion}'))
+		descLayout.addWidget(createQLabel(f'{desc.majorVersion}.{desc.subversion}', f'Build {desc.buildString}'))
+		descLayout.addWidget(createQLabel(desc.dirNameAdjusted, str(desc.dirPath)))
+		descLayout.addWidget(createQLabel(f'Installed: {timestampToStr(desc.dateInstalled, "%d-%b-%y")}',
+										f'Installed: {timestampToStr(desc.dateInstalled)}'
+										f'\nModified: {timestampToStr(desc.dateModified)}'))
 		descLayout.addWidget(iconLabel, alignment=Qt.AlignmentFlag.AlignCenter)
-		descLayout.addWidget(createQLabel(desc.dirPath.name))
 
 		descWidget.setFixedSize(descWidget.minimumSizeHint())
 
