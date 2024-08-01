@@ -123,10 +123,12 @@ class MainWindow(QMainWindow):
 		self.statusBar = QStatusBar()
 		self.setStatusBar(self.statusBar)
 
+	# TODO: this shouldn't be in constructor!
 	def _setupCentralWidget(self):
 		tabsWidget: QTabWidget = QTabWidget()
 
 		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
+		# TODO: handle case when softwareHandler is None
 		descs: list[BaseDescriptor] = self._scanSoftware()
 		defaultTileBuilder = softwareHandler.GetTileBuilderClass()()
 
@@ -195,6 +197,8 @@ class MainWindow(QMainWindow):
 
 	def _scanSoftware(self) -> list[BaseDescriptor]:
 		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
+		if softwareHandler is None:
+			raise Exception('No software handler found')
 
 		qualifier = softwareHandler.GetQualifierClass()()
 		descriptorClass = softwareHandler.GetDescriptorClass()

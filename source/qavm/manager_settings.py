@@ -72,6 +72,9 @@ class QAVMSettings(BaseSettings):
 				logger.error('Failed to load QAVM settings')
 
 	def Save(self):
+		if not self.prefFilePath.parent.exists():
+			logger.info(f"QAVM preferences folder doesn't exist. Creating: {self.prefFilePath.parent}")
+			self.prefFilePath.parent.mkdir(parents=True, exist_ok=True)
 		with open(self.prefFilePath, 'w') as f:
 			f.write(self.container.DumpToString())
 
