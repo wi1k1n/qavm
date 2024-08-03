@@ -315,6 +315,9 @@ class C4DSettings(BaseSettings):
 	
 	def __getitem__(self, key: str) -> Any:
 		return getattr(self.container, key, None)
+	
+	def GetName(self) -> str:
+		return 'Cinema 4D'
 
 	def Load(self):
 		with open(self.prefFilePath, 'r') as f:
@@ -373,7 +376,10 @@ class MyExampleSettings(BaseSettings):
 	def __init__(self) -> None:
 		super().__init__()
 	def CreateWidget(self, parent):
-		return None
+		return QWidget(parent)
+	
+	def GetName(self) -> str:
+		return 'Example Settings'
 ##############################################################################################
 ##################### TESTING THINGS #########################################################
 ##############################################################################################

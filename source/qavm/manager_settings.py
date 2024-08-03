@@ -122,7 +122,6 @@ class SettingsManager:
 		softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
 		self.softwareSettings = softwareHandler.GetSettings()
 		self.softwareSettings.Load()
-		self.app.GetDialogsManager().GetPreferencesWindow().AddSettingsEntry(softwareHandler.GetName(), self.softwareSettings)
 	
 	def LoadModuleSettings(self):
 		pluginManager: PluginManager = self.app.GetPluginManager()
@@ -131,7 +130,6 @@ class SettingsManager:
 			moduleSettings: BaseSettings = settingsHandler.GetSettings()
 			moduleSettings.Load()
 			self.moduleSettings[f'{pluginID}#{settingsID}'] = moduleSettings
-			self.app.GetDialogsManager().GetPreferencesWindow().AddSettingsEntry(settingsHandler.GetName(), moduleSettings)
 
 	def GetQAVMSettings(self) -> QAVMSettings:
 		return self.qavmSettings

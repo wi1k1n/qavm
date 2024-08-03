@@ -73,14 +73,14 @@ class PluginSelectionWindow(QMainWindow):
 		
 		# this is needed since we don't distinguish between initial load and running "select plugin" action
 		self.qavmSettings.Save()  # TODO: doesn't sound super correct
-		
+
 		self.startMainWindow()
 		self.close()
 
 	def startMainWindow(self):
 		self.settingsManager.LoadSoftwareSettings()
 		
-		self.dialogsManager.ResetMainWindow()
 		self.dialogsManager.ResetPreferencesWindow()
+		self.dialogsManager.ResetMainWindow()
 
 		self.dialogsManager.GetMainWindow().show()

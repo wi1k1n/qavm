@@ -14,6 +14,9 @@ class BaseSettings(object):
 	def CreateWidget(self, parent):
 		pass
 
+	def GetName(self) -> str:  # TODO: should use the one from connected software handler?
+		return 'BaseSettings'
+
 ##############################################################################
 ########################### QAVM Plugin: Software ############################
 ##############################################################################

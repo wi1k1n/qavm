@@ -27,6 +27,14 @@ class PreferencesWindowExample(QWidget):
 		self.menuWidget = QListWidget()
 		self.menuWidget.itemSelectionChanged.connect(self._onMenuSelectionChanged)
 		self.AddSettingsEntry("General", self.settingsManager.GetQAVMSettings())
+		
+		swSettings: BaseSettings = self.settingsManager.GetSoftwareSettings()
+		if type(swSettings) is not BaseSettings:
+			self.AddSettingsEntry(swSettings.GetName(), swSettings)
+		
+		for mSettings in self.settingsManager.GetModuleSettings().values():
+			self.AddSettingsEntry(mSettings.GetName(), mSettings)
+
 		self.menuWidget.setMinimumWidth(self.menuWidget.minimumSizeHint().width() + 20)
 		self.menuWidget.setMaximumWidth(200)
 
