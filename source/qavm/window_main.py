@@ -23,6 +23,7 @@ class MainWindow(QMainWindow):
 
 		self.app = app
 		
+		self.dialogsManager = self.app.GetDialogsManager()
 		self.pluginManager: PluginManager = self.app.GetPluginManager()
 		self.settingsManager: SettingsManager = self.app.GetSettingsManager()
 		self.qavmSettings: QAVMSettings = self.settingsManager.GetQAVMSettings()
@@ -43,10 +44,14 @@ class MainWindow(QMainWindow):
 
 		self.actionPrefs = QAction(QIcon(":preferences.svg"), "&Preferences", self)
 		self.actionPrefs.setShortcut("Ctrl+E")
-		self.actionPrefs.triggered.connect(self.showPreferences)
+		self.actionPrefs.triggered.connect(self._showPreferences)
 
 		self.actionExit = QAction("&Exit", self, shortcut=QKeySequence.StandardKey.Quit)
 		self.actionExit.triggered.connect(self.close)
+
+		self.actionPluginSelection = QAction("&Select software", self)
+		self.actionPluginSelection.setEnabled(len(self.pluginManager.GetSoftwareHandlers()) > 1)
+		self.actionPluginSelection.triggered.connect(self._switchToPluginSelection)
 
 		# self.actionAbout = QAction("&About", self)
 		# self.actionShortcuts = QAction("&Shortcuts", self)
@@ -96,6 +101,7 @@ class MainWindow(QMainWindow):
 		fileMenu = menuBar.addMenu('&File')
 		# fileMenu.addAction(self.actionSave)
 		# fileMenu.addSeparator()
+		fileMenu.addAction(self.actionPluginSelection)
 		fileMenu.addAction(self.actionExit)
 		
 		editMenu = menuBar.addMenu("&Edit")
@@ -190,8 +196,15 @@ class MainWindow(QMainWindow):
 		scrollWidget.setWidgetResizable(True)
 		scrollWidget.setWidget(widget)
 		return scrollWidget
+	
+	def _switchToPluginSelection(self):
+		# TODO: this should probably has clearer handling
+		self.qavmSettings.SetSelectedSoftwareUID('')
+		self.qavmSettings.Save()
+		self.dialogsManager.GetPluginSelectionWindow().show()
+		self.close()
 
-	def showPreferences(self):
+	def _showPreferences(self):
 		self.app.GetDialogsManager().GetPreferencesWindow().show()
 
 

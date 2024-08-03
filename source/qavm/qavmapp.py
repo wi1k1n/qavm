@@ -27,6 +27,8 @@ class QAVMApp(QApplication):
 		self.setOrganizationName('wi1k.in.prod')
 		self.setOrganizationDomain('wi1k.in')
 		
+		self.dialogsManager: DialogsManager = DialogsManager(self)
+
 		self.settingsManager = SettingsManager(self, utils.GetPrefsFolderPath())
 		self.settingsManager.LoadQAVMSettings()
 		self.qavmSettings: QAVMSettings = self.settingsManager.GetQAVMSettings()
@@ -34,38 +36,9 @@ class QAVMApp(QApplication):
 		self.pluginManager = PluginManager(self, utils.GetPluginsFolderPath())
 		self.pluginManager.LoadPlugins()
 
-		self.dialogsManager: DialogsManager = DialogsManager(self)
-
 		self.settingsManager.LoadModuleSettings()
-		
-		# Check stored selected software and either show selector window or start main window
-		selectedSoftwareUID = self.qavmSettings.GetSelectedSoftwareUID()
-		swHandlers: dict[str, SoftwareHandler] = {f'{pUID}#{sID}': swHandler for pUID, sID, swHandler in self.pluginManager.GetSoftwareHandlers()}  # {softwareUID: SoftwareHandler}
 
-		if selectedSoftwareUID and selectedSoftwareUID not in swHandlers:
-			logger.warning(f'Selected software plugin not found: {selectedSoftwareUID}')
-		if selectedSoftwareUID in swHandlers:
-			logger.info(f'Selected software plugin: {selectedSoftwareUID}')
-			self.qavmSettings.SetSelectedSoftwareUID(selectedSoftwareUID)
-			self.startMainWindow()
-		elif len(swHandlers) == 1:
-			logger.info(f'The only software plugin: {list(swHandlers.keys())[0]}')
-			self.qavmSettings.SetSelectedSoftwareUID(list(swHandlers.keys())[0])
-			self.startMainWindow()
-		else:
-			selectPluginWindow: PluginSelectionWindow = self.dialogsManager.GetPluginSelectionWindow()
-			selectPluginWindow.pluginSelected.connect(self.slot_PluginSelected)
-			selectPluginWindow.show()
-	
-	def slot_PluginSelected(self, pluginUID: str, softwareID: str):
-		logger.info(f'Selected software UID: {pluginUID}#{softwareID}')
-		self.qavmSettings.SetSelectedSoftwareUID(f'{pluginUID}#{softwareID}')
-		self.startMainWindow()
-	
-	""" Performs software-specific initialization and opens main window """
-	def startMainWindow(self):
-		self.settingsManager.LoadSoftwareSettings()
-		self.dialogsManager.GetMainWindow().show()
+		self.dialogsManager.GetPluginSelectionWindow().show()
 
 	def GetPluginManager(self) -> PluginManager:
 		return self.pluginManager

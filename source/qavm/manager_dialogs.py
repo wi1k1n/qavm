@@ -22,8 +22,12 @@ class DialogsManager:
 		if self.mainWindow is None:
 			self.mainWindow: MainWindow = MainWindow(self.app)
 		return self.mainWindow
+	def ResetMainWindow(self):
+		self.mainWindow = None
 	
 	def GetPreferencesWindow(self):
 		if self.windowPrefs is None:
 			self.windowPrefs = PreferencesWindowExample(self.app)
 		return self.windowPrefs
+	def ResetPreferencesWindow(self):
+		self.windowPrefs = None
