@@ -12,6 +12,7 @@ from qavm.manager_plugin import PluginManager, SoftwareHandler, SettingsHandler
 import qavm.logs as logs
 logger = logs.logger
 
+# TODO: should this be part of qavmapi?
 class QAVMSettingsContainer:
 	SETTINGS_ENTRIES: dict[str, Any] = {  # key: default value
 		'selectedSoftwareUID': '', 	# str
@@ -34,21 +35,16 @@ class QAVMSettingsContainer:
 			self.searchPaths: list[str] = [
 				'/Applications'
 			]
-	def DumpToString(self) -> str:
-		return self._toString(list(self.SETTINGS_ENTRIES.keys()))
-	def InitializeFromString(self, dataStr: str) -> bool:
-		return self._fromString(dataStr, list(self.SETTINGS_ENTRIES.keys()))
 	
-	def _toString(self, keys: list[str]) -> str:
+	def DumpToString(self) -> str:
 		data: dict = dict()
-		for key in keys:
+		for key in self.SETTINGS_ENTRIES.keys():
 			data[key] = getattr(self, key)
 		return json.dumps(data)
-
-	def _fromString(self, dataStr: str, keys: list[str]) -> bool:
+	def InitializeFromString(self, dataStr: str) -> bool:
 		try:
 			data: dict = json.loads(dataStr)
-			for key in keys:
+			for key in self.SETTINGS_ENTRIES.keys():
 				if key not in data: return False
 				setattr(self, key, data[key])
 			return True
@@ -124,16 +120,15 @@ class SettingsManager:
 		if not self.qavmSettings.GetSelectedSoftwareUID():
 			raise Exception('No software selected')
 		softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
-		if swSettingsClass := softwareHandler.GetSettingsClass():
-			self.softwareSettings = swSettingsClass()
-			self.softwareSettings.Load()
-			self.app.GetDialogsManager().GetPreferencesWindow().AddSettingsEntry(softwareHandler.GetName(), self.softwareSettings)
+		self.softwareSettings = softwareHandler.GetSettings()
+		self.softwareSettings.Load()
+		self.app.GetDialogsManager().GetPreferencesWindow().AddSettingsEntry(softwareHandler.GetName(), self.softwareSettings)
 	
 	def LoadModuleSettings(self):
 		pluginManager: PluginManager = self.app.GetPluginManager()
 		settingsModules: list[tuple[str, str, SettingsHandler]] = pluginManager.GetSettingsHandlers()  # [pluginID, moduleID, SettingsHandler]
 		for pluginID, settingsID, settingsHandler in settingsModules:
-			moduleSettings: BaseSettings = settingsHandler.GetSettingsClass()()
+			moduleSettings: BaseSettings = settingsHandler.GetSettings()
 			moduleSettings.Load()
 			self.moduleSettings[f'{pluginID}#{settingsID}'] = moduleSettings
 			self.app.GetDialogsManager().GetPreferencesWindow().AddSettingsEntry(settingsHandler.GetName(), moduleSettings)

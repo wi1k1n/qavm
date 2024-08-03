@@ -5,7 +5,8 @@
     "tasks": [
         {
             "label": "deploy_plugins",
-            "command": "python",
+            "type": "shell",
+            "command": "${command:python.interpreterPath}",
             "group": {
                 "kind": "build",
                 "isDefault": true

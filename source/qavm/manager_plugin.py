@@ -25,27 +25,35 @@ class SoftwareHandler(QAVMModuleNamed):
 		if not QAVMPlugin.ValidateID(self.id):
 			raise Exception(f'Invalid or missing Software ID: {self.id}')
 		
+		self.settingsClass = regData.get('settings', None)  # optional
+		if not self.settingsClass:
+			self.settingsClass = BaseSettings
+		if not issubclass(self.settingsClass, BaseSettings):
+			raise Exception(f'Invalid settings for software: {self.id}')
+		self.settingsInstance = self.settingsClass()
+
 		self.qualifierClass = regData.get('qualifier', None)
 		if not self.qualifierClass or not issubclass(self.qualifierClass, BaseQualifier):  # required
 			raise Exception(f'Missing or invalid qualifier for software: {self.id}')
+		self.qualifierInstance = self.qualifierClass()
+
 		self.descriptorClass = regData.get('descriptor', None)
 		if not self.descriptorClass or not issubclass(self.descriptorClass, BaseDescriptor):  # required
 			raise Exception(f'Missing or invalid descriptor for software: {self.id}')
+		
 		self.tileBuilderClasses = regData.get('tile_builders', {})
 		if not self.tileBuilderClasses or not isinstance(self.tileBuilderClasses, dict) or '' not in self.tileBuilderClasses \
 			or not all([f for f in self.tileBuilderClasses.values() if issubclass(f, BaseTileBuilder)]):  # required
 			raise Exception(f'Missing or invalid tile builder for software: {self.id}')
-		
-		self.settingsClass = regData.get('settings', None)  # optional
 	
-	def GetQualifierClass(self) -> BaseQualifier.__class__:
-		return self.qualifierClass
 	def GetDescriptorClass(self) -> BaseDescriptor.__class__:
 		return self.descriptorClass
 	def GetTileBuilderClass(self, context='') -> BaseTileBuilder.__class__:
 		return self.tileBuilderClasses.get(context, self.tileBuilderClasses.get('', None))
-	def GetSettingsClass(self) -> BaseSettings.__class__:
-		return self.settingsClass
+	def GetQualifier(self) -> BaseQualifier:
+		return self.qualifierInstance
+	def GetSettings(self) -> BaseSettings:
+		return self.settingsInstance
 
 class SettingsHandler(QAVMModuleNamed):
 	def __init__(self, plugin, regData) -> None:
@@ -54,9 +62,10 @@ class SettingsHandler(QAVMModuleNamed):
 		self.settingsClass = regData.get('settings', None)
 		if not self.settingsClass or not issubclass(self.settingsClass, BaseSettings):
 			raise Exception(f'Missing or invalid settings for module: {self.id}')
+		self.settingsInstance = self.settingsClass()
 	
-	def GetSettingsClass(self) -> BaseSettings.__class__:
-		return self.settingsClass
+	def GetSettings(self) -> BaseSettings:
+		return self.settingsInstance
 
 class QAVMPlugin:
 	def __init__(self, pluginModule: object) -> None:
@@ -146,7 +155,7 @@ class QAVMPlugin:
 	@staticmethod
 	def ValidateVersion(version: str) -> bool:
 		# version should be in XXX.XXX.XXXX format, where each part can be at least 1 digit long
-		pattern = re.compile("(?:[0-9]{1,3}\.){2}[0-9]{1,4}")
+		pattern = re.compile("(?:[0-9]{1,3}\\.){2}[0-9]{1,4}")
 		return pattern.match(version) is not None
 
 

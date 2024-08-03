@@ -9,15 +9,21 @@ class DialogsManager:
 	def __init__(self, app) -> None:
 		self.app = app
 
-		self.selectPluginWindow: PluginSelectionWindow = PluginSelectionWindow(app)
-		self.mainWindow: MainWindow = MainWindow(app)
-		self.windowPrefs = PreferencesWindowExample(app)
+		self.selectPluginWindow: PluginSelectionWindow = None
+		self.mainWindow: MainWindow = None
+		self.windowPrefs: PreferencesWindowExample = None
 
 	def GetPluginSelectionWindow(self):
+		if self.selectPluginWindow is None:
+			self.selectPluginWindow: PluginSelectionWindow = PluginSelectionWindow(self.app)
 		return self.selectPluginWindow
 	
 	def GetMainWindow(self):
+		if self.mainWindow is None:
+			self.mainWindow: MainWindow = MainWindow(self.app)
 		return self.mainWindow
 	
 	def GetPreferencesWindow(self):
+		if self.windowPrefs is None:
+			self.windowPrefs = PreferencesWindowExample(self.app)
 		return self.windowPrefs

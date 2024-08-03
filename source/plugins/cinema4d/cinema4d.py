@@ -1,7 +1,15 @@
-import os, subprocess, re
+"""
+copyright
+"""
+
+PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.cinema4d'
+PLUGIN_VERSION = '0.1.0'
+
+import os, subprocess, re, json, sys, logging
 import datetime as dt
 from pathlib import Path
 from functools import partial
+from typing import Any, Iterator
 
 from qavm.qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel
@@ -9,7 +17,9 @@ import qavm.qavmapi.utils as utils
 
 from PyQt6.QtCore import Qt, QProcess
 from PyQt6.QtGui import QFont, QColor, QPixmap
-from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMessageBox
+from PyQt6.QtWidgets import (
+	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox
+)
 
 """
 QAVM can be extended by plugins. Each plugin is represented by a folder with a python script that has the same name as the folder.
@@ -17,8 +27,15 @@ QAVM can be extended by plugins. Each plugin is represented by a folder with a p
 Each plugin can implement multiple modules. Modules can be of different types, e.g. software, settings, etc.
 """
 
-PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.cinema4d'
-PLUGIN_VERSION = '0.1.0'
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+LOGS_PATH = utils.GetQAVMDataPath()/'qavm-c4d.log'
+loggerFileHandler = logging.FileHandler(LOGS_PATH)
+loggerFileHandler.setLevel(logging.ERROR)
+loggerFileHandler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(loggerFileHandler)
+
 
 class C4DQualifier(BaseQualifier):
 	def ProcessSearchPaths(self, searchPaths: list[str]) -> list[str]:
@@ -66,11 +83,12 @@ class C4DQualifier(BaseQualifier):
 			and '#define C4D_V4' in versionContent  # TODO: improve using regex
 
 class C4DDescriptor(BaseDescriptor):
-	def __init__(self, dirPath: Path, fileContents: dict[str, str | bytes]):
-		super().__init__(dirPath, fileContents)
+	def __init__(self, dirPath: Path, settings: BaseSettings, fileContents: dict[str, str | bytes]):
+		super().__init__(dirPath, settings, fileContents)
 
 		# From BaseDescriptor:
 		# self.dirPath: Path
+		# self.settings: BaseSettings
 
 		self.buildString = ''  # from the build.txt
 		if 'resource/build.txt' in fileContents:
@@ -86,7 +104,9 @@ class C4DDescriptor(BaseDescriptor):
 		self.majorVersion: str = '{}{}'.format('R' if OLDNAMING else '', self.versionH[0])  # TODO: R or S?
 		self.subversion: str = ('' if OLDNAMING else '.').join(map(str, self.versionH[1:4] if OLDNAMING else self.versionH[1:3]))
 
-		self.dirNameAdjusted: str = self._adjustDirname()  # self.dirPath converted to human readable form
+		self.dirName: str = self.dirPath.name
+		if self.settings['adjustFolderName']:
+			self.dirName = self._adjustDirname()
 
 		buildTxtPath: Path = self.dirPath/'resource/build.txt'
 		self.dateInstalled = buildTxtPath.stat().st_birthtime
@@ -143,7 +163,7 @@ class C4DDescriptor(BaseDescriptor):
 			return f'{tokens[1]} CL{tokens[-1]}'
 		
 		# it's a package
-		changeListPattern = re.compile('CL\d{6}')
+		changeListPattern = re.compile('CL\\d{6}')
 		if match := changeListPattern.search(folderName): # found CL###### token
 			pos, _ = match.span()
 			tokens: list[str] = [x for x in folderName[:pos].split('.') if x]
@@ -178,6 +198,11 @@ class C4DDescriptor(BaseDescriptor):
 		return self.__str__()
 
 class C4DTileBuilderDefault(BaseTileBuilder):
+	def __init__(self, settings: BaseSettings):
+		super().__init__(settings)
+		# From BaseTileBuilder:
+		# self.settings: BaseSettings
+
 	def CreateTileWidget(self, descriptor: C4DDescriptor, parent) -> QWidget:
 		descWidget: QWidget = self._createDescWidget(descriptor, parent)
 		# return descWidget
@@ -219,7 +244,7 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 			return dt.datetime.fromtimestamp(timestamp).strftime(frmt)
 		
 		descLayout.addWidget(createQLabel(f'{desc.majorVersion}.{desc.subversion}', f'Build {desc.buildString}'))
-		descLayout.addWidget(createQLabel(desc.dirNameAdjusted, str(desc.dirPath)))
+		descLayout.addWidget(createQLabel(desc.dirName, str(desc.dirPath)))
 		descLayout.addWidget(createQLabel(f'Installed: {timestampToStr(desc.dateInstalled, "%d-%b-%y")}',
 										f'Installed: {timestampToStr(desc.dateInstalled)}'
 										f'\nModified: {timestampToStr(desc.dateModified)}'))
@@ -244,9 +269,92 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 	def _iconClicked(self, desc: C4DDescriptor):
 		os.startfile(str(desc.GetC4DExecutablePath()), arguments='g_console=true')
 
+""" Helper wrapper class for C4D settings entries """
+class C4DSettingsContainer:
+	SETTINGS_ENTRIES: dict[str, list] = {  # key: [defaultValue, text, tooltip]
+		'adjustFolderName': 	[True, 'Adjust folder name', 'Replace folder name with human-readable one'],
+		'runWithConsole': 		[False, 'Run with console', 'Run Cinema 4D with console enabled'],
+	}
+
+	def __init__(self):
+		super().__init__()
+		for key, default in self.SETTINGS_ENTRIES.items():
+			setattr(self, key, default)
+	def DumpToString(self) -> str:
+		data: dict = dict()
+		for key in self.SETTINGS_ENTRIES.keys():
+			data[key] = getattr(self, key)
+		return json.dumps(data)
+	def InitializeFromString(self, dataStr: str) -> bool:
+		try:
+			data: dict = json.loads(dataStr)
+			for key in self.SETTINGS_ENTRIES.keys():
+				if key not in data: return False
+				if type(data[key]) != type(getattr(self, key)):
+					logger.error(f'Incompatible preferences data type for #{key}!')
+					return False
+				setattr(self, key, data[key])
+			return True
+		except Exception as e:
+			logger.exception(f'Failed to parse settings data: {e}')
+			return False
+	
+	def __iter__(self) -> Iterator[str]:
+		for key in C4DSettingsContainer.SETTINGS_ENTRIES.keys():
+			yield key
+
 class C4DSettings(BaseSettings):
-	def CreateWidget(self, parent) -> QWidget:
-		return QLabel('C4D Settings', parent)
+	def __init__(self) -> None:
+		super().__init__()
+		self.container = C4DSettingsContainer()
+
+		self.prefFilePath: Path = utils.GetPrefsFolderPath()/'c4d-preferences.json'
+		if not self.prefFilePath.exists():
+			logger.info(f'C4D settings file not found, creating a new one. Path: {self.prefFilePath}')
+			self.Save()
+	
+	def __getitem__(self, key: str) -> Any:
+		return getattr(self.container, key, None)
+
+	def Load(self):
+		with open(self.prefFilePath, 'r') as f:
+			if not self.container.InitializeFromString(f.read()):
+				logger.error('Failed to load C4D settings')
+
+	def Save(self):
+		if not self.prefFilePath.parent.exists():
+			logger.info(f"C4D preferences folder doesn't exist. Creating: {self.prefFilePath.parent}")
+			self.prefFilePath.parent.mkdir(parents=True, exist_ok=True)
+		with open(self.prefFilePath, 'w') as f:
+			f.write(self.container.DumpToString())
+
+	def CreateWidget(self, parent: QWidget) -> QWidget:
+		settingsWidget: QWidget = QWidget(parent)
+		formLayout: QFormLayout = QFormLayout(settingsWidget)
+
+		# TODO: refactor this
+		def addRowTyped(text: str, value: Any, tooltip: str = ''):
+			textLabel = QLabel(text)
+			textLabel.setToolTip(tooltip)
+			if isinstance(value, bool):
+				checkbox = QCheckBox()
+				checkbox.setChecked(value)
+				formLayout.addRow(textLabel, checkbox)
+				return checkbox
+			if isinstance(value, str):
+				lineEdit = QLineEdit(value)
+				formLayout.addRow(textLabel, lineEdit)
+				return lineEdit
+			return None
+
+		for key in self.container:
+			val: list = getattr(self.container, key)
+			if addRowTyped(val[1], val[0], val[2]) is None:
+				logger.info(f'Unknown value type for key: {key}')
+
+		# formLayout.addRow('Adjust folder name', QCheckBox())
+
+		return settingsWidget
 
 
 

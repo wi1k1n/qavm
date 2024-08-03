@@ -130,7 +130,7 @@ class MainWindow(QMainWindow):
 		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
 		# TODO: handle case when softwareHandler is None
 		descs: list[BaseDescriptor] = self._scanSoftware()
-		defaultTileBuilder = softwareHandler.GetTileBuilderClass()()
+		defaultTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings())
 
 		tilesWidget = self._createTilesWidget(descs, defaultTileBuilder, self)
 		freeMoveWidget = self._createFreeMoveWidget(descs, defaultTileBuilder, self)
@@ -200,11 +200,9 @@ class MainWindow(QMainWindow):
 		if softwareHandler is None:
 			raise Exception('No software handler found')
 
-		qualifier = softwareHandler.GetQualifierClass()()
+		qualifier = softwareHandler.GetQualifier()
 		descriptorClass = softwareHandler.GetDescriptorClass()
-		settingsClass = softwareHandler.GetSettingsClass()
-		if not settingsClass:
-			settingsClass = BaseSettings
+		softwareSettings = softwareHandler.GetSettings()
 
 		searchPaths = self.qavmSettings.GetSearchPaths()
 		searchPaths = qualifier.ProcessSearchPaths(searchPaths)
@@ -269,7 +267,7 @@ class MainWindow(QMainWindow):
 					if not qualifier.Identify(dir, fileContents):
 						subdirs.update(set(getDirListIgnoreError(dir)))
 						continue
-					softwareDescs.append(descriptorClass(dir, fileContents))
+					softwareDescs.append(descriptorClass(dir, softwareSettings, fileContents))
 				subfoldersSearchPathsList.update(subdirs)
 			searchPathsList = subfoldersSearchPathsList
 			currentDepthLevel += 1

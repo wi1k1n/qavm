@@ -43,8 +43,9 @@ class BaseQualifier(object):
 		return True
 
 class BaseDescriptor(object):
-	def __init__(self, dirPath: Path, fileContents: dict[str, str | bytes]):
+	def __init__(self, dirPath: Path, settings: BaseSettings, fileContents: dict[str, str | bytes]):
 		self.dirPath: Path = dirPath
+		self.settings: BaseSettings = settings
 
 	def __hash__(self) -> int:
 		return hash(self.dirPath)
@@ -56,8 +57,8 @@ class BaseDescriptor(object):
 		return self.__str__()
 
 class BaseTileBuilder(object):
-	def __init__(self):
-		pass
+	def __init__(self, settings: BaseSettings):
+		self.settings: BaseSettings = settings
 
 	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:
 		return QLabel(str(descriptor.dirPath), parent)
