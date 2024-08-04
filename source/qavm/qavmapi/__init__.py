@@ -1,12 +1,15 @@
 from pathlib import Path
 
+from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6.QtWidgets import QWidget, QLabel
 
 ##############################################################################
 #############################  ##############################
 ##############################################################################
 
-class BaseSettings(object):
+class BaseSettings(QObject):
+	tilesUpdateRequired = pyqtSignal()
+
 	def Load(self):
 		pass
 	def Save(self):

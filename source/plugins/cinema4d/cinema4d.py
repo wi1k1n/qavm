@@ -105,8 +105,7 @@ class C4DDescriptor(BaseDescriptor):
 		self.subversion: str = ('' if OLDNAMING else '.').join(map(str, self.versionH[1:4] if OLDNAMING else self.versionH[1:3]))
 
 		self.dirName: str = self.dirPath.name
-		if self.settings['adjustFolderName']:
-			self.dirName = self._adjustDirname()
+		self.dirNameAdjusted: str = self._adjustDirname()
 
 		buildTxtPath: Path = self.dirPath/'resource/build.txt'
 		self.dateInstalled = buildTxtPath.stat().st_birthtime
@@ -244,7 +243,8 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 			return dt.datetime.fromtimestamp(timestamp).strftime(frmt)
 		
 		descLayout.addWidget(createQLabel(f'{desc.majorVersion}.{desc.subversion}', f'Build {desc.buildString}'))
-		descLayout.addWidget(createQLabel(desc.dirName, str(desc.dirPath)))
+		dirNameLabel: str = desc.dirNameAdjusted if self.settings['adjustFolderName'][0] else desc.dirName
+		descLayout.addWidget(createQLabel(dirNameLabel, str(desc.dirPath)))
 		descLayout.addWidget(createQLabel(f'Installed: {timestampToStr(desc.dateInstalled, "%d-%b-%y")}',
 										f'Installed: {timestampToStr(desc.dateInstalled)}'
 										f'\nModified: {timestampToStr(desc.dateModified)}'))
@@ -267,46 +267,17 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		return animBorderWidget
 
 	def _iconClicked(self, desc: C4DDescriptor):
-		os.startfile(str(desc.GetC4DExecutablePath()), arguments='g_console=true')
-
-""" Helper wrapper class for C4D settings entries """
-class C4DSettingsContainer:
-	SETTINGS_ENTRIES: dict[str, list] = {  # key: [defaultValue, text, tooltip]
-		'adjustFolderName': 	[True, 'Adjust folder name', 'Replace folder name with human-readable one'],
-		'runWithConsole': 		[False, 'Run with console', 'Run Cinema 4D with console enabled'],
-	}
-
-	def __init__(self):
-		super().__init__()
-		for key, default in self.SETTINGS_ENTRIES.items():
-			setattr(self, key, default)
-	def DumpToString(self) -> str:
-		data: dict = dict()
-		for key in self.SETTINGS_ENTRIES.keys():
-			data[key] = getattr(self, key)
-		return json.dumps(data)
-	def InitializeFromString(self, dataStr: str) -> bool:
-		try:
-			data: dict = json.loads(dataStr)
-			for key in self.SETTINGS_ENTRIES.keys():
-				if key not in data: return False
-				if type(data[key]) != type(getattr(self, key)):
-					logger.error(f'Incompatible preferences data type for #{key}!')
-					return False
-				setattr(self, key, data[key])
-			return True
-		except Exception as e:
-			logger.exception(f'Failed to parse settings data: {e}')
-			return False
-	
-	def __iter__(self) -> Iterator[str]:
-		for key in C4DSettingsContainer.SETTINGS_ENTRIES.keys():
-			yield key
+		args: str = 'g_console=true' if self.settings['runWithConsole'] else ''
+		os.startfile(str(desc.GetC4DExecutablePath()), arguments=args)
 
 class C4DSettings(BaseSettings):
 	def __init__(self) -> None:
 		super().__init__()
-		self.container = C4DSettingsContainer()
+
+		self.settings: dict[str, list] = {  # key: (defaultValue, text, tooltip)
+			'adjustFolderName': 	[True, 'Adjust folder name', 'Replace folder name with human-readable one'],
+			'runWithConsole': 		[False, 'Run with console', 'Run Cinema 4D with console enabled'],
+		}
 
 		self.prefFilePath: Path = utils.GetPrefsFolderPath()/'c4d-preferences.json'
 		if not self.prefFilePath.exists():
@@ -314,51 +285,74 @@ class C4DSettings(BaseSettings):
 			self.Save()
 	
 	def __getitem__(self, key: str) -> Any:
-		return getattr(self.container, key, None)
+		return self.settings.get(key, None)
 	
 	def GetName(self) -> str:
 		return 'Cinema 4D'
 
 	def Load(self):
 		with open(self.prefFilePath, 'r') as f:
-			if not self.container.InitializeFromString(f.read()):
-				logger.error('Failed to load C4D settings')
+			try:
+				data: dict = json.loads(f.read())
+				for key in self.settings.keys():
+					if key not in data:
+						return logger.error(f'Missing key in preferences data: {key}')
+					if type(data[key]) != type(self.settings[key][0]):
+						logger.error(f'Incompatible preferences data type for #{key}!')
+						return False
+					self.settings[key][0] = data[key]
+			except Exception as e:
+				logger.exception(f'Failed to parse settings data: {e}')
 
 	def Save(self):
 		if not self.prefFilePath.parent.exists():
 			logger.info(f"C4D preferences folder doesn't exist. Creating: {self.prefFilePath.parent}")
 			self.prefFilePath.parent.mkdir(parents=True, exist_ok=True)
 		with open(self.prefFilePath, 'w') as f:
-			f.write(self.container.DumpToString())
+			data: dict[str, Any] = {key: val[0] for key, val in self.settings.items()}
+			f.write(json.dumps(data))
 
 	def CreateWidget(self, parent: QWidget) -> QWidget:
 		settingsWidget: QWidget = QWidget(parent)
 		formLayout: QFormLayout = QFormLayout(settingsWidget)
 
 		# TODO: refactor this
-		def addRowTyped(text: str, value: Any, tooltip: str = ''):
+		def addRowTyped(key: str):
+			val: list = self.settings[key]
+			text: str = val[1]
+			value: Any = val[0]
+			tooltip: str = val[2]
+
 			textLabel = QLabel(text)
 			textLabel.setToolTip(tooltip)
 			if isinstance(value, bool):
 				checkbox = QCheckBox()
 				checkbox.setChecked(value)
+				checkbox.checkStateChanged.connect(partial(self._settingChangedCheckbox, key=key))
 				formLayout.addRow(textLabel, checkbox)
 				return checkbox
 			if isinstance(value, str):
 				lineEdit = QLineEdit(value)
+				lineEdit.textChanged.connect(partial(self._settingsChangedLineEdit, key=key))
 				formLayout.addRow(textLabel, lineEdit)
 				return lineEdit
 			return None
 
-		for key in self.container:
-			val: list = getattr(self.container, key)
-			if addRowTyped(val[1], val[0], val[2]) is None:
+		for key in self.settings.keys():
+			if addRowTyped(key) is None:
 				logger.info(f'Unknown value type for key: {key}')
 
 		# formLayout.addRow('Adjust folder name', QCheckBox())
 
 		return settingsWidget
 
+	def _settingChangedCheckbox(self, state, key: str):
+		self.settings[key][0] = state == Qt.CheckState.Checked
+		self.tilesUpdateRequired.emit()
+
+	def _settingsChangedLineEdit(self, text, key: str):
+		self.settings[key][0] = text
+		self.tilesUpdateRequired.emit()
 
 
 

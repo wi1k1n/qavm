@@ -27,6 +27,8 @@ class MainWindow(QMainWindow):
 		self.pluginManager: PluginManager = self.app.GetPluginManager()
 		self.settingsManager: SettingsManager = self.app.GetSettingsManager()
 		self.qavmSettings: QAVMSettings = self.settingsManager.GetQAVMSettings()
+		self.softwareSettings: BaseSettings = self.settingsManager.GetSoftwareSettings()
+		self.softwareSettings.tilesUpdateRequired.connect(self.UpdateTilesWidget)
 
 		self.setWindowTitle("QAVM")
 		self.resize(1420, 840)
@@ -131,21 +133,22 @@ class MainWindow(QMainWindow):
 
 	# TODO: this shouldn't be in constructor!
 	def _setupCentralWidget(self):
-		tabsWidget: QTabWidget = QTabWidget()
+		self.tabsWidget: QTabWidget = QTabWidget()
+		
+		self.UpdateTilesWidget()
+		# tabsWidget.addTab(self.tilesWidget, "Tiles")
 
-		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
 		# TODO: handle case when softwareHandler is None
-		descs: list[BaseDescriptor] = self._scanSoftware()
+		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
 		defaultTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings())
 
-		tilesWidget = self._createTilesWidget(descs, defaultTileBuilder, self)
-		freeMoveWidget = self._createFreeMoveWidget(descs, defaultTileBuilder, self)
-		tableWidget = self._createTableWidget(descs, defaultTileBuilder, self)
-		tabsWidget.addTab(tilesWidget, "Tiles")
-		tabsWidget.addTab(freeMoveWidget, "Free Move")
-		tabsWidget.addTab(tableWidget, "Details")
+		self.freeMoveWidget = self._createFreeMoveWidget(self.app.GetSoftwareDescriptions(), defaultTileBuilder, self)
+		self.tabsWidget.insertTab(1, self.freeMoveWidget, "Free Move")
+
+		self.tableWidget = self._createTableWidget(self.app.GetSoftwareDescriptions(), defaultTileBuilder, self)
+		self.tabsWidget.insertTab(2, self.tableWidget, "Details")
 		
-		self.setCentralWidget(tabsWidget)
+		self.setCentralWidget(self.tabsWidget)
 	
 	def _createFreeMoveWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
 		return QLabel("Freemove", parent)
@@ -166,6 +169,20 @@ class MainWindow(QMainWindow):
 		
 		return tableWidget
 	
+	def UpdateTilesWidget(self):
+		currentTabIndex: int = self.tabsWidget.currentIndex()
+
+		if hasattr(self, 'tilesWidget') and self.tilesWidget:
+			self.tilesWidget.deleteLater()
+		
+		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())  # TODO: handle case when softwareHandler is None
+		defaultTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings())
+
+		self.tilesWidget = self._createTilesWidget(self.app.GetSoftwareDescriptions(), defaultTileBuilder, self)
+		self.tabsWidget.insertTab(0, self.tilesWidget, "Tiles")
+		
+		self.tabsWidget.setCurrentIndex(currentTabIndex)
+
 	def _createTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
 		tiles: list[QWidget] = list()
 
@@ -205,84 +222,6 @@ class MainWindow(QMainWindow):
 		self.close()
 
 	def _showPreferences(self):
-		self.app.GetDialogsManager().GetPreferencesWindow().show()
-
-
-	def _scanSoftware(self) -> list[BaseDescriptor]:
-		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
-		if softwareHandler is None:
-			raise Exception('No software handler found')
-
-		qualifier = softwareHandler.GetQualifier()
-		descriptorClass = softwareHandler.GetDescriptorClass()
-		softwareSettings = softwareHandler.GetSettings()
-
-		searchPaths = self.qavmSettings.GetSearchPaths()
-		searchPaths = qualifier.ProcessSearchPaths(searchPaths)
-
-		config = qualifier.GetIdentificationConfig()
-		if not qavmapi_utils.ValidateQualifierConfig(config):
-			raise Exception('Invalid Qualifier config')
-		
-		def getDirListIgnoreError(pathDir: str) -> list[Path]:
-			try:
-				dirList: list[Path] = [Path(pathDir)/d for d in os.listdir(pathDir)]
-				return list(filter(lambda d: os.path.isdir(d), dirList))
-			except:
-				logger.warning(f'Failed to get dir list: {pathDir}')
-			return list()
-		
-		def TryPassFileMask(dirPath: Path, config: dict[str, list[str]]) -> bool:
-			for file in config['requiredFileList']:
-				if not (dirPath / file).is_file():
-					return False
-			for folder in config['requiredDirList']:
-				if not (dirPath / folder).is_dir():
-					return False
-			for file in config['negativeFileList']:
-				if (dirPath / file).is_file():
-					return False
-			for folder in config['negativeDirList']:
-				if (dirPath / folder).is_dir():
-					return False
-			return True
-		
-		def GetFileContents(dirPath: Path, config: dict[str, list[str]]) -> dict[str, str | bytes]:
-			fileContents = dict()
-			for file, isBinary, lengthLimit in config['fileContentsList']:
-				try:
-					# TODO: use pathlib instead
-					with open(os.path.join(dirPath, file), 'rb' if isBinary else 'r') as f:
-						fileContents[file] = f.read(lengthLimit if lengthLimit else -1)
-				except Exception as e:
-					# logger.warning(f'Failed to read file "{os.path.join(dirPath, file)}": {e}')
-					pass
-			return fileContents
-		
-		softwareDescs: list[BaseDescriptor] = list()
-
-		MAX_DEPTH = 1  # TODO: make this a settings value
-		currentDepthLevel: int = 0
-		searchPathsList = set(searchPaths)
-		while currentDepthLevel < MAX_DEPTH:
-			subfoldersSearchPathsList = set()
-			for searchPath in searchPathsList:
-				dirs: set[Path] = set(getDirListIgnoreError(searchPath))
-				subdirs: set[str] = set()
-				# for dir in dirs:
-				for dir in sorted(dirs):
-					passed = TryPassFileMask(dir, config)
-					if not passed:
-						subdirs.update(set(getDirListIgnoreError(dir)))
-						continue
-
-					fileContents: dict[str, str | bytes] = GetFileContents(dir, config)
-					if not qualifier.Identify(dir, fileContents):
-						subdirs.update(set(getDirListIgnoreError(dir)))
-						continue
-					softwareDescs.append(descriptorClass(dir, softwareSettings, fileContents))
-				subfoldersSearchPathsList.update(subdirs)
-			searchPathsList = subfoldersSearchPathsList
-			currentDepthLevel += 1
-		
-		return softwareDescs
+		prefsWindow: QMainWindow = self.app.GetDialogsManager().GetPreferencesWindow()
+		prefsWindow.show()
+		prefsWindow.activateWindow()
