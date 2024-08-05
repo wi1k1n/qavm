@@ -220,8 +220,10 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		margins: int = 5
 		descLayout.setContentsMargins(margins, margins, margins, margins)
 		descLayout.setSpacing(5)
-
-		iconPath: Path | None = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())
+		
+		iconPath: Path | None = None
+		if self.settings['extractIcons'][0]:
+			iconPath = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())
 		if iconPath is None:
 			iconPath: Path = Path('./res/icons/c4d-teal.png')
 		pixMap: QPixmap = QPixmap(str(iconPath))
@@ -274,9 +276,10 @@ class C4DSettings(BaseSettings):
 	def __init__(self) -> None:
 		super().__init__()
 
-		self.settings: dict[str, list] = {  # key: (defaultValue, text, tooltip)
-			'adjustFolderName': 	[True, 'Adjust folder name', 'Replace folder name with human-readable one'],
-			'runWithConsole': 		[False, 'Run with console', 'Run Cinema 4D with console enabled'],
+		self.settings: dict[str, list] = {  # key: (defaultValue, text, tooltip, isTileUpdateRequired)
+			'adjustFolderName': 	[True, 'Adjust folder name', 'Replace folder name with human-readable one', True],
+			'runWithConsole': 		[False, 'Run with console', 'Run Cinema 4D with console enabled', False],
+			'extractIcons': 		[True, 'Extract icons', 'Use actual icons extracted from Cinema 4D executables', True],
 		}
 
 		self.prefFilePath: Path = utils.GetPrefsFolderPath()/'c4d-preferences.json'
@@ -318,22 +321,23 @@ class C4DSettings(BaseSettings):
 
 		# TODO: refactor this
 		def addRowTyped(key: str):
-			val: list = self.settings[key]
-			text: str = val[1]
-			value: Any = val[0]
-			tooltip: str = val[2]
+			settingsEntry: list = self.settings[key]
+			text: str = settingsEntry[1]
+			value: Any = settingsEntry[0]
+			tooltip: str = settingsEntry[2]
+			isTileUpdateRequired: bool = settingsEntry[3]
 
 			textLabel = QLabel(text)
 			textLabel.setToolTip(tooltip)
 			if isinstance(value, bool):
 				checkbox = QCheckBox()
 				checkbox.setChecked(value)
-				checkbox.checkStateChanged.connect(partial(self._settingChangedCheckbox, key=key))
+				checkbox.checkStateChanged.connect(partial(self._settingChangedCheckbox, settingsEntry=settingsEntry))
 				formLayout.addRow(textLabel, checkbox)
 				return checkbox
 			if isinstance(value, str):
 				lineEdit = QLineEdit(value)
-				lineEdit.textChanged.connect(partial(self._settingsChangedLineEdit, key=key))
+				lineEdit.textChanged.connect(partial(self._settingsChangedLineEdit, settingsEntry=settingsEntry))
 				formLayout.addRow(textLabel, lineEdit)
 				return lineEdit
 			return None
@@ -346,13 +350,15 @@ class C4DSettings(BaseSettings):
 
 		return settingsWidget
 
-	def _settingChangedCheckbox(self, state, key: str):
-		self.settings[key][0] = state == Qt.CheckState.Checked
-		self.tilesUpdateRequired.emit()
+	def _settingChangedCheckbox(self, state, settingsEntry: list):
+		settingsEntry[0] = state == Qt.CheckState.Checked
+		if settingsEntry[3]:
+			self.tilesUpdateRequired.emit()
 
-	def _settingsChangedLineEdit(self, text, key: str):
-		self.settings[key][0] = text
-		self.tilesUpdateRequired.emit()
+	def _settingsChangedLineEdit(self, text, settingsEntry: list):
+		settingsEntry[0] = text
+		if settingsEntry[3]:
+			self.tilesUpdateRequired.emit()
 
 
 

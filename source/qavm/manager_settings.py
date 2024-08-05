@@ -19,7 +19,6 @@ class QAVMSettingsContainer:
 		'searchPaths': [], 			# list[str]
 		'searchSubfoldersDepth': 2, # int
 		'hideOnClose': False, 		# bool
-		'extractIcons': True 		# bool
 	}
 
 	def __init__(self):
