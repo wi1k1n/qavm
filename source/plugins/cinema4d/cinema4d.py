@@ -269,7 +269,7 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		return animBorderWidget
 
 	def _iconClicked(self, desc: C4DDescriptor):
-		args: str = 'g_console=true' if self.settings['runWithConsole'] else ''
+		args: str = 'g_console=true' if self.settings['runWithConsole'][0] else ''
 		os.startfile(str(desc.GetC4DExecutablePath()), arguments=args)
 
 class C4DSettings(BaseSettings):

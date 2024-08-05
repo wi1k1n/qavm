@@ -80,7 +80,6 @@ class QAVMSettings(BaseSettings):
 		formLayout.addRow('Search paths', QWidget())
 		formLayout.addRow('Search subfolders depth', QLineEdit())
 		formLayout.addRow('Hide on close', QCheckBox())
-		formLayout.addRow('Extract icons', QCheckBox())
 
 		return settingsWidget
 

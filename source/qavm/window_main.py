@@ -51,9 +51,13 @@ class MainWindow(QMainWindow):
 		self.actionExit = QAction("&Exit", self, shortcut=QKeySequence.StandardKey.Quit)
 		self.actionExit.triggered.connect(self.close)
 
-		self.actionPluginSelection = QAction("&Select software", self)
+		self.actionPluginSelection = QAction("Select software", self)
 		self.actionPluginSelection.setEnabled(len(self.pluginManager.GetSoftwareHandlers()) > 1)
 		self.actionPluginSelection.triggered.connect(self._switchToPluginSelection)
+
+		self.actionRescan = QAction("&Rescan", self)
+		self.actionRescan.setShortcut("Ctrl+F5")
+		self.actionRescan.triggered.connect(self._rescanSoftware)
 
 		# self.actionAbout = QAction("&About", self)
 		# self.actionShortcuts = QAction("&Shortcuts", self)
@@ -103,7 +107,10 @@ class MainWindow(QMainWindow):
 		fileMenu = menuBar.addMenu('&File')
 		# fileMenu.addAction(self.actionSave)
 		# fileMenu.addSeparator()
+		fileMenu.addAction(self.actionRescan)
+		fileMenu.addSeparator()
 		fileMenu.addAction(self.actionPluginSelection)
+		fileMenu.addSeparator()
 		fileMenu.addAction(self.actionExit)
 		
 		editMenu = menuBar.addMenu("&Edit")
@@ -142,11 +149,11 @@ class MainWindow(QMainWindow):
 		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
 		defaultTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings())
 
-		self.freeMoveWidget = self._createFreeMoveWidget(self.app.GetSoftwareDescriptions(), defaultTileBuilder, self)
-		self.tabsWidget.insertTab(1, self.freeMoveWidget, "Free Move")
-
 		self.tableWidget = self._createTableWidget(self.app.GetSoftwareDescriptions(), defaultTileBuilder, self)
-		self.tabsWidget.insertTab(2, self.tableWidget, "Details")
+		self.tabsWidget.insertTab(1, self.tableWidget, "Details")
+
+		self.freeMoveWidget = self._createFreeMoveWidget(self.app.GetSoftwareDescriptions(), defaultTileBuilder, self)
+		self.tabsWidget.insertTab(2, self.freeMoveWidget, "Free Move")
 		
 		self.setCentralWidget(self.tabsWidget)
 	
@@ -220,6 +227,11 @@ class MainWindow(QMainWindow):
 		self.qavmSettings.Save()
 		self.dialogsManager.GetPluginSelectionWindow().show()
 		self.close()
+	
+	def _rescanSoftware(self):
+		self.app.ResetSoftwareDescriptions()
+		self.UpdateTilesWidget()
+
 
 	def _showPreferences(self):
 		prefsWindow: QMainWindow = self.app.GetDialogsManager().GetPreferencesWindow()
