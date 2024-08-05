@@ -1,16 +1,17 @@
 import os  # TODO: Get rid of os.path in favor of pathlib
 from pathlib import Path
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QMargins
 from PyQt6.QtGui import QAction, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
-	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget
+	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
+	QHeaderView
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
 from qavm.manager_settings import SettingsManager, QAVMSettings
 
-from qavm.qavmapi import BaseDescriptor, BaseSettings, BaseTileBuilder
+from qavm.qavmapi import BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder
 from qavm.utils_gui import FlowLayout
 import qavm.qavmapi_utils as qavmapi_utils
 
@@ -143,14 +144,11 @@ class MainWindow(QMainWindow):
 		self.tabsWidget: QTabWidget = QTabWidget()
 		
 		self.UpdateTilesWidget()
-		# tabsWidget.addTab(self.tilesWidget, "Tiles")
+		self.UpdateTableWidget()
 
 		# TODO: handle case when softwareHandler is None
 		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
 		defaultTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings())
-
-		self.tableWidget = self._createTableWidget(self.app.GetSoftwareDescriptions(), defaultTileBuilder, self)
-		self.tabsWidget.insertTab(1, self.tableWidget, "Details")
 
 		self.freeMoveWidget = self._createFreeMoveWidget(self.app.GetSoftwareDescriptions(), defaultTileBuilder, self)
 		self.tabsWidget.insertTab(2, self.freeMoveWidget, "Free Move")
@@ -160,30 +158,58 @@ class MainWindow(QMainWindow):
 	def _createFreeMoveWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
 		return QLabel("Freemove", parent)
 	
-	def _createTableWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
-		tableWidget = QTableWidget(parent)
-		tableWidget.setColumnCount(2)
-		tableWidget.setRowCount(len(descs))
-		tableWidget.setHorizontalHeaderLabels(["Name", "Path"])
-		tableWidget.verticalHeader().setVisible(False)
-		tableWidget.horizontalHeader().setStretchLastSection(True)
-		# tableWidget.horizontalHeader().setSectionResizeMode(0, QTableWidget.ResizeMode.ResizeToContents)
-		# tableWidget.horizontalHeader().setSectionResizeMode(1, QTableWidget.ResizeMode.Stretch)
+	def UpdateTableWidget(self):
+		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())  # TODO: handle case when softwareHandler is None
+		tableBuilder = softwareHandler.GetTableBuilderClass()(softwareHandler.GetSettings())
+		if type(tableBuilder) is BaseTableBuilder:
+			return
 		
-		for i, desc in enumerate(descs):
-			tableWidget.setItem(i, 0, QTableWidgetItem(str(desc)))
-			tableWidget.setItem(i, 1, QTableWidgetItem(str(desc.dirPath)))
+		currentTabIndex: int = self.tabsWidget.currentIndex()
+
+		if hasattr(self, 'tableWidget') and self.tableWidget:
+			self.tableWidget.deleteLater()
+		
+		self.tableWidget = self._createTableWidget(self.app.GetSoftwareDescriptions(), tableBuilder, self)
+		self.tabsWidget.insertTab(1, self.tableWidget, "Details")
+		
+		self.tabsWidget.setCurrentIndex(currentTabIndex)
+
+	def _createTableWidget(self, descs: list[BaseDescriptor], tableBuilder: BaseTableBuilder, parent: QWidget):
+		tableWidget = QTableWidget(parent)
+
+		headers: list[str] = tableBuilder.GetTableCaptions()
+
+		tableWidget.setColumnCount(len(headers))
+		tableWidget.setHorizontalHeaderLabels(headers)
+		tableWidget.setRowCount(len(descs))
+		tableWidget.verticalHeader().setVisible(False)
+		
+		tableWidget.setSortingEnabled(True)
+
+		tableWidget.horizontalHeader().setStretchLastSection(True)
+		tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+		
+		tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+		tableWidget.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+		tableWidget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+		
+		for r, desc in enumerate(descs):
+			for c, header in enumerate(headers):
+				tableWidgetItem = tableBuilder.GetTableCellValue(desc, c)
+				if not isinstance(tableWidgetItem, QTableWidgetItem):
+					tableWidgetItem = QTableWidgetItem(tableWidgetItem)
+				tableWidget.setItem(r, c, tableWidgetItem)
 		
 		return tableWidget
 	
 	def UpdateTilesWidget(self):
+		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())  # TODO: handle case when softwareHandler is None
+		defaultTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings())
+
 		currentTabIndex: int = self.tabsWidget.currentIndex()
 
 		if hasattr(self, 'tilesWidget') and self.tilesWidget:
 			self.tilesWidget.deleteLater()
-		
-		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())  # TODO: handle case when softwareHandler is None
-		defaultTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings())
 
 		self.tilesWidget = self._createTilesWidget(self.app.GetSoftwareDescriptions(), defaultTileBuilder, self)
 		self.tabsWidget.insertTab(0, self.tilesWidget, "Tiles")

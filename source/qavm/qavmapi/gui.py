@@ -1,6 +1,19 @@
+import datetime as dt
+
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel
+from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel, QTableWidgetItem
 from PyQt6.QtGui import QColor
+
+class DateTimeTableWidgetItem(QTableWidgetItem):
+	def __init__(self, date: dt.datetime, format: str):
+		self.date: dt.datetime = date
+		self.format: str = format
+		super().__init__(self.date.strftime(self.format))
+
+	def __lt__(self, other):
+		if isinstance(other, DateTimeTableWidgetItem):
+			return self.date < other.date
+		return super().__lt__(other)
 
 # Copied from experiments on 26th of June 2024
 class StaticBorderWidget(QFrame):

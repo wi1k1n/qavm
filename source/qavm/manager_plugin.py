@@ -1,7 +1,7 @@
 import importlib.util, os, re
 from pathlib import Path
 
-from qavm.qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings
+from qavm.qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder
 import qavm.qavmapi.utils as utils
 
 import qavm.logs as logs
@@ -46,11 +46,19 @@ class SoftwareHandler(QAVMModuleNamed):
 		if not self.tileBuilderClasses or not isinstance(self.tileBuilderClasses, dict) or '' not in self.tileBuilderClasses \
 			or not all([f for f in self.tileBuilderClasses.values() if issubclass(f, BaseTileBuilder)]):  # required
 			raise Exception(f'Missing or invalid tile builder for software: {self.id}')
+		
+		self.tableBuilderClass = regData.get('table_builder', None)
+		if not self.tableBuilderClass:
+			self.tableBuilderClass = BaseTableBuilder
+		if not issubclass(self.tableBuilderClass, BaseTableBuilder):
+			raise Exception(f'Invalid table builder for software: {self.id}')
 	
 	def GetDescriptorClass(self) -> BaseDescriptor.__class__:
 		return self.descriptorClass
 	def GetTileBuilderClass(self, context='') -> BaseTileBuilder.__class__:
 		return self.tileBuilderClasses.get(context, self.tileBuilderClasses.get('', None))
+	def GetTableBuilderClass(self) -> BaseTableBuilder.__class__:
+		return self.tableBuilderClass
 	def GetQualifier(self) -> BaseQualifier:
 		return self.qualifierInstance
 	def GetSettings(self) -> BaseSettings:

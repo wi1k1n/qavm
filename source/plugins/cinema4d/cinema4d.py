@@ -11,14 +11,14 @@ from pathlib import Path
 from functools import partial
 from typing import Any, Iterator
 
-from qavm.qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings
-from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel
+from qavm.qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder
+from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem
 import qavm.qavmapi.utils as utils
 
 from PyQt6.QtCore import Qt, QProcess
 from PyQt6.QtGui import QFont, QColor, QPixmap
 from PyQt6.QtWidgets import (
-	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox
+	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox, QTableWidgetItem
 )
 
 """
@@ -272,6 +272,37 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		args: str = 'g_console=true' if self.settings['runWithConsole'][0] else ''
 		os.startfile(str(desc.GetC4DExecutablePath()), arguments=args)
 
+
+class C4DVersionTableWidgetItem(QTableWidgetItem):
+	def __init__(self, versionH: list[int], verionStr: str):
+		if len(versionH) != 4:
+			raise ValueError('Invalid versionH length')
+		self.versionH: list[int] = versionH
+		self.versionStr: str = verionStr
+		super().__init__(verionStr)
+
+	def __lt__(self, other):
+		if isinstance(other, C4DVersionTableWidgetItem):
+			def convoluteVersion(v):
+				return v[0] * 1000 + v[1] * 100 + v[2] * 10 + v[3]
+			return convoluteVersion(self.versionH) < convoluteVersion(other.versionH)
+		return super().__lt__(other)
+
+class C4DTableBuilder(BaseTableBuilder):
+	def GetTableCaptions(self) -> list[str]:
+		return ['Folder name', 'Version', 'Installed date', 'Path']
+	
+	def GetTableCellValue(self, desc: C4DDescriptor, col: int) -> str | QTableWidgetItem:
+		if col == 0:
+			return desc.dirNameAdjusted if self.settings['adjustFolderName'][0] else desc.dirName
+		if col == 1:
+			return C4DVersionTableWidgetItem(desc.versionH, f'{desc.majorVersion}.{desc.subversion}')
+		if col == 2:
+			return DateTimeTableWidgetItem(dt.datetime.fromtimestamp(desc.dateInstalled), '%d-%b-%y %H:%M:%S')
+		if col == 3:
+			return str(desc.dirPath)
+		return ''
+
 class C4DSettings(BaseSettings):
 	def __init__(self) -> None:
 		super().__init__()
@@ -401,6 +432,7 @@ def RegisterModuleSoftware():
 			'tile_builders': {  # context: TileBuilder
 				'': C4DTileBuilderDefault,  # default tile builder
 			},
+			'table_builder': C4DTableBuilder,
 			'settings': C4DSettings,
 		},
 
