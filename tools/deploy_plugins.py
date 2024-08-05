@@ -117,10 +117,10 @@ if __name__ == "__main__":
 	spec = importlib.util.spec_from_file_location('qavm_utils', os.path.join('source', 'qavm', 'qavmapi', 'utils.py'))
 	qavm_utils = importlib.util.module_from_spec(spec)
 	spec.loader.exec_module(qavm_utils)
-	if not hasattr(qavm_utils, 'GetPluginsFolderPath'):
+	if not hasattr(qavm_utils, 'GetDefaultPluginsFolderPath'):
 		print('Failed to load source/utils.py')
 		exit(1)
-	targetPluginsFolderPath = qavm_utils.GetPluginsFolderPath()
+	targetPluginsFolderPath = qavm_utils.GetDefaultPluginsFolderPath()
 	print(f'> Deploying plugins from {sourcePluginsFolderPath} to {targetPluginsFolderPath}')  
 
 	# mainCopyPluginFiles(sourcePluginsFolderPath, targetPluginsFolderPath)

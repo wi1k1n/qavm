@@ -1,3 +1,4 @@
+import argparse
 from typing import List
 from pathlib import Path
 
@@ -23,14 +24,17 @@ from qavm.window_pluginselect import PluginSelectionWindow
 
 # Extensive PyQt tutorial: https://realpython.com/python-menus-toolbars/#building-context-or-pop-up-menus-in-pyqt
 class QAVMApp(QApplication):
-	def __init__(self, argv: List[str]) -> None:
+	def __init__(self, argv: List[str], args: argparse.Namespace) -> None:
 		super().__init__(argv)
 		
 		self.setApplicationName('QAVM')
 		self.setOrganizationName('wi1k.in.prod')
 		self.setOrganizationDomain('wi1k.in')
 
+		self.pluginPaths: set[Path] = {utils.GetDefaultPluginsFolderPath()}
 		self.softwareDescriptions: list[BaseDescriptor] = None
+
+		self.processArgs(args)
 		
 		self.dialogsManager: DialogsManager = DialogsManager(self)
 
@@ -38,7 +42,7 @@ class QAVMApp(QApplication):
 		self.settingsManager.LoadQAVMSettings()
 		self.qavmSettings: QAVMSettings = self.settingsManager.GetQAVMSettings()
 
-		self.pluginManager = PluginManager(self, utils.GetPluginsFolderPath())
+		self.pluginManager = PluginManager(self, self.GetPluginPaths())
 		self.pluginManager.LoadPlugins()
 
 		self.settingsManager.LoadModuleSettings()
@@ -54,6 +58,15 @@ class QAVMApp(QApplication):
 	def GetDialogsManager(self) -> DialogsManager:
 		return self.dialogsManager
 	
+	def GetPluginPaths(self) -> list[Path]:
+		return list(self.pluginPaths)
+	
+	def GetSoftwareDescriptions(self) -> list[BaseDescriptor]:
+		if self.softwareDescriptions is None:
+			self.softwareDescriptions = self.ScanSoftware()
+		return self.softwareDescriptions
+	def ResetSoftwareDescriptions(self) -> None:
+		self.softwareDescriptions = None
 	
 	def ScanSoftware(self) -> list[BaseDescriptor]:
 		qavmSettings = self.settingsManager.GetQAVMSettings()
@@ -79,7 +92,8 @@ class QAVMApp(QApplication):
 				# dirList: list[Path] = [Path(pathDir)/d for d in os.listdir(pathDir)]
 				# return list(filter(lambda d: os.path.isdir(d), dirList))
 			except:
-				logger.warning(f'Failed to get dir list: {pathDir}')
+				# logger.warning(f'Failed to get dir list: {pathDir}')
+				pass
 			return list()
 		
 		def TryPassFileMask(dirPath: Path, config: dict[str, list[str]]) -> bool:
@@ -137,7 +151,6 @@ class QAVMApp(QApplication):
 		
 		return softwareDescs
 	
-	def GetSoftwareDescriptions(self) -> list[BaseDescriptor]:
-		if self.softwareDescriptions is None:
-			self.softwareDescriptions = self.ScanSoftware()
-		return self.softwareDescriptions
+	def processArgs(self, args: argparse.Namespace) -> None:
+		if args.pluginsFolder:
+			self.pluginPaths.add(Path(args.pluginsFolder))

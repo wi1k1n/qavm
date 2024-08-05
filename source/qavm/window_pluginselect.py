@@ -80,6 +80,7 @@ class PluginSelectionWindow(QMainWindow):
 	def startMainWindow(self):
 		self.settingsManager.LoadSoftwareSettings()
 		
+		self.app.ResetSoftwareDescriptions()
 		self.dialogsManager.ResetPreferencesWindow()
 		self.dialogsManager.ResetMainWindow()
 

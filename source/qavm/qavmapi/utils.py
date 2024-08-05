@@ -10,13 +10,13 @@ def PlatformMacOS():
 	return platform.system() == 'Darwin'
 
 
-def GetPluginsFolderPath() -> Path:
-	return GetQAVMDataPath()/'plugins'
-
 def GetQAVMDataPath() -> Path:
 	path: str = GetAppDataPath()/'qamv'
 	os.makedirs(path, exist_ok=True)
 	return path
+
+def GetDefaultPluginsFolderPath() -> Path:
+	return GetQAVMDataPath()/'plugins'
 
 def GetPrefsFolderPath() -> Path:
 	return GetQAVMDataPath()/'preferences'
