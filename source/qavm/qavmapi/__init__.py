@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PyQt6.QtCore import pyqtSignal, QObject
-from PyQt6.QtWidgets import QWidget, QLabel, QTableWidgetItem
+from PyQt6.QtWidgets import QWidget, QLabel, QTableWidgetItem, QMenu
 
 ##############################################################################
 #############################  ##############################
@@ -62,17 +62,23 @@ class BaseDescriptor(object):
 	def __repr__(self):
 		return self.__str__()
 
-class BaseTileBuilder(QObject):
-	def __init__(self, settings: BaseSettings):
-		self.settings: BaseSettings = settings
-
-	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:
-		return QLabel(str(descriptor.dirPath), parent)
-
-class BaseTableBuilder(QObject):
+class BaseContextMenu(QObject):
 	def __init__(self, settings: BaseSettings):
 		self.settings: BaseSettings = settings
 	
+	def CreateMenu(self, desc: BaseDescriptor) -> QMenu:
+		return QMenu()
+
+class BaseBuilder(QObject):
+	def __init__(self, settings: BaseSettings, contextMenu: BaseContextMenu):
+		self.settings: BaseSettings = settings
+		self.contextMenu: BaseContextMenu = contextMenu
+
+class BaseTileBuilder(BaseBuilder):
+	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:
+		return QLabel(str(descriptor.dirPath), parent)
+
+class BaseTableBuilder(BaseBuilder):	
 	def GetTableCaptions(self) -> list[str]:
 		return ['Path']
 	

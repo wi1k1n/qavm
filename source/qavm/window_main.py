@@ -1,17 +1,20 @@
 import os  # TODO: Get rid of os.path in favor of pathlib
 from pathlib import Path
+from functools import partial
 
-from PyQt6.QtCore import Qt, QMargins
-from PyQt6.QtGui import QAction, QIcon, QKeySequence
+from PyQt6.QtCore import Qt, QMargins, QPoint
+from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
-	QHeaderView
+	QHeaderView, QMenu
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
 from qavm.manager_settings import SettingsManager, QAVMSettings
 
-from qavm.qavmapi import BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder
+from qavm.qavmapi import (
+	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu
+)
 from qavm.utils_gui import FlowLayout
 import qavm.qavmapi_utils as qavmapi_utils
 
@@ -148,11 +151,12 @@ class MainWindow(QMainWindow):
 
 		# TODO: handle case when softwareHandler is None
 		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
-		defaultTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings())
+		contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
+		tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
 
-		self.freeMoveWidget = self._createFreeMoveWidget(self.app.GetSoftwareDescriptions(), defaultTileBuilder, self)
+		self.freeMoveWidget = self._createFreeMoveWidget(self.app.GetSoftwareDescriptions(), tileBuilder, self)
 		self.tabsWidget.insertTab(2, self.freeMoveWidget, "Free Move")
-		
+
 		self.setCentralWidget(self.tabsWidget)
 	
 	def _createFreeMoveWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
@@ -160,7 +164,8 @@ class MainWindow(QMainWindow):
 	
 	def UpdateTableWidget(self):
 		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())  # TODO: handle case when softwareHandler is None
-		tableBuilder = softwareHandler.GetTableBuilderClass()(softwareHandler.GetSettings())
+		contextMenu: BaseContextMenu = softwareHandler.GetTableBuilderContextMenuClass()(softwareHandler.GetSettings())
+		tableBuilder = softwareHandler.GetTableBuilderClass()(softwareHandler.GetSettings(), contextMenu)
 		if type(tableBuilder) is BaseTableBuilder:
 			return
 		
@@ -169,12 +174,12 @@ class MainWindow(QMainWindow):
 		if hasattr(self, 'tableWidget') and self.tableWidget:
 			self.tableWidget.deleteLater()
 		
-		self.tableWidget = self._createTableWidget(self.app.GetSoftwareDescriptions(), tableBuilder, self)
+		self.tableWidget = self._createTableWidget(self.app.GetSoftwareDescriptions(), tableBuilder, contextMenu, self)
 		self.tabsWidget.insertTab(1, self.tableWidget, "Details")
 		
 		self.tabsWidget.setCurrentIndex(currentTabIndex)
 
-	def _createTableWidget(self, descs: list[BaseDescriptor], tableBuilder: BaseTableBuilder, parent: QWidget):
+	def _createTableWidget(self, descs: list[BaseDescriptor], tableBuilder: BaseTableBuilder, contextMenu: BaseContextMenu, parent: QWidget):
 		tableWidget = QTableWidget(parent)
 
 		headers: list[str] = tableBuilder.GetTableCaptions()
@@ -192,6 +197,12 @@ class MainWindow(QMainWindow):
 		tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
 		tableWidget.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
 		tableWidget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
+		# TODO: this sounds like a temp solution
+		contextMenus: list[QMenu] = list()
+		def showContextMenu(pos):
+			selectedRowsUnique: set = {idx.row() for idx in tableWidget.selectedIndexes()}
+			contextMenus[selectedRowsUnique.pop()].exec(QCursor.pos())
 		
 		for r, desc in enumerate(descs):
 			for c, header in enumerate(headers):
@@ -199,28 +210,39 @@ class MainWindow(QMainWindow):
 				if not isinstance(tableWidgetItem, QTableWidgetItem):
 					tableWidgetItem = QTableWidgetItem(tableWidgetItem)
 				tableWidget.setItem(r, c, tableWidgetItem)
+
+			contextMenus.append(contextMenu.CreateMenu(desc))
+		
+		tableWidget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+		tableWidget.customContextMenuRequested.connect(showContextMenu)
 		
 		return tableWidget
 	
 	def UpdateTilesWidget(self):
 		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())  # TODO: handle case when softwareHandler is None
-		defaultTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings())
+		contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
+		tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
 
 		currentTabIndex: int = self.tabsWidget.currentIndex()
 
 		if hasattr(self, 'tilesWidget') and self.tilesWidget:
 			self.tilesWidget.deleteLater()
 
-		self.tilesWidget = self._createTilesWidget(self.app.GetSoftwareDescriptions(), defaultTileBuilder, self)
+		self.tilesWidget = self._createTilesWidget(self.app.GetSoftwareDescriptions(), tileBuilder, contextMenu, self)
 		self.tabsWidget.insertTab(0, self.tilesWidget, "Tiles")
 		
 		self.tabsWidget.setCurrentIndex(currentTabIndex)
 
-	def _createTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
+	def _createTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, contextMenu: BaseContextMenu, parent: QWidget):
 		tiles: list[QWidget] = list()
 
 		for desc in descs:
 			tileWidget = tileBuilder.CreateTileWidget(desc, parent)
+			
+			tileWidget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+			menu = contextMenu.CreateMenu(desc)
+			tileWidget.customContextMenuRequested.connect(partial(lambda m, p: m.exec(QCursor.pos()), menu))
+
 			tiles.append(tileWidget)
 
 		flWidget = self._createFlowLayoutWithFromWidgets(self, tiles)

@@ -1,4 +1,4 @@
-import os, platform, json, hashlib
+import os, platform, json, hashlib, subprocess
 from pathlib import Path
 from typing import Any
 
@@ -48,7 +48,15 @@ def GetTempDataPath() -> Path:
 	# 	return Path('/tmp')
 	raise Exception('Unsupported platform')
 
-
+def OpenFolderInExplorer(folderPath: Path):
+	if PlatformWindows():
+		os.startfile(folderPath)
+	elif PlatformMacOS():
+		subprocess.Popen(['open', folderPath])
+	# elif PlatformLinux():
+	# 	subprocess.Popen(['xdg-open', folderPath])
+	else:
+		raise Exception('Unsupported platform')
 
 def getFileHash(filePath: Path, hashAlgo='sha256'):
 	CHUNKSIZE = 32 * 1024 * 1024  # 32 MB

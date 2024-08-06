@@ -11,14 +11,17 @@ from pathlib import Path
 from functools import partial
 from typing import Any, Iterator
 
-from qavm.qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder
+from qavm.qavmapi import (
+	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu
+)
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem
 import qavm.qavmapi.utils as utils
 
 from PyQt6.QtCore import Qt, QProcess
-from PyQt6.QtGui import QFont, QColor, QPixmap
+from PyQt6.QtGui import QFont, QColor, QPixmap, QAction
 from PyQt6.QtWidgets import (
-	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox, QTableWidgetItem
+	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox, QTableWidgetItem,
+	QMenu, QWidgetAction
 )
 
 """
@@ -197,10 +200,11 @@ class C4DDescriptor(BaseDescriptor):
 		return self.__str__()
 
 class C4DTileBuilderDefault(BaseTileBuilder):
-	def __init__(self, settings: BaseSettings):
-		super().__init__(settings)
+	def __init__(self, settings: BaseSettings, contextMenu: BaseContextMenu):
+		super().__init__(settings, contextMenu)
 		# From BaseTileBuilder:
 		# self.settings: BaseSettings
+		# self.contextMenu: BaseContextMenu
 
 	def CreateTileWidget(self, descriptor: C4DDescriptor, parent) -> QWidget:
 		descWidget: QWidget = self._createDescWidget(descriptor, parent)
@@ -234,23 +238,27 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		iconLabel.setFixedSize(64, 64)
 		iconLabel.clicked.connect(partial(self._iconClicked, desc))
 
-		def createQLabel(text, tooltip: str = '') -> QLabel:
+		def createQLabel(text) -> QLabel:
 			label = QLabel(text, parent)
 			label.setFont(QFont('SblHebrew'))
 			label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-			label.setToolTip(tooltip)
 			# DEBUG # label.setStyleSheet("background-color: pink;")
 			return label
+			
 		def timestampToStr(timestamp: int, frmt: str = '%d-%b-%y %H:%M:%S') -> str:
 			return dt.datetime.fromtimestamp(timestamp).strftime(frmt)
 		
-		descLayout.addWidget(createQLabel(f'{desc.majorVersion}.{desc.subversion}', f'Build {desc.buildString}'))
+		descLayout.addWidget(createQLabel(f'{desc.majorVersion}.{desc.subversion}'))
 		dirNameLabel: str = desc.dirNameAdjusted if self.settings['adjustFolderName'][0] else desc.dirName
-		descLayout.addWidget(createQLabel(dirNameLabel, str(desc.dirPath)))
-		descLayout.addWidget(createQLabel(f'Installed: {timestampToStr(desc.dateInstalled, "%d-%b-%y")}',
-										f'Installed: {timestampToStr(desc.dateInstalled)}'
-										f'\nModified: {timestampToStr(desc.dateModified)}'))
+		descLayout.addWidget(createQLabel(dirNameLabel))
+		descLayout.addWidget(createQLabel(f'Installed: {timestampToStr(desc.dateInstalled, "%d-%b-%y")}'))
 		descLayout.addWidget(iconLabel, alignment=Qt.AlignmentFlag.AlignCenter)
+
+		toolTip: str = f'Build {desc.buildString}' \
+					+ '\n' + str(desc.dirPath) \
+					+ f'\nInstalled: {timestampToStr(desc.dateInstalled)}' \
+					f'\nModified: {timestampToStr(desc.dateModified)}'
+		descWidget.setToolTip(toolTip)
 
 		descWidget.setFixedSize(descWidget.minimumSizeHint())
 
@@ -391,7 +399,27 @@ class C4DSettings(BaseSettings):
 		if settingsEntry[3]:
 			self.tilesUpdateRequired.emit()
 
+class C4DContextMenu(BaseContextMenu):
+	def CreateMenu(self, desc: C4DDescriptor) -> QMenu:
+		menu = QMenu()
 
+		titleLabel: QLabel = QLabel(f'{desc.majorVersion}.{desc.subversion}')
+		titleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		titleLabel.setContentsMargins(0, 7, 0, 3)
+		titleAction: QWidgetAction = QWidgetAction(menu)
+		titleAction.setDefaultWidget(titleLabel)
+
+		menu.addAction(titleAction)
+		menu.addAction('Run', partial(self._run, desc))
+		menu.addAction('Run w/console', partial(self._runConsole, desc))
+		menu.addSeparator()
+		menu.addAction('Open folder', partial(utils.OpenFolderInExplorer, desc.dirPath))
+		return menu
+	
+	def _run(self, desc: C4DDescriptor):
+		os.startfile(str(desc.GetC4DExecutablePath()))
+	def _runConsole(self, desc: C4DDescriptor):
+		os.startfile(str(desc.GetC4DExecutablePath()), arguments='g_console=true')
 
 ##############################################################################################
 ##################### TESTING THINGS #########################################################
@@ -429,11 +457,15 @@ def RegisterModuleSoftware():
 
 			'qualifier': C4DQualifier,
 			'descriptor': C4DDescriptor,
-			'tile_builders': {  # context: TileBuilder
-				'': C4DTileBuilderDefault,  # default tile builder
-			},
-			'table_builder': C4DTableBuilder,
 			'settings': C4DSettings,
+			'tile_view': {
+				'tile_builder': C4DTileBuilderDefault,
+				'context_menu': C4DContextMenu,
+			},
+			'table_view': {
+				'table_builder': C4DTableBuilder,
+				'context_menu': C4DContextMenu,
+			},
 		},
 
 
@@ -447,8 +479,8 @@ def RegisterModuleSoftware():
 
 			'qualifier': C4DExampleQualifier,
 			'descriptor': C4DExampleDescriptor,
-			'tile_builders': {
-				'': C4DExampleTileBuilder,
+			'tile_view': {
+				'tile_builder': C4DExampleTileBuilder,
 			},
 		}
 	]

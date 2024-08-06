@@ -1,7 +1,9 @@
 import importlib.util, os, re
 from pathlib import Path
 
-from qavm.qavmapi import BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder
+from qavm.qavmapi import (
+	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu
+)
 import qavm.qavmapi.utils as utils
 
 import qavm.logs as logs
@@ -26,6 +28,8 @@ class SoftwareHandler(QAVMModuleNamed):
 		if not QAVMPlugin.ValidateID(self.id):
 			raise Exception(f'Invalid or missing Software ID: {self.id}')
 		
+		# TODO: lots of repeated code here, refactor
+
 		self.settingsClass = regData.get('settings', None)  # optional
 		if not self.settingsClass:
 			self.settingsClass = BaseSettings
@@ -42,23 +46,49 @@ class SoftwareHandler(QAVMModuleNamed):
 		if not self.descriptorClass or not issubclass(self.descriptorClass, BaseDescriptor):  # required
 			raise Exception(f'Missing or invalid descriptor for software: {self.id}')
 		
-		self.tileBuilderClasses = regData.get('tile_builders', {})
-		if not self.tileBuilderClasses or not isinstance(self.tileBuilderClasses, dict) or '' not in self.tileBuilderClasses \
-			or not all([f for f in self.tileBuilderClasses.values() if issubclass(f, BaseTileBuilder)]):  # required
-			raise Exception(f'Missing or invalid tile builder for software: {self.id}')
+		tileViewData: dict = regData.get('tile_view', {})
+		if tileViewData:
+			if not isinstance(tileViewData, dict):
+				raise Exception(f'Invalid tile view data for software: {self.id}')
+			self.tileBuilderClass: BaseTileBuilder = tileViewData.get('tile_builder', None)
+			if not self.tileBuilderClass:
+				self.tileBuilderClass = BaseTileBuilder
+			if not issubclass(self.tileBuilderClass, BaseTileBuilder):
+				raise Exception(f'Invalid tile builder for software: {self.id}')
+			
+			self.tileContextMenuClass: BaseContextMenu = tileViewData.get('context_menu', None)
+			if not self.tileContextMenuClass:
+				self.tileContextMenuClass = BaseContextMenu
+			if not issubclass(self.tileContextMenuClass, BaseContextMenu):
+				raise Exception(f'Invalid context menu for software: {self.id}')
 		
-		self.tableBuilderClass = regData.get('table_builder', None)
-		if not self.tableBuilderClass:
-			self.tableBuilderClass = BaseTableBuilder
-		if not issubclass(self.tableBuilderClass, BaseTableBuilder):
-			raise Exception(f'Invalid table builder for software: {self.id}')
+		tableViewData: dict = regData.get('table_view', {})
+		if tableViewData:
+			if not isinstance(tableViewData, dict):
+				raise Exception(f'Invalid table view data for software: {self.id}')
+			self.tableBuilderClass: BaseTableBuilder = tableViewData.get('table_builder', None)
+			if not self.tableBuilderClass:
+				self.tableBuilderClass = BaseTableBuilder
+			if not issubclass(self.tableBuilderClass, BaseTableBuilder):
+				raise Exception(f'Invalid table builder for software: {self.id}')
+
+			self.tableContextMenuClass: BaseContextMenu = tableViewData.get('context_menu', None)
+			if not self.tableContextMenuClass:
+				self.tableContextMenuClass = BaseContextMenu
+			if not issubclass(self.tableContextMenuClass, BaseContextMenu):
+				raise Exception(f'Invalid context menu for software: {self.id}')
+
 	
 	def GetDescriptorClass(self) -> BaseDescriptor.__class__:
 		return self.descriptorClass
-	def GetTileBuilderClass(self, context='') -> BaseTileBuilder.__class__:
-		return self.tileBuilderClasses.get(context, self.tileBuilderClasses.get('', None))
+	def GetTileBuilderClass(self) -> BaseTileBuilder.__class__:
+		return self.tileBuilderClass
+	def GetTileBuilderContextMenuClass(self) -> BaseContextMenu.__class__:
+		return self.tileContextMenuClass
 	def GetTableBuilderClass(self) -> BaseTableBuilder.__class__:
 		return self.tableBuilderClass
+	def GetTableBuilderContextMenuClass(self) -> BaseContextMenu.__class__:
+		return self.tableContextMenuClass
 	def GetQualifier(self) -> BaseQualifier:
 		return self.qualifierInstance
 	def GetSettings(self) -> BaseSettings:
