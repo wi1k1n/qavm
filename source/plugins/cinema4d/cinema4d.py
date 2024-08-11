@@ -417,9 +417,13 @@ class C4DContextMenu(BaseContextMenu):
 		return menu
 	
 	def _run(self, desc: C4DDescriptor):
-		os.startfile(str(desc.GetC4DExecutablePath()))
+		self._runC4DExecutable(desc)
 	def _runConsole(self, desc: C4DDescriptor):
-		os.startfile(str(desc.GetC4DExecutablePath()), arguments='g_console=true')
+		self._runC4DExecutable(desc, extraArgs='g_console=true')
+	
+	def _runC4DExecutable(self, desc: C4DDescriptor, extraArgs: str = ''):
+		args: str = 'g_additionalModulePath="D:\\prj\\qavm\\source\\plugins\\cinema4d\\c4d-plugin"'
+		os.startfile(str(desc.GetC4DExecutablePath()), arguments=args + ' ' + extraArgs)
 
 ##############################################################################################
 ##################### TESTING THINGS #########################################################
