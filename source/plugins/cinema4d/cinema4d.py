@@ -5,8 +5,8 @@ copyright
 PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.cinema4d'
 PLUGIN_VERSION = '0.1.0'
 
-import os, subprocess, re, json, sys, logging
-import datetime as dt
+import os, subprocess, re, json, sys, logging, cv2
+import datetime as dt, numpy as np
 from pathlib import Path
 from functools import partial
 from typing import Any, Iterator
@@ -16,9 +16,10 @@ from qavm.qavmapi import (
 )
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem
 import qavm.qavmapi.utils as utils
+from qavm.qavmapi.media_cache import MediaCache
 
-from PyQt6.QtCore import Qt, QProcess
-from PyQt6.QtGui import QFont, QColor, QPixmap, QAction
+from PyQt6.QtCore import Qt, QProcess, QSize, QRect, QPoint
+from PyQt6.QtGui import QFont, QColor, QPixmap, QAction, QBrush, QPainter, QImage
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox, QTableWidgetItem,
 	QMenu, QWidgetAction
@@ -224,19 +225,61 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		margins: int = 5
 		descLayout.setContentsMargins(margins, margins, margins, margins)
 		descLayout.setSpacing(5)
-		
-		iconPath: Path | None = None
-		if self.settings['extractIcons'][0]:
-			iconPath = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())
-		if iconPath is None:
-			iconPath: Path = Path('./res/icons/c4d-teal.png')
-		pixMap: QPixmap = QPixmap(str(iconPath))
 
-		iconLabel = ClickableLabel(parent)
-		iconLabel.setScaledContents(True)
-		iconLabel.setPixmap(pixMap)
-		iconLabel.setFixedSize(64, 64)
-		iconLabel.clicked.connect(partial(self._iconClicked, desc))
+		#############################################################
+		############# This part should be precomputed ###############
+		#############################################################
+		def cv2_to_qpixmap(cv_img):
+			"""Convert from an OpenCV image to QPixmap."""
+			height, width, channel = cv_img.shape
+			bytes_per_line = 3 * width
+			# Convert BGR (OpenCV) to RGB (QImage)
+			q_img = QImage(cv_img.data, width, height, bytes_per_line, QImage.Format.Format_RGB888).rgbSwapped()
+			return QPixmap.fromImage(q_img)
+		
+		SPLASH_SIZE: QSize = QSize(128, 72)
+		splashPixmap: QPixmap = QPixmap.fromImage(QImage(SPLASH_SIZE, QImage.Format.Format_RGBA8888))
+		if (splashC4DImagePath := self._getC4DSplashPixmap(desc)):
+			img = cv2.imread(str(splashC4DImagePath))
+			contrast, brightness = 0.8, 40  # contrast (1.0 - 3.0), brightness (0 - 100)
+			imgAdjusted = cv2.convertScaleAbs(img, alpha=contrast, beta=brightness)
+			splashPixmap = cv2_to_qpixmap(imgAdjusted).scaled(SPLASH_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+		#############################################################
+		#############################################################
+		#############################################################
+		
+		ICONC4D_SIZE: QSize = QSize(32, 32)
+		iconC4D: Path | None = None
+		if self.settings['extractIcons'][0]:
+			iconC4D = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())  # TODO: this has to be done on initialization, preferable in a separate thread
+		if iconC4D is None:
+			iconC4D: Path = Path('./res/icons/c4d-teal.png')
+		iconPixmap: QPixmap = QPixmap(str(iconC4D)).scaled(ICONC4D_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+
+		iconLabelC4D = ClickableLabel(parent)
+		iconLabelC4D.clicked.connect(partial(self._iconClicked, desc))
+
+		if splashPixmap:
+			painter = QPainter(splashPixmap)
+			painter.drawPixmap(QRect(QPoint(), ICONC4D_SIZE), iconPixmap)
+
+			# TODO: RS logo should appear dynamically depending on the outcome of the backend plugin
+			# TODO: use question mark icon if RS status isn't yet known
+			RSLOGO_SIZE: QSize = QSize(16, 16)
+			rsPixmap: QPixmap = QPixmap(str(Path(__file__).parent/'res/redshift-logo.png'))
+			rsLogoRect: QRect = QRect(QPoint(), RSLOGO_SIZE)
+			rsLogoRect.moveTopRight(QPoint(SPLASH_SIZE.width(), 0))
+			painter.drawPixmap(rsLogoRect, rsPixmap)
+
+			painter.end()
+
+			iconLabelC4D.setPixmap(splashPixmap)
+			iconLabelC4D.setFixedSize(SPLASH_SIZE)
+		else:
+			iconLabelC4D.setPixmap(iconPixmap)
+			iconLabelC4D.setFixedSize(ICONC4D_SIZE)
+			iconLabelC4D.setScaledContents(True)
+		
 
 		def createQLabel(text) -> QLabel:
 			label = QLabel(text, parent)
@@ -252,7 +295,7 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		dirNameLabel: str = desc.dirNameAdjusted if self.settings['adjustFolderName'][0] else desc.dirName
 		descLayout.addWidget(createQLabel(dirNameLabel))
 		descLayout.addWidget(createQLabel(f'Installed: {timestampToStr(desc.dateInstalled, "%d-%b-%y")}'))
-		descLayout.addWidget(iconLabel, alignment=Qt.AlignmentFlag.AlignCenter)
+		descLayout.addWidget(iconLabelC4D, alignment=Qt.AlignmentFlag.AlignCenter)
 
 		toolTip: str = f'Build {desc.buildString}' \
 					+ '\n' + str(desc.dirPath) \
@@ -280,6 +323,42 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		args: str = 'g_console=true' if self.settings['runWithConsole'][0] else ''
 		os.startfile(str(desc.GetC4DExecutablePath()), arguments=args)
 
+	def _getC4DSplashPixmap(self, desc: C4DDescriptor) -> Path | None:
+		mediaCache: MediaCache = MediaCache()
+		
+		mediaUID: str = f'{str(desc.GetC4DExecutablePath())}_splash-image-frame.png'
+		if cachedPath := mediaCache.GetCachedPath(mediaUID):
+			return cachedPath
+		
+		splashVideoPath: Path = desc.dirPath/'resource/modules/gui.module/images/splash.mp4'
+		if not splashVideoPath.exists():
+			return None
+		splashFramePath: Path = self._extractVideoFrame(splashVideoPath, -1)
+		if splashFramePath is None or not splashFramePath.exists():
+			return None
+		mediaCache.CacheMedia(mediaUID, splashFramePath)
+		return splashFramePath
+	
+	def _extractVideoFrame(self, videoPath: Path, frameNum: int) -> Path | None:
+		# Extracting video frame: https://stackoverflow.com/questions/33311153/python-extracting-and-saving-video-frames
+		import cv2
+		vidcap = cv2.VideoCapture(videoPath)
+		if not vidcap.isOpened():
+			return None
+		
+		frameCount: int = int(vidcap.get(cv2.CAP_PROP_FRAME_COUNT))
+		vidcap.set(cv2.CAP_PROP_POS_FRAMES, frameCount - 2)
+		success, image = vidcap.read()
+		if not success:
+			return None
+		
+		tempDirPath: Path = utils.GetQAVMTempPath()
+		tempDirPath.mkdir(parents=True, exist_ok=True)
+		tempPath: Path = tempDirPath/f'{utils.GetHashString(str(videoPath))}.jpg'
+
+		cv2.imwrite(tempPath, image)
+		
+		return tempPath
 
 class C4DVersionTableWidgetItem(QTableWidgetItem):
 	def __init__(self, versionH: list[int], verionStr: str):
