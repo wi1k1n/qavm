@@ -73,7 +73,7 @@ class C4DQualifier(BaseQualifier):
 		ret['fileContentsList'] = [  # list of tuples: (filename, isBinary, lengthLimit)
 			('resource/version.h', False, 0),
 			('resource/build.txt', False, 0),
-			('plugincache.txt', False, 0),  # TODO: this is created by a backend plugin
+			('qavm_data.json', False, 0),  # this file is created by a backend plugin
 		]
 		return ret
 	
@@ -81,10 +81,11 @@ class C4DQualifier(BaseQualifier):
 		if 'resource/version.h' not in fileContents:
 			return False
 		versionContent: str = fileContents['resource/version.h']
-		return '#define C4D_V1' in versionContent \
-			and '#define C4D_V2' in versionContent \
-			and '#define C4D_V3' in versionContent \
-			and '#define C4D_V4' in versionContent  # TODO: improve using regex
+		isVersionValid: bool = '#define C4D_V1' in versionContent \
+							and '#define C4D_V2' in versionContent \
+							and '#define C4D_V3' in versionContent \
+							and '#define C4D_V4' in versionContent  # TODO: improve using regex
+		return isVersionValid
 
 class C4DDescriptor(BaseDescriptor):
 	def __init__(self, dirPath: Path, settings: BaseSettings, fileContents: dict[str, str | bytes]):
@@ -116,11 +117,14 @@ class C4DDescriptor(BaseDescriptor):
 		self.dateModified = buildTxtPath.stat().st_mtime
 
 		self.commitRef = ''  # e.g. CL363640.28201 for R25, db1a05477b8f_1095604919 for 2024
-		self.buildLink = ''
+		self.buildLink = ''  # the link where the build was downloaded from
 
+		self.backendPluginVersion = ''  # version of the backend plugin
 		self.pluginList = list()
-		self.redshiftVersion = ''
+		self.redshiftCoreVersion = ''
 		self.redshiftPluginVersion = ''
+
+		self._loadBackendPluginData(fileContents)
 
 		self.dateBuild = ''  # date when the build was created
 	
@@ -140,6 +144,25 @@ class C4DDescriptor(BaseDescriptor):
 					versionPartsArr[i] = _safeCast(line[len(curDefinePart):].strip(), int, -1)
 					break
 		return versionPartsArr
+	
+	def _loadBackendPluginData(self, fileContents: dict[str, str | bytes]):
+		if 'qavm_data.json' not in fileContents:
+			return
+		
+		# TODO: do proper validation here
+		backendData: dict = json.loads(fileContents['qavm_data.json'])
+		if 'version' not in backendData:
+			return
+		
+		self.backendPluginVersion = backendData['version']
+		if 'plugins' in backendData:
+			pluginsData: dict = backendData['plugins']
+			self.pluginList = [k for k in pluginsData.keys()]
+			
+			if 'redshift' in pluginsData:
+				redshiftData: dict = pluginsData['redshift']
+				self.redshiftCoreVersion = redshiftData.get('core_version', '')
+				self.redshiftPluginVersion = redshiftData.get('plugin_version', '')
 	
 	def _adjustDirname(self) -> str:
 		RAWFOLDERNAME_MAXLEN = 64
@@ -259,6 +282,10 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		iconLabelC4D = ClickableLabel(parent)
 		iconLabelC4D.clicked.connect(partial(self._iconClicked, desc))
 
+		redshiftLogoPath: Path = Path(__file__).parent/'res/redshift-logo-question.png'
+		if (desc.backendPluginVersion):
+			redshiftLogoPath = Path(__file__).parent/'res/redshift-logo.png'
+
 		if splashPixmap:
 			painter = QPainter(splashPixmap)
 			painter.drawPixmap(QRect(QPoint(), ICONC4D_SIZE), iconPixmap)
@@ -266,7 +293,7 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 			# TODO: RS logo should appear dynamically depending on the outcome of the backend plugin
 			# TODO: use question mark icon if RS status isn't yet known
 			RSLOGO_SIZE: QSize = QSize(16, 16)
-			rsPixmap: QPixmap = QPixmap(str(Path(__file__).parent/'res/redshift-logo.png'))
+			rsPixmap: QPixmap = QPixmap(str(redshiftLogoPath))
 			rsLogoRect: QRect = QRect(QPoint(), RSLOGO_SIZE)
 			rsLogoRect.moveTopRight(QPoint(SPLASH_SIZE.width(), 0))
 			painter.drawPixmap(rsLogoRect, rsPixmap)
@@ -501,7 +528,11 @@ class C4DContextMenu(BaseContextMenu):
 		self._runC4DExecutable(desc, extraArgs='g_console=true')
 	
 	def _runC4DExecutable(self, desc: C4DDescriptor, extraArgs: str = ''):
-		args: str = 'g_additionalModulePath="D:\\prj\\qavm\\source\\plugins\\cinema4d\\c4d-plugin"'
+		backendPluginPathStr: str = 'D:\\prj\\qavm\\source\\plugins\\cinema4d\\c4d-plugin'
+		c4dCacheDataPathStr: str = utils.GetQAVMCachePath()/'c4d/index.json'
+		args: str = f'g_additionalModulePath="{backendPluginPathStr}" ' \
+					f'qavm_c4dUID="{utils.GetHashNumber(hash(desc))}" ' \
+					f'qavm_c4dCacheDataPath="{c4dCacheDataPathStr}" '
 		os.startfile(str(desc.GetC4DExecutablePath()), arguments=args + ' ' + extraArgs)
 
 ##############################################################################################
