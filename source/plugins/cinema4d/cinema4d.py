@@ -16,6 +16,7 @@ from qavm.qavmapi import (
 )
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem
 import qavm.qavmapi.utils as utils
+from qavm.qavmapi.media_cache import MediaCache
 
 from PyQt6.QtCore import Qt, QProcess
 from PyQt6.QtGui import QFont, QColor, QPixmap, QAction
@@ -227,16 +228,18 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		
 		iconPath: Path | None = None
 		if self.settings['extractIcons'][0]:
-			iconPath = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())
+			iconPath = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())  # TODO: this has to be done on initialization, preferable in a separate thread
 		if iconPath is None:
 			iconPath: Path = Path('./res/icons/c4d-teal.png')
-		pixMap: QPixmap = QPixmap(str(iconPath))
+		pixMapC4D: QPixmap = QPixmap(str(iconPath))
 
-		iconLabel = ClickableLabel(parent)
-		iconLabel.setScaledContents(True)
-		iconLabel.setPixmap(pixMap)
-		iconLabel.setFixedSize(64, 64)
-		iconLabel.clicked.connect(partial(self._iconClicked, desc))
+		iconLabelC4D = ClickableLabel(parent)
+		iconLabelC4D.setScaledContents(True)
+		iconLabelC4D.setPixmap(pixMapC4D)
+		iconLabelC4D.setFixedSize(48, 48)
+		iconLabelC4D.clicked.connect(partial(self._iconClicked, desc))
+
+		
 
 		def createQLabel(text) -> QLabel:
 			label = QLabel(text, parent)
@@ -252,7 +255,20 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		dirNameLabel: str = desc.dirNameAdjusted if self.settings['adjustFolderName'][0] else desc.dirName
 		descLayout.addWidget(createQLabel(dirNameLabel))
 		descLayout.addWidget(createQLabel(f'Installed: {timestampToStr(desc.dateInstalled, "%d-%b-%y")}'))
-		descLayout.addWidget(iconLabel, alignment=Qt.AlignmentFlag.AlignCenter)
+		descLayout.addWidget(iconLabelC4D, alignment=Qt.AlignmentFlag.AlignCenter)
+
+		if (splashC4DImagePath := self._getC4DSplashPixmap(desc)):
+			splashLabelC4D = QLabel(parent)
+			splashLabelC4D.setScaledContents(True)
+			splashLabelC4D.setPixmap(QPixmap(str(splashC4DImagePath)))
+			splashLabelC4D.setFixedHeight(32)
+			descLayout.addWidget(splashLabelC4D, alignment=Qt.AlignmentFlag.AlignCenter)
+
+		iconLabelRS: QLabel = QLabel(parent)
+		iconLabelRS.setScaledContents(True)
+		iconLabelRS.setPixmap(QPixmap(str(Path(__file__).parent/'res/redshift-logo.png')))
+		iconLabelRS.setFixedSize(16, 16)
+		descLayout.addWidget(iconLabelRS, alignment=Qt.AlignmentFlag.AlignLeft)
 
 		toolTip: str = f'Build {desc.buildString}' \
 					+ '\n' + str(desc.dirPath) \
@@ -280,6 +296,21 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		args: str = 'g_console=true' if self.settings['runWithConsole'][0] else ''
 		os.startfile(str(desc.GetC4DExecutablePath()), arguments=args)
 
+	def _getC4DSplashPixmap(self, desc: C4DDescriptor) -> Path | None:
+		mediaCache: MediaCache = MediaCache()
+		return None
+		
+		mediaUID: str = f'{str(desc.GetC4DExecutablePath())}_splash-image-frame.png'
+		if path := mediaCache.GetCachedPath(mediaUID):
+			return path
+		
+		if utils.PlatformWindows():
+			path: Path = desc.dirPath/'resource/splash.png'  # TODO: not implemented yet
+			mediaCache.CacheMedia(mediaUID, path)
+			raise NotImplementedError('Windows splash image extraction is not implemented yet')
+		if utils.PlatformMacOS():
+			raise NotImplementedError('MacOS splash image extraction is not implemented yet')
+		return None
 
 class C4DVersionTableWidgetItem(QTableWidgetItem):
 	def __init__(self, versionH: list[int], verionStr: str):
