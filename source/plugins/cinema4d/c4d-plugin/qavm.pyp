@@ -107,7 +107,7 @@ def UpdateQAVMCacheData():
 	if thisC4D_QAVM_UID not in c4dCacheData:
 		c4dCacheData[thisC4D_QAVM_UID] = {
 			'prefsPath': str(thisC4D_PrefsPath),
-			'lastUpdate': dt.datetime.now().isoformat()
+			'cacheLastChange': dt.datetime.now().isoformat()
 		}
 	
 	if 'prefsPath' not in c4dCacheData[thisC4D_QAVM_UID]:

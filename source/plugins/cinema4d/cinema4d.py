@@ -40,6 +40,7 @@ loggerFileHandler.setLevel(logging.ERROR)
 loggerFileHandler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(loggerFileHandler)
 
+C4D_CACHEDATA_FILEPATH: Path = utils.GetQAVMCachePath()/'c4d/index.json'
 
 class C4DQualifier(BaseQualifier):
 	def ProcessSearchPaths(self, searchPaths: list[str]) -> list[str]:
@@ -72,8 +73,7 @@ class C4DQualifier(BaseQualifier):
 
 		ret['fileContentsList'] = [  # list of tuples: (filename, isBinary, lengthLimit)
 			('resource/version.h', False, 0),
-			('resource/build.txt', False, 0),
-			('qavm_data.json', False, 0),  # this file is created by a backend plugin
+			('resource/build.txt', False, 0)
 		]
 		return ret
 	
@@ -88,12 +88,19 @@ class C4DQualifier(BaseQualifier):
 		return isVersionValid
 
 class C4DDescriptor(BaseDescriptor):
+	_c4dCacheData: dict | None = None  # TODO: thread safety???
+
 	def __init__(self, dirPath: Path, settings: BaseSettings, fileContents: dict[str, str | bytes]):
 		super().__init__(dirPath, settings, fileContents)
 
 		# From BaseDescriptor:
 		# self.dirPath: Path
 		# self.settings: BaseSettings
+
+		if C4DDescriptor._c4dCacheData is None:
+			C4DDescriptor._loadC4DCacheData()
+
+		self.UID: str = utils.GetHashNumber(hash(self))
 
 		self.buildString = ''  # from the build.txt
 		if 'resource/build.txt' in fileContents:
@@ -108,6 +115,8 @@ class C4DDescriptor(BaseDescriptor):
 		OLDNAMING: bool = self.versionH[0] <= 26
 		self.majorVersion: str = '{}{}'.format('R' if OLDNAMING else '', self.versionH[0])  # TODO: R or S?
 		self.subversion: str = ('' if OLDNAMING else '.').join(map(str, self.versionH[1:4] if OLDNAMING else self.versionH[1:3]))
+
+		self.prefsDirPath: Path = self._retrieveC4DPrefsDirPath()
 
 		self.dirName: str = self.dirPath.name
 		self.dirNameAdjusted: str = self._adjustDirname()
@@ -124,9 +133,24 @@ class C4DDescriptor(BaseDescriptor):
 		self.redshiftCoreVersion = ''
 		self.redshiftPluginVersion = ''
 
-		self._loadBackendPluginData(fileContents)
+		self._loadBackendPluginData()
 
 		self.dateBuild = ''  # date when the build was created
+	
+	@staticmethod
+	def _loadC4DCacheData():
+		if not C4D_CACHEDATA_FILEPATH.exists():
+			C4DDescriptor._c4dCacheData = dict()
+			C4D_CACHEDATA_FILEPATH.parent.mkdir(parents=True, exist_ok=True)
+			with open(C4D_CACHEDATA_FILEPATH, 'w') as f:
+				json.dump(C4DDescriptor._c4dCacheData, f)
+			return
+		
+		with open(C4D_CACHEDATA_FILEPATH, 'r') as f:
+			C4DDescriptor._c4dCacheData = json.load(f)  # TODO: proper validation?
+			if not isinstance(C4DDescriptor._c4dCacheData, dict):
+				print('Invalid c4d cache data file!')
+				C4DDescriptor._c4dCacheData = dict()
 	
 	@staticmethod
 	def _parseVersionH(versionHContent: str) -> list[int]:
@@ -145,24 +169,63 @@ class C4DDescriptor(BaseDescriptor):
 					break
 		return versionPartsArr
 	
-	def _loadBackendPluginData(self, fileContents: dict[str, str | bytes]):
-		if 'qavm_data.json' not in fileContents:
+	def _retrieveC4DPrefsDirPath(self) -> Path:
+		if C4DDescriptor._c4dCacheData is None:
+			C4DDescriptor._loadC4DCacheData()
+
+		def guessAndStoreInCacheC4dPrefsFolder():
+			maxonPrefsDirPath: Path = utils.GetAppDataPath()/'Maxon'
+			expectedPrefsDirNameLeftPart: str = f'{self.dirPath.name}_'
+			candidates: list[Path] = [f for f in maxonPrefsDirPath.iterdir() if f.is_dir() and f.name.startswith(expectedPrefsDirNameLeftPart)]
+			if not candidates:
+				logger.error(f'Failed to find Cinema 4D prefs folder for {self.dirPath}')
+				return maxonPrefsDirPath/expectedPrefsDirNameLeftPart
+			c4dPrefsDirPath: Path = candidates[0]
+
+			C4DDescriptor._c4dCacheData[self.UID] = {
+				'prefsPath': str(c4dPrefsDirPath),
+				'cacheLastChange': dt.datetime.now().isoformat()
+			}
+			with open(C4D_CACHEDATA_FILEPATH, 'w') as f:
+				json.dump(C4DDescriptor._c4dCacheData, f)
+			return c4dPrefsDirPath
+
+		
+		if self.UID not in C4DDescriptor._c4dCacheData:
+			return guessAndStoreInCacheC4dPrefsFolder()
+		
+		c4dCacheData: dict = C4DDescriptor._c4dCacheData[self.UID]
+		if 'prefsPath' not in c4dCacheData:
+			return guessAndStoreInCacheC4dPrefsFolder()
+		
+		return Path(c4dCacheData['prefsPath'])
+
+
+	def _loadBackendPluginData(self):
+		if not self.prefsDirPath.exists():
+			logger.error(f'Prefs folder not found: {self.prefsDirPath}')
 			return
 		
-		# TODO: do proper validation here
-		backendData: dict = json.loads(fileContents['qavm_data.json'])
-		if 'version' not in backendData:
+		backendDataFilePath: Path = self.prefsDirPath/'qavm_data.json'
+		if not backendDataFilePath.exists():
 			return
 		
-		self.backendPluginVersion = backendData['version']
+		backendData: dict = dict()
+		with open(backendDataFilePath, 'r') as f:
+			backendData = json.loads(f.read())  # TODO: do proper validation here
+		
+		if 'qavm_backend_plugin_version' not in backendData:
+			return
+		
+		self.backendPluginVersion = backendData['qavm_backend_plugin_version']
 		if 'plugins' in backendData:
 			pluginsData: dict = backendData['plugins']
 			self.pluginList = [k for k in pluginsData.keys()]
 			
 			if 'redshift' in pluginsData:
-				redshiftData: dict = pluginsData['redshift']
-				self.redshiftCoreVersion = redshiftData.get('core_version', '')
-				self.redshiftPluginVersion = redshiftData.get('plugin_version', '')
+				if redshiftData := pluginsData['redshift']:
+					self.redshiftCoreVersion = redshiftData.get('core_version', '')
+					self.redshiftPluginVersion = redshiftData.get('plugin_version', '')
 	
 	def _adjustDirname(self) -> str:
 		RAWFOLDERNAME_MAXLEN = 64
@@ -280,11 +343,12 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		iconPixmap: QPixmap = QPixmap(str(iconC4D)).scaled(ICONC4D_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
 
 		iconLabelC4D = ClickableLabel(parent)
-		iconLabelC4D.clicked.connect(partial(self._iconClicked, desc))
 
 		redshiftLogoPath: Path = Path(__file__).parent/'res/redshift-logo-question.png'
 		if (desc.backendPluginVersion):
 			redshiftLogoPath = Path(__file__).parent/'res/redshift-logo.png'
+			if desc.redshiftPluginVersion and desc.redshiftCoreVersion:
+				iconLabelC4D.setToolTip(f'Redshift plugin version: {desc.redshiftPluginVersion}\nRedshift core version: {desc.redshiftCoreVersion}')
 
 		if splashPixmap:
 			painter = QPainter(splashPixmap)
@@ -301,11 +365,9 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 			painter.end()
 
 			iconLabelC4D.setPixmap(splashPixmap)
-			iconLabelC4D.setFixedSize(SPLASH_SIZE)
-		else:
-			iconLabelC4D.setPixmap(iconPixmap)
-			iconLabelC4D.setFixedSize(ICONC4D_SIZE)
-			iconLabelC4D.setScaledContents(True)
+		
+		iconLabelC4D.clicked.connect(partial(self._iconClicked, desc))
+		iconLabelC4D.setFixedSize(SPLASH_SIZE)
 		
 
 		def createQLabel(text) -> QLabel:
@@ -520,6 +582,7 @@ class C4DContextMenu(BaseContextMenu):
 		menu.addAction('Run w/console', partial(self._runConsole, desc))
 		menu.addSeparator()
 		menu.addAction('Open folder', partial(utils.OpenFolderInExplorer, desc.dirPath))
+		menu.addAction('Open prefs folder', partial(utils.OpenFolderInExplorer, desc.prefsDirPath))
 		return menu
 	
 	def _run(self, desc: C4DDescriptor):
@@ -529,10 +592,9 @@ class C4DContextMenu(BaseContextMenu):
 	
 	def _runC4DExecutable(self, desc: C4DDescriptor, extraArgs: str = ''):
 		backendPluginPathStr: str = 'D:\\prj\\qavm\\source\\plugins\\cinema4d\\c4d-plugin'
-		c4dCacheDataPathStr: str = utils.GetQAVMCachePath()/'c4d/index.json'
 		args: str = f'g_additionalModulePath="{backendPluginPathStr}" ' \
-					f'qavm_c4dUID="{utils.GetHashNumber(hash(desc))}" ' \
-					f'qavm_c4dCacheDataPath="{c4dCacheDataPathStr}" '
+					f'qavm_c4dUID="{desc.UID}" ' \
+					f'qavm_c4dCacheDataPath="{C4D_CACHEDATA_FILEPATH}" '
 		os.startfile(str(desc.GetC4DExecutablePath()), arguments=args + ' ' + extraArgs)
 
 ##############################################################################################
