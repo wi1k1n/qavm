@@ -46,6 +46,8 @@ class SoftwareHandler(QAVMModuleNamed):
 		if not self.descriptorClass or not issubclass(self.descriptorClass, BaseDescriptor):  # required
 			raise Exception(f'Missing or invalid descriptor for software: {self.id}')
 		
+		self.tileBuilderClass: BaseTileBuilder = BaseTileBuilder
+		self.tileContextMenuClass: BaseContextMenu = BaseContextMenu
 		tileViewData: dict = regData.get('tile_view', {})
 		if tileViewData:
 			if not isinstance(tileViewData, dict):
@@ -62,6 +64,8 @@ class SoftwareHandler(QAVMModuleNamed):
 			if not issubclass(self.tileContextMenuClass, BaseContextMenu):
 				raise Exception(f'Invalid context menu for software: {self.id}')
 		
+		self.tableBuilderClass: BaseTableBuilder = BaseTableBuilder
+		self.tableContextMenuClass: BaseContextMenu = BaseContextMenu
 		tableViewData: dict = regData.get('table_view', {})
 		if tableViewData:
 			if not isinstance(tableViewData, dict):

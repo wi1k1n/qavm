@@ -222,6 +222,8 @@ class MainWindow(QMainWindow):
 		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())  # TODO: handle case when softwareHandler is None
 		contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
 		tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
+		if type(tileBuilder) is BaseTileBuilder:
+			return
 
 		currentTabIndex: int = self.tabsWidget.currentIndex()
 
