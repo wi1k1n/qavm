@@ -5,8 +5,8 @@ copyright
 PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.cinema4d'
 PLUGIN_VERSION = '0.1.0'
 
-import os, subprocess, re, json, sys, logging
-import datetime as dt
+import os, subprocess, re, json, sys, logging, cv2
+import datetime as dt, numpy as np
 from pathlib import Path
 from functools import partial
 from typing import Any, Iterator
@@ -18,8 +18,8 @@ from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWi
 import qavm.qavmapi.utils as utils
 from qavm.qavmapi.media_cache import MediaCache
 
-from PyQt6.QtCore import Qt, QProcess
-from PyQt6.QtGui import QFont, QColor, QPixmap, QAction
+from PyQt6.QtCore import Qt, QProcess, QSize, QRect, QPoint
+from PyQt6.QtGui import QFont, QColor, QPixmap, QAction, QBrush, QPainter, QImage
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox, QTableWidgetItem,
 	QMenu, QWidgetAction
@@ -225,20 +225,60 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		margins: int = 5
 		descLayout.setContentsMargins(margins, margins, margins, margins)
 		descLayout.setSpacing(5)
+
+		#############################################################
+		############# This part should be precomputed ###############
+		#############################################################
+		def cv2_to_qpixmap(cv_img):
+			"""Convert from an OpenCV image to QPixmap."""
+			height, width, channel = cv_img.shape
+			bytes_per_line = 3 * width
+			# Convert BGR (OpenCV) to RGB (QImage)
+			q_img = QImage(cv_img.data, width, height, bytes_per_line, QImage.Format.Format_RGB888).rgbSwapped()
+			return QPixmap.fromImage(q_img)
 		
-		iconPath: Path | None = None
+		SPLASH_SIZE: QSize = QSize(128, 72)
+		splashPixmap: QPixmap = QPixmap.fromImage(QImage(SPLASH_SIZE, QImage.Format.Format_RGBA8888))
+		if (splashC4DImagePath := self._getC4DSplashPixmap(desc)):
+			img = cv2.imread(str(splashC4DImagePath))
+			contrast, brightness = 0.8, 40  # contrast (1.0 - 3.0), brightness (0 - 100)
+			imgAdjusted = cv2.convertScaleAbs(img, alpha=contrast, beta=brightness)
+			splashPixmap = cv2_to_qpixmap(imgAdjusted).scaled(SPLASH_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+		#############################################################
+		#############################################################
+		#############################################################
+		
+		ICONC4D_SIZE: QSize = QSize(32, 32)
+		iconC4D: Path | None = None
 		if self.settings['extractIcons'][0]:
-			iconPath = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())  # TODO: this has to be done on initialization, preferable in a separate thread
-		if iconPath is None:
-			iconPath: Path = Path('./res/icons/c4d-teal.png')
-		pixMapC4D: QPixmap = QPixmap(str(iconPath))
+			iconC4D = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())  # TODO: this has to be done on initialization, preferable in a separate thread
+		if iconC4D is None:
+			iconC4D: Path = Path('./res/icons/c4d-teal.png')
+		iconPixmap: QPixmap = QPixmap(str(iconC4D)).scaled(ICONC4D_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
 
 		iconLabelC4D = ClickableLabel(parent)
-		iconLabelC4D.setScaledContents(True)
-		iconLabelC4D.setPixmap(pixMapC4D)
-		iconLabelC4D.setFixedSize(48, 48)
 		iconLabelC4D.clicked.connect(partial(self._iconClicked, desc))
 
+		if splashPixmap:
+			painter = QPainter(splashPixmap)
+			painter.drawPixmap(QRect(QPoint(), ICONC4D_SIZE), iconPixmap)
+
+			# TODO: RS logo should appear dynamically depending on the outcome of the backend plugin
+			# TODO: use question mark icon if RS status isn't yet known
+			RSLOGO_SIZE: QSize = QSize(16, 16)
+			rsPixmap: QPixmap = QPixmap(str(Path(__file__).parent/'res/redshift-logo.png'))
+			rsLogoRect: QRect = QRect(QPoint(), RSLOGO_SIZE)
+			rsLogoRect.moveTopRight(QPoint(SPLASH_SIZE.width(), 0))
+			painter.drawPixmap(rsLogoRect, rsPixmap)
+
+			painter.end()
+
+			iconLabelC4D.setPixmap(splashPixmap)
+			iconLabelC4D.setFixedSize(SPLASH_SIZE)
+		else:
+			iconLabelC4D.setPixmap(iconPixmap)
+			iconLabelC4D.setFixedSize(ICONC4D_SIZE)
+			iconLabelC4D.setScaledContents(True)
 		
 
 		def createQLabel(text) -> QLabel:
@@ -256,19 +296,6 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		descLayout.addWidget(createQLabel(dirNameLabel))
 		descLayout.addWidget(createQLabel(f'Installed: {timestampToStr(desc.dateInstalled, "%d-%b-%y")}'))
 		descLayout.addWidget(iconLabelC4D, alignment=Qt.AlignmentFlag.AlignCenter)
-
-		if (splashC4DImagePath := self._getC4DSplashPixmap(desc)):
-			splashLabelC4D = QLabel(parent)
-			splashLabelC4D.setScaledContents(True)
-			splashLabelC4D.setPixmap(QPixmap(str(splashC4DImagePath)))
-			splashLabelC4D.setFixedSize(128, 72)
-			descLayout.addWidget(splashLabelC4D, alignment=Qt.AlignmentFlag.AlignCenter)
-
-		iconLabelRS: QLabel = QLabel(parent)
-		iconLabelRS.setScaledContents(True)
-		iconLabelRS.setPixmap(QPixmap(str(Path(__file__).parent/'res/redshift-logo.png')))
-		iconLabelRS.setFixedSize(16, 16)
-		descLayout.addWidget(iconLabelRS, alignment=Qt.AlignmentFlag.AlignLeft)
 
 		toolTip: str = f'Build {desc.buildString}' \
 					+ '\n' + str(desc.dirPath) \
