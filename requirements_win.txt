@@ -2,3 +2,4 @@ PyQT6==6.7.0
 qt_material==2.14.0
 pywin32==306
 pyinstaller==6.9.0
+opencv-python==4.10.0.84

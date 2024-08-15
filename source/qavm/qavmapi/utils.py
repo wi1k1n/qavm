@@ -60,6 +60,9 @@ def OpenFolderInExplorer(folderPath: Path):
 	else:
 		raise Exception('Unsupported platform')
 
+def GetHashNumber(number, hashAlgo='sha256'):
+	return GetHashString(str(number), hashAlgo)
+
 def GetHashString(string: str, hashAlgo='sha256'):
 	return hashlib.new(hashAlgo, string.encode()).hexdigest()
 
