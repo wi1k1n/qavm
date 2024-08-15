@@ -184,16 +184,18 @@ class MainWindow(QMainWindow):
 
 		headers: list[str] = tableBuilder.GetTableCaptions()
 
-		tableWidget.setColumnCount(len(headers))
-		tableWidget.setHorizontalHeaderLabels(headers)
+		tableWidget.setColumnCount(len(headers) + 1)
+		tableWidget.setHorizontalHeaderLabels(headers + ['descIdx'])
 		tableWidget.setRowCount(len(descs))
 		tableWidget.verticalHeader().setVisible(False)
+		tableWidget.hideColumn(len(headers))  # hide descIdx column, this is kinda dirty, but gives more flexibility comparing to qabstracttablemodel and qproxymodel
 		
 		tableWidget.setSortingEnabled(True)
 
 		tableWidget.horizontalHeader().setStretchLastSection(True)
 		tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 		
+		tableWidget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 		tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
 		tableWidget.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
 		tableWidget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -202,7 +204,9 @@ class MainWindow(QMainWindow):
 		contextMenus: list[QMenu] = list()
 		def showContextMenu(pos):
 			selectedRowsUnique: set = {idx.row() for idx in tableWidget.selectedIndexes()}
-			contextMenus[selectedRowsUnique.pop()].exec(QCursor.pos())
+			currentRow = selectedRowsUnique.pop()
+			descIdx: int = int(tableWidget.item(currentRow, len(headers)).text())
+			contextMenus[descIdx].exec(QCursor.pos())
 		
 		for r, desc in enumerate(descs):
 			for c, header in enumerate(headers):
@@ -210,6 +214,7 @@ class MainWindow(QMainWindow):
 				if not isinstance(tableWidgetItem, QTableWidgetItem):
 					tableWidgetItem = QTableWidgetItem(tableWidgetItem)
 				tableWidget.setItem(r, c, tableWidgetItem)
+			tableWidget.setItem(r, len(headers) + 0, QTableWidgetItem(str(r)))
 
 			contextMenus.append(contextMenu.CreateMenu(desc))
 		
