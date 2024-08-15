@@ -117,7 +117,8 @@ def UpdateQAVMCacheData():
 	qavmIndexedC4DPrefsPath: str = c4dCacheData[thisC4D_QAVM_UID]['prefsPath']
 	if Path(qavmIndexedC4DPrefsPath).resolve() != thisC4D_PrefsPath.resolve():
 		print(f'[QAVM] Different prefs paths, QAVM indexed path is replaced with currently actual.\nQAVM indexed:\n\t{qavmIndexedC4DPrefsPath}\nCurrently actual:\n\t{str(thisC4D_PrefsPath)}')
-		c4dCacheData[thisC4D_QAVM_UID].update(str(thisC4D_PrefsPath))
+		c4dCacheData[thisC4D_QAVM_UID]['prefsPath.guessed'] = qavmIndexedC4DPrefsPath
+		c4dCacheData[thisC4D_QAVM_UID]['prefsPath'] = str(thisC4D_PrefsPath)
 	
 	with open(c4dCacheDataPath, 'w') as f:
 		json.dump(c4dCacheData, f)

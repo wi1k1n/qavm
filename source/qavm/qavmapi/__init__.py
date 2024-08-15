@@ -3,6 +3,8 @@ from pathlib import Path
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6.QtWidgets import QWidget, QLabel, QTableWidgetItem, QMenu
 
+from qavm.qavmapi import utils
+
 ##############################################################################
 #############################  ##############################
 ##############################################################################
@@ -50,11 +52,12 @@ class BaseQualifier(object):
 
 class BaseDescriptor(object):
 	def __init__(self, dirPath: Path, settings: BaseSettings, fileContents: dict[str, str | bytes]):
+		self.UID: str = utils.GetHashString(str(dirPath))
 		self.dirPath: Path = dirPath
 		self.settings: BaseSettings = settings
 
 	def __hash__(self) -> int:
-		return hash(self.dirPath)
+		return hash(str(self.dirPath))
 
 	def __str__(self):
 		return 'BaseDescriptor'

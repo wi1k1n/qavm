@@ -94,13 +94,12 @@ class C4DDescriptor(BaseDescriptor):
 		super().__init__(dirPath, settings, fileContents)
 
 		# From BaseDescriptor:
+		# self.UID: str
 		# self.dirPath: Path
 		# self.settings: BaseSettings
 
 		if C4DDescriptor._c4dCacheData is None:
 			C4DDescriptor._loadC4DCacheData()
-
-		self.UID: str = utils.GetHashNumber(hash(self))
 
 		self.buildString = ''  # from the build.txt
 		if 'resource/build.txt' in fileContents:
@@ -276,9 +275,6 @@ class C4DDescriptor(BaseDescriptor):
 				return c4d
 		QMessageBox.warning(None, 'C4D Descriptor', 'Cinema 4D executable not found!')
 		return None
-	
-	def __hash__(self) -> int:
-		return super().__hash__() # TODO: should this be robust to dirPath (e.g. when c4d package is moved to another location)?
 	
 	def __str__(self):
 		return f'C4D: {os.path.basename(self.dirPath)}'
