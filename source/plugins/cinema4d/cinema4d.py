@@ -261,7 +261,7 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 			splashLabelC4D = QLabel(parent)
 			splashLabelC4D.setScaledContents(True)
 			splashLabelC4D.setPixmap(QPixmap(str(splashC4DImagePath)))
-			splashLabelC4D.setFixedHeight(32)
+			splashLabelC4D.setFixedSize(128, 72)
 			descLayout.addWidget(splashLabelC4D, alignment=Qt.AlignmentFlag.AlignCenter)
 
 		iconLabelRS: QLabel = QLabel(parent)
@@ -298,19 +298,40 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 
 	def _getC4DSplashPixmap(self, desc: C4DDescriptor) -> Path | None:
 		mediaCache: MediaCache = MediaCache()
-		return None
 		
 		mediaUID: str = f'{str(desc.GetC4DExecutablePath())}_splash-image-frame.png'
-		if path := mediaCache.GetCachedPath(mediaUID):
-			return path
+		if cachedPath := mediaCache.GetCachedPath(mediaUID):
+			return cachedPath
 		
-		if utils.PlatformWindows():
-			path: Path = desc.dirPath/'resource/splash.png'  # TODO: not implemented yet
-			mediaCache.CacheMedia(mediaUID, path)
-			raise NotImplementedError('Windows splash image extraction is not implemented yet')
-		if utils.PlatformMacOS():
-			raise NotImplementedError('MacOS splash image extraction is not implemented yet')
-		return None
+		splashVideoPath: Path = desc.dirPath/'resource/modules/gui.module/images/splash.mp4'
+		if not splashVideoPath.exists():
+			return None
+		splashFramePath: Path = self._extractVideoFrame(splashVideoPath, -1)
+		if splashFramePath is None or not splashFramePath.exists():
+			return None
+		mediaCache.CacheMedia(mediaUID, splashFramePath)
+		return splashFramePath
+	
+	def _extractVideoFrame(self, videoPath: Path, frameNum: int) -> Path | None:
+		# Extracting video frame: https://stackoverflow.com/questions/33311153/python-extracting-and-saving-video-frames
+		import cv2
+		vidcap = cv2.VideoCapture(videoPath)
+		if not vidcap.isOpened():
+			return None
+		
+		frameCount: int = int(vidcap.get(cv2.CAP_PROP_FRAME_COUNT))
+		vidcap.set(cv2.CAP_PROP_POS_FRAMES, frameCount - 2)
+		success, image = vidcap.read()
+		if not success:
+			return None
+		
+		tempDirPath: Path = utils.GetQAVMTempPath()
+		tempDirPath.mkdir(parents=True, exist_ok=True)
+		tempPath: Path = tempDirPath/f'{utils.GetHashString(str(videoPath))}.jpg'
+
+		cv2.imwrite(tempPath, image)
+		
+		return tempPath
 
 class C4DVersionTableWidgetItem(QTableWidgetItem):
 	def __init__(self, versionH: list[int], verionStr: str):
