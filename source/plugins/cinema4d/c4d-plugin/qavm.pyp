@@ -54,26 +54,26 @@ def StoreBackendPluginData():
 
 	try:
 		import redshift
-		
 		print("Redshift found")
+
+		redshiftData = dict()
+
 		print(f'Redshift plugin version: {redshift.GetPluginVersion()}')
 		print(f'Redshift plugin build: {redshift.GetPluginBuild()}')
 		print(f'Redshift core version: {redshift.GetCoreVersion()}')
 
-		redshiftData = {
-			"plugin_version": redshift.GetPluginVersion(),
-			"plugin_build": redshift.GetPluginBuild(),
-			"core_version": redshift.GetCoreVersion()
-		}
+		redshiftData["plugin_version"] = redshift.GetPluginVersion()
+		redshiftData["plugin_build"] = redshift.GetPluginBuild()
+		redshiftData["core_version"] = redshift.GetCoreVersion()
 	except:
 		pass
 
 	backendPluginData: dict = {
 		"qavm_backend_plugin_version": BACKEND_PLUGIN_VERSION,
-		"plugins": {
-			"redshift": redshiftData
-		}
+		"plugins": dict()
 	}
+	if redshiftData is not None:
+		backendPluginData["plugins"]["redshift"] = redshiftData
 	
 	if 'qavm_c4dUID' in QAVM_ARGS:
 		backendPluginData['uid'] = QAVM_ARGS['qavm_c4dUID']

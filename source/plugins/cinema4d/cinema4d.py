@@ -127,10 +127,11 @@ class C4DDescriptor(BaseDescriptor):
 		self.commitRef = ''  # e.g. CL363640.28201 for R25, db1a05477b8f_1095604919 for 2024
 		self.buildLink = ''  # the link where the build was downloaded from
 
-		self.backendPluginVersion = ''  # version of the backend plugin
-		self.pluginList = list()
-		self.redshiftCoreVersion = ''
-		self.redshiftPluginVersion = ''
+		self.backendPluginVersion: str = ''  # version of the backend plugin
+		self.pluginList: list = list()
+		self.redshiftIsPresent: bool = False
+		self.redshiftCoreVersion: str = ''
+		self.redshiftPluginVersion: str = ''
 
 		self._loadBackendPluginData()
 
@@ -222,6 +223,7 @@ class C4DDescriptor(BaseDescriptor):
 			self.pluginList = [k for k in pluginsData.keys()]
 			
 			if 'redshift' in pluginsData:
+				self.redshiftIsPresent = True
 				if redshiftData := pluginsData['redshift']:
 					self.redshiftCoreVersion = redshiftData.get('core_version', '')
 					self.redshiftPluginVersion = redshiftData.get('plugin_version', '')
@@ -311,21 +313,22 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		#############################################################
 		############# This part should be precomputed ###############
 		#############################################################
-		def cv2_to_qpixmap(cv_img):
-			"""Convert from an OpenCV image to QPixmap."""
+		def cv2ToQImage(cv_img):
 			height, width, channel = cv_img.shape
 			bytes_per_line = 3 * width
 			# Convert BGR (OpenCV) to RGB (QImage)
-			q_img = QImage(cv_img.data, width, height, bytes_per_line, QImage.Format.Format_RGB888).rgbSwapped()
-			return QPixmap.fromImage(q_img)
+			return QImage(cv_img.data, width, height, bytes_per_line, QImage.Format.Format_RGB888).rgbSwapped()
 		
 		SPLASH_SIZE: QSize = QSize(128, 72)
-		splashPixmap: QPixmap = QPixmap.fromImage(QImage(SPLASH_SIZE, QImage.Format.Format_RGBA8888))
+		splashImage: QImage = QImage(SPLASH_SIZE, QImage.Format.Format_RGBA8888)
 		if (splashC4DImagePath := self._getC4DSplashPixmap(desc)):
 			img = cv2.imread(str(splashC4DImagePath))
 			contrast, brightness = 0.8, 40  # contrast (1.0 - 3.0), brightness (0 - 100)
 			imgAdjusted = cv2.convertScaleAbs(img, alpha=contrast, beta=brightness)
-			splashPixmap = cv2_to_qpixmap(imgAdjusted).scaled(SPLASH_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+			splashImage = cv2ToQImage(imgAdjusted)
+		else:
+			splashImage.fill(QColor(Qt.GlobalColor.transparent))
+		splashPixmap = QPixmap.fromImage(splashImage).scaled(SPLASH_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
 		#############################################################
 		#############################################################
 		#############################################################
@@ -340,23 +343,25 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 
 		iconLabelC4D = ClickableLabel(parent)
 
-		redshiftLogoPath: Path = Path(__file__).parent/'res/redshift-logo-question.png'
-		if (desc.backendPluginVersion):
-			redshiftLogoPath = Path(__file__).parent/'res/redshift-logo.png'
-			if desc.redshiftPluginVersion and desc.redshiftCoreVersion:
-				iconLabelC4D.setToolTip(f'Redshift plugin version: {desc.redshiftPluginVersion}\nRedshift core version: {desc.redshiftCoreVersion}')
+		redshiftLogoPath: Path | None = None
+		if desc.backendPluginVersion:
+			if desc.redshiftIsPresent:
+				redshiftLogoPath = Path(__file__).parent/'res/redshift-logo.png'
+				if desc.redshiftPluginVersion and desc.redshiftCoreVersion:
+					iconLabelC4D.setToolTip(f'Redshift plugin version: {desc.redshiftPluginVersion}\nRedshift core version: {desc.redshiftCoreVersion}')
+		else:
+			redshiftLogoPath = Path(__file__).parent/'res/redshift-logo-question.png'
 
 		if splashPixmap:
 			painter = QPainter(splashPixmap)
 			painter.drawPixmap(QRect(QPoint(), ICONC4D_SIZE), iconPixmap)
 
-			# TODO: RS logo should appear dynamically depending on the outcome of the backend plugin
-			# TODO: use question mark icon if RS status isn't yet known
-			RSLOGO_SIZE: QSize = QSize(16, 16)
-			rsPixmap: QPixmap = QPixmap(str(redshiftLogoPath))
-			rsLogoRect: QRect = QRect(QPoint(), RSLOGO_SIZE)
-			rsLogoRect.moveTopRight(QPoint(SPLASH_SIZE.width(), 0))
-			painter.drawPixmap(rsLogoRect, rsPixmap)
+			if redshiftLogoPath is not None:
+				RSLOGO_SIZE: QSize = QSize(16, 16)
+				rsPixmap: QPixmap = QPixmap(str(redshiftLogoPath))
+				rsLogoRect: QRect = QRect(QPoint(), RSLOGO_SIZE)
+				rsLogoRect.moveTopRight(QPoint(SPLASH_SIZE.width(), 0))
+				painter.drawPixmap(rsLogoRect, rsPixmap)
 
 			painter.end()
 
