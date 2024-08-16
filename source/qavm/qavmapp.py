@@ -13,7 +13,7 @@ import qavm.qavmapi_utils as qavmapi_utils
 from qavm.qavmapi import BaseDescriptor
 
 from PyQt6.QtGui import (
-    QFont
+    QFont, QIcon
 )
 from PyQt6.QtWidgets import (
 	QApplication
@@ -30,6 +30,9 @@ class QAVMApp(QApplication):
 		self.setApplicationName('QAVM')
 		self.setOrganizationName('wi1k.in.prod')
 		self.setOrganizationDomain('wi1k.in')
+		
+		self.iconApp: QIcon = QIcon(str(Path('res/qavm_icon.ico').resolve()))
+		self.setWindowIcon(self.iconApp)
 
 		self.pluginPaths: set[Path] = {utils.GetDefaultPluginsFolderPath()}
 		self.softwareDescriptions: list[BaseDescriptor] = None
