@@ -11,6 +11,7 @@ from qavm.qavmapi import utils
 
 class BaseSettings(QObject):
 	tilesUpdateRequired = pyqtSignal()
+	tablesUpdateRequired = pyqtSignal()
 
 	def Load(self):
 		pass

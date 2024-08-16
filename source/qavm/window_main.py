@@ -33,6 +33,7 @@ class MainWindow(QMainWindow):
 		self.qavmSettings: QAVMSettings = self.settingsManager.GetQAVMSettings()
 		self.softwareSettings: BaseSettings = self.settingsManager.GetSoftwareSettings()
 		self.softwareSettings.tilesUpdateRequired.connect(self.UpdateTilesWidget)
+		self.softwareSettings.tablesUpdateRequired.connect(self.UpdateTableWidget)
 
 		self.setWindowTitle("QAVM")
 		self.resize(1420, 840)

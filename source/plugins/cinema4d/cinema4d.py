@@ -5,7 +5,7 @@ copyright
 PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.cinema4d'
 PLUGIN_VERSION = '0.1.0'
 
-import os, subprocess, re, json, sys, logging, cv2
+import os, subprocess, re, json, sys, logging, cv2, pyperclip
 import datetime as dt, numpy as np
 from pathlib import Path
 from functools import partial
@@ -100,10 +100,6 @@ class C4DDescriptor(BaseDescriptor):
 
 		if C4DDescriptor._c4dCacheData is None:
 			C4DDescriptor._loadC4DCacheData()
-
-		self.buildString = ''  # from the build.txt
-		if 'resource/build.txt' in fileContents:
-			self.buildString = fileContents['resource/build.txt']
 		
 		self.versionH: list[int] = [0, 0, 0, 0]  # from the version.h
 		if 'resource/version.h' in fileContents:
@@ -114,6 +110,11 @@ class C4DDescriptor(BaseDescriptor):
 		OLDNAMING: bool = self.versionH[0] <= 26
 		self.majorVersion: str = '{}{}'.format('R' if OLDNAMING else '', self.versionH[0])  # TODO: R or S?
 		self.subversion: str = ('' if OLDNAMING else '.').join(map(str, self.versionH[1:4] if OLDNAMING else self.versionH[1:3]))
+
+		self.buildString = ''  # from the build.txt
+		if 'resource/build.txt' in fileContents:
+			self.buildString = fileContents['resource/build.txt']
+		self.buildStringC4DLike = f'{self.majorVersion}.{self.subversion} (Build {self.buildString})'
 
 		self.prefsDirPath: Path = self._retrieveC4DPrefsDirPath()
 
@@ -387,7 +388,7 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		descLayout.addWidget(createQLabel(f'Installed: {timestampToStr(desc.dateInstalled, "%d-%b-%y")}'))
 		descLayout.addWidget(iconLabelC4D, alignment=Qt.AlignmentFlag.AlignCenter)
 
-		toolTip: str = f'Build {desc.buildString}' \
+		toolTip: str = desc.buildStringC4DLike \
 					+ '\n' + str(desc.dirPath) \
 					+ f'\nInstalled: {timestampToStr(desc.dateInstalled)}' \
 					f'\nModified: {timestampToStr(desc.dateModified)}'
@@ -484,10 +485,10 @@ class C4DSettings(BaseSettings):
 	def __init__(self) -> None:
 		super().__init__()
 
-		self.settings: dict[str, list] = {  # key: (defaultValue, text, tooltip, isTileUpdateRequired)
-			'adjustFolderName': 	[True, 'Adjust folder name', 'Replace folder name with human-readable one', True],
-			'runWithConsole': 		[False, 'Run with console', 'Run Cinema 4D with console enabled', False],
-			'extractIcons': 		[True, 'Extract icons', 'Use actual icons extracted from Cinema 4D executables', True],
+		self.settings: dict[str, list] = {  # key: (defaultValue, text, tooltip, isTileUpdateRequired, isTableUpdateRequired)
+			'adjustFolderName': 	[True, 'Adjust folder name', 'Replace folder name with human-readable one', True, True],
+			'runWithConsole': 		[False, 'Run with console', 'Run Cinema 4D with console enabled', False, False],
+			'extractIcons': 		[True, 'Extract icons', 'Use actual icons extracted from Cinema 4D executables', True, False],
 		}
 
 		self.prefFilePath: Path = utils.GetPrefsFolderPath()/'c4d-preferences.json'
@@ -533,7 +534,6 @@ class C4DSettings(BaseSettings):
 			text: str = settingsEntry[1]
 			value: Any = settingsEntry[0]
 			tooltip: str = settingsEntry[2]
-			isTileUpdateRequired: bool = settingsEntry[3]
 
 			textLabel = QLabel(text)
 			textLabel.setToolTip(tooltip)
@@ -560,13 +560,19 @@ class C4DSettings(BaseSettings):
 
 	def _settingChangedCheckbox(self, state, settingsEntry: list):
 		settingsEntry[0] = state == Qt.CheckState.Checked
-		if settingsEntry[3]:
-			self.tilesUpdateRequired.emit()
+		self._emitVisualUpdateOnSettingsEntryChange(settingsEntry)
 
 	def _settingsChangedLineEdit(self, text, settingsEntry: list):
 		settingsEntry[0] = text
-		if settingsEntry[3]:
+		self._emitVisualUpdateOnSettingsEntryChange(settingsEntry)
+	
+	def _emitVisualUpdateOnSettingsEntryChange(self, settingsEntry: list):
+		isTileUpdateRequired: bool = settingsEntry[3]
+		isTableUpdateRequired: bool = settingsEntry[4]
+		if isTileUpdateRequired:
 			self.tilesUpdateRequired.emit()
+		if isTableUpdateRequired:
+			self.tablesUpdateRequired.emit()
 
 class C4DContextMenu(BaseContextMenu):
 	def CreateMenu(self, desc: C4DDescriptor) -> QMenu:
@@ -583,7 +589,10 @@ class C4DContextMenu(BaseContextMenu):
 		menu.addAction('Run w/console', partial(self._runConsole, desc))
 		menu.addSeparator()
 		menu.addAction('Open folder', partial(utils.OpenFolderInExplorer, desc.dirPath))
-		menu.addAction('Open prefs folder', partial(utils.OpenFolderInExplorer, desc.prefsDirPath))
+		if desc.prefsDirPath.exists():
+			menu.addAction('Open prefs folder', partial(utils.OpenFolderInExplorer, desc.prefsDirPath))
+		menu.addSeparator()
+		menu.addAction('Copy version', partial(pyperclip.copy, str(desc.buildStringC4DLike)))
 		return menu
 	
 	def _run(self, desc: C4DDescriptor):
