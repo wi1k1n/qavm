@@ -422,6 +422,10 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 			return cachedPath
 		
 		splashVideoPath: Path = desc.dirPath/'resource/modules/gui.module/images/splash.mp4'
+		for i in range(3):
+			if splashVideoPath.exists():
+				break
+			splashVideoPath = desc.dirPath/f'resource/modules/gui.module/images/splash{i + 1}.mp4'
 		if not splashVideoPath.exists():
 			return None
 		splashFramePath: Path = self._extractVideoFrame(splashVideoPath, -1)
