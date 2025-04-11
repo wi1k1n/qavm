@@ -122,7 +122,7 @@ class C4DDescriptor(BaseDescriptor):
 		self.dirNameAdjusted: str = self._adjustDirname()
 
 		buildTxtPath: Path = self.dirPath/'resource/build.txt'
-		self.dateInstalled = buildTxtPath.stat().st_birthtime
+		self.dateInstalled = buildTxtPath.stat().st_birthtime if utils.PlatformMacOS() else buildTxtPath.stat().st_ctime
 		self.dateModified = buildTxtPath.stat().st_mtime
 
 		self.commitRef = ''  # e.g. CL363640.28201 for R25, db1a05477b8f_1095604919 for 2024
