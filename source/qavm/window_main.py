@@ -194,6 +194,7 @@ class MainWindow(QMainWindow):
 		tableWidget.setSortingEnabled(True)
 
 		tableWidget.horizontalHeader().setStretchLastSection(True)
+		tableWidget.horizontalHeader().setMinimumSectionSize(150)
 		tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 		
 		tableWidget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
