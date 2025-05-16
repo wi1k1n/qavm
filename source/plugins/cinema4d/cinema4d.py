@@ -291,6 +291,7 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		# From BaseTileBuilder:
 		# self.settings: BaseSettings
 		# self.contextMenu: BaseContextMenu
+		# self.themeData: dict
 
 	def CreateTileWidget(self, descriptor: C4DDescriptor, parent) -> QWidget:
 		descWidget: QWidget = self._createDescWidget(descriptor, parent)
@@ -301,10 +302,8 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 	def _createDescWidget(self, desc: C4DDescriptor, parent: QWidget):
 		descWidget = QWidget(parent)
 
-		parentBGColor = parent.palette().color(parent.backgroundRole())
-		descWidget.setStyleSheet(f"background-color: {parentBGColor.name()};")
-		# descWidget.setStyleSheet("background-color: rgb(200, 200, 255);") # DEBUG
-		# descWidget.setStyleSheet("background-color: rgb(50, 50, 50);") # DEBUG
+		secondaryDarkColor = self.themeData['secondaryDarkColor']
+		descWidget.setStyleSheet(f"background-color: {secondaryDarkColor};")
 		
 		descLayout = QVBoxLayout(descWidget)
 		margins: int = 5  # space from the inside labels to the border of the tile frame

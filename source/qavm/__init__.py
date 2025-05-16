@@ -6,8 +6,7 @@ logger = logs.logger
 from qavm.qavm_version import LoadVersionInfo
 from qavm.qavmapp import QAVMApp
 import qavm.qavmapi.utils as utils
-
-from qt_material import apply_stylesheet
+from qavm.qavmapi.gui import GetThemeName, SetTheme
 
 def WindowsSetupCustomIcon():
 	# Tweak Windows app group for the custom icon to be used instead of Python one
@@ -31,7 +30,7 @@ def main():
 
 	try:
 		app: QAVMApp = QAVMApp(sys.argv, args)
-		apply_stylesheet(app, theme='dark_amber.xml', extra={'density_scale': '-1'})
+		SetTheme(GetThemeName())
 		sys.exit(app.exec())
 	except Exception as e:
 		logger.exception("QAVM application crashed")

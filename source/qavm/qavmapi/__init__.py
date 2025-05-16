@@ -4,6 +4,7 @@ from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6.QtWidgets import QWidget, QLabel, QTableWidgetItem, QMenu
 
 from qavm.qavmapi import utils
+from qavm.qavmapi.gui import GetThemeData
 
 ##############################################################################
 #############################  ##############################
@@ -77,6 +78,7 @@ class BaseBuilder(QObject):
 	def __init__(self, settings: BaseSettings, contextMenu: BaseContextMenu):
 		self.settings: BaseSettings = settings
 		self.contextMenu: BaseContextMenu = contextMenu
+		self.themeData: dict[str, str | None] | None = GetThemeData()
 
 class BaseTileBuilder(BaseBuilder):
 	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:

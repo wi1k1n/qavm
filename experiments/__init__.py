@@ -1,5 +1,6 @@
 import sys
 from enum import Enum
+from typing import cast
 
 from PyQt6.QtCore import Qt, QSize, QRect, QPoint
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen, QFont
@@ -10,13 +11,14 @@ from bubble import BubbleWidget
 from animated_widget import StaticBorderWidget, PulsingBorderWidget, RunningBorderWidget
 from dnd_widget import DragDropWidget
 
-from qt_material import apply_stylesheet
+from qt_material import apply_stylesheet, get_theme
 
 class C4DTileAnimationType(Enum):
 	NONE = 0
 	STATIC = 1
 	RUNNING = 2
 	PULSING = 3
+
 class MainWindow(QMainWindow):
 	def __init__(self, parent=None):
 		super(MainWindow, self).__init__(parent)
@@ -84,9 +86,8 @@ class MainWindow(QMainWindow):
 	def _createC4DDescWidget(self, parent: QWidget):
 		descWidget = QWidget(parent)
 
-		parentBGColor = parent.palette().color(parent.backgroundRole())
-		descWidget.setStyleSheet(f"background-color: {parentBGColor.name()};")
-		# DEBUG # descWidget.setStyleSheet("background-color: rgb(200, 200, 255);")
+		secondaryDarkColor = cast(ExperimentApp, QApplication.instance()).themeData['secondaryDarkColor']
+		descWidget.setStyleSheet(f"background-color: {secondaryDarkColor};")
 		
 		descLayout = QVBoxLayout(descWidget)
 		descLayout.setContentsMargins(0, 0, 0, 0)
@@ -130,15 +131,17 @@ class MainWindow(QMainWindow):
 		return animBorderWidget
 
 
+# THEME = 'dark_purple.xml'
+THEME = 'light_purple.xml'
 class ExperimentApp(QApplication):
 	def __init__(self, argv):
 		super(ExperimentApp, self).__init__(argv)
+		self.themeData = get_theme(THEME)
 
 		self.mainWindow = MainWindow()
 		self.mainWindow.show()
 
 if __name__ == "__main__":
 	app: ExperimentApp = ExperimentApp(sys.argv)
-	apply_stylesheet(app, theme='light_purple.xml')
-	# apply_stylesheet(app, theme='dark_purple.xml')
+	apply_stylesheet(app, theme=THEME)
 	sys.exit(app.exec())
