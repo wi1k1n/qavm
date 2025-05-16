@@ -601,6 +601,7 @@ class C4DContextMenu(BaseContextMenu):
 		if desc.prefsDirPath.exists():
 			menu.addAction('Open prefs folder', partial(utils.OpenFolderInExplorer, desc.prefsDirPath))
 		menu.addSeparator()
+		menu.addAction('Show version', partial(self._showVersionMessageBox, desc))
 		menu.addAction('Copy version', partial(pyperclip.copy, str(desc.buildStringC4DLike)))
 		return menu
 	
@@ -615,6 +616,9 @@ class C4DContextMenu(BaseContextMenu):
 					f'qavm_c4dUID="{desc.UID}" ' \
 					f'qavm_c4dCacheDataPath="{C4D_CACHEDATA_FILEPATH}" '
 		os.startfile(str(desc.GetC4DExecutablePath()), arguments=args + ' ' + extraArgs)
+	
+	def _showVersionMessageBox(self, desc: C4DDescriptor):
+		QMessageBox.information(None, "Cinema 4D Version", str(desc.buildStringC4DLike))
 
 ##############################################################################################
 ##################### TESTING THINGS #########################################################
