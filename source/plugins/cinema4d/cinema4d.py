@@ -22,7 +22,7 @@ from PyQt6.QtCore import Qt, QProcess, QSize, QRect, QPoint
 from PyQt6.QtGui import QFont, QColor, QPixmap, QAction, QBrush, QPainter, QImage
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox, QTableWidgetItem,
-	QMenu, QWidgetAction
+	QMenu, QWidgetAction, QLayout
 )
 
 """
@@ -304,12 +304,12 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		parentBGColor = parent.palette().color(parent.backgroundRole())
 		descWidget.setStyleSheet(f"background-color: {parentBGColor.name()};")
 		# descWidget.setStyleSheet("background-color: rgb(200, 200, 255);") # DEBUG
-		descWidget.setStyleSheet("background-color: rgb(50, 50, 50);") # DEBUG
+		# descWidget.setStyleSheet("background-color: rgb(50, 50, 50);") # DEBUG
 		
 		descLayout = QVBoxLayout(descWidget)
-		margins: int = 5
+		margins: int = 5  # space from the inside labels to the border of the tile frame
 		descLayout.setContentsMargins(margins, margins, margins, margins)
-		descLayout.setSpacing(5)
+		descLayout.setSpacing(5)  # space between labels inside tile
 
 		#############################################################
 		############# This part should be precomputed ###############
@@ -406,8 +406,14 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		animBorderLayout = animBorderWidget.layout()
 		borderThickness = 5
 		animBorderLayout.setContentsMargins(borderThickness, borderThickness, borderThickness, borderThickness)
+		animBorderLayout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 		animBorderLayout.addWidget(widget)
-		animBorderWidget.setFixedSize(animBorderWidget.minimumSizeHint())
+		
+		innerSize = widget.sizeHint()
+		fullWidth = innerSize.width() + 2 * borderThickness
+		fullHeight = innerSize.height() + 2 * borderThickness
+		animBorderWidget.setFixedSize(QSize(fullWidth, fullHeight))
+
 		return animBorderWidget
 
 	def _iconClicked(self, desc: C4DDescriptor):

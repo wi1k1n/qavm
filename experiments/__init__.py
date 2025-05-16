@@ -10,6 +10,8 @@ from bubble import BubbleWidget
 from animated_widget import StaticBorderWidget, PulsingBorderWidget, RunningBorderWidget
 from dnd_widget import DragDropWidget
 
+from qt_material import apply_stylesheet
+
 class C4DTileAnimationType(Enum):
 	NONE = 0
 	STATIC = 1
@@ -101,11 +103,10 @@ class MainWindow(QMainWindow):
 
 		return descWidget
 	
-	def _wrapWidgetInAnimatedBorder(self, widget, type: C4DTileAnimationType.RUNNING, accentColor: QColor, parent):
+	def _wrapWidgetInAnimatedBorder(self, widget, type: C4DTileAnimationType, accentColor: QColor, parent):
 		tailColor = QColor(accentColor)
 		tailColor.setAlpha(30)
-		
-		animBorderWidget = None
+
 		if type == C4DTileAnimationType.STATIC:
 			animBorderWidget = StaticBorderWidget(accentColor)
 		elif type == C4DTileAnimationType.RUNNING:
@@ -114,24 +115,20 @@ class MainWindow(QMainWindow):
 			animBorderWidget = PulsingBorderWidget(accentColor, tailColor, parent)
 		else:
 			raise ValueError("Invalid C4DTileAnimationType")
-		
-		animBorderLayout = animBorderWidget.layout()
+
 		borderThickness = 5
+		animBorderLayout = animBorderWidget.layout()
 		animBorderLayout.setContentsMargins(borderThickness, borderThickness, borderThickness, borderThickness)
+		animBorderLayout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 		animBorderLayout.addWidget(widget)
-		animBorderWidget.setFixedSize(animBorderWidget.minimumSizeHint())
+
+		innerSize = widget.sizeHint()
+		fullWidth = innerSize.width() + 2 * borderThickness
+		fullHeight = innerSize.height() + 2 * borderThickness
+		animBorderWidget.setFixedSize(QSize(fullWidth, fullHeight))
+
 		return animBorderWidget
 
-	# def _createC4DTile(self):
-		
-	# 	w = QWidget(self)
-	# 	lo = QVBoxLayout(w)
-
-	# 	for idx in range(1, 2):
-	# 		pulsingBCWidget = AnimatedWidget(self, [f"AnimatedWidget#{idx}", "R22", "R23", "R24", "R25"])
-	# 		lo.addWidget(pulsingBCWidget)
-
-	# 	return w
 
 class ExperimentApp(QApplication):
 	def __init__(self, argv):
@@ -142,4 +139,6 @@ class ExperimentApp(QApplication):
 
 if __name__ == "__main__":
 	app: ExperimentApp = ExperimentApp(sys.argv)
+	apply_stylesheet(app, theme='light_purple.xml')
+	# apply_stylesheet(app, theme='dark_purple.xml')
 	sys.exit(app.exec())
