@@ -42,6 +42,7 @@ class ClickableLabel(QLabel):
 			self.clicked.emit()
 		super().mousePressEvent(evt)
 
+
 CURRENT_THEME = 'light_purple.xml'
 def GetThemeName() -> str:
 	return CURRENT_THEME
