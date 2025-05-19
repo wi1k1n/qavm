@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, Qt
 from PyQt6.QtWidgets import QWidget, QLabel, QTableWidgetItem, QMenu
 
 from qavm.qavmapi import utils
@@ -114,3 +114,7 @@ class BaseTableBuilder(BaseBuilder):
 	
 	def GetItemDelegate(self) -> QTableWidgetItem:
 		return QTableWidgetItem()
+	
+	# TODO: change key from int to enum. Currently 0 - LMB, 1 - RMB, 2 - MMB
+	def HandleClick(self, desc: BaseDescriptor, row: int, col: int, isDouble: bool, key: int, modifiers: Qt.KeyboardModifier):
+		pass

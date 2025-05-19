@@ -2,11 +2,11 @@ import os  # TODO: Get rid of os.path in favor of pathlib
 from pathlib import Path
 from functools import partial
 
-from PyQt6.QtCore import Qt, QMargins, QPoint
-from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter
+from PyQt6.QtCore import Qt, QMargins, QPoint, pyqtSignal
+from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QMouseEvent
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
-	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate
+	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
@@ -21,6 +21,7 @@ import qavm.qavmapi_utils as qavmapi_utils
 import qavm.logs as logs
 logger = logs.logger
 
+# TODO: wtf, rename it please!
 class MyTableViewHeader(QHeaderView):
 	def __init__(self, orientation, parent=None):
 			super().__init__(orientation, parent)
@@ -39,6 +40,48 @@ class MyTableViewHeader(QHeaderView):
 			self.sectionClicked.emit(logicalIndex)  # Emit the signal for the section clicked
 
 			super().mousePressEvent(event)
+			
+# TODO: wtf, rename it please!
+class MyTableWidget(QTableWidget):
+	clickedLeft = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
+	clickedRight = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
+	clickedMiddle = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
+	doubleClickedLeft = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
+	doubleClickedRight = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
+	doubleClickedMiddle = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
+
+	def mousePressEvent(self, event: QMouseEvent):
+		if event.button() == Qt.MouseButton.LeftButton:
+			print("Left button clicked")
+			self.clickedLeft.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
+		elif event.button() == Qt.MouseButton.RightButton:
+			print("Right button clicked")
+			self.clickedRight.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
+		elif event.button() == Qt.MouseButton.MiddleButton:
+			print("Middle button clicked")
+			self.clickedMiddle.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
+
+		super().mousePressEvent(event)
+
+	def mouseDoubleClickEvent(self, event: QMouseEvent):
+		index = self.indexAt(event.pos())
+		if not index.isValid():
+			return
+
+		row = index.row()
+		col = index.column()
+
+		if event.button() == Qt.MouseButton.LeftButton:
+			print("Left button double clicked")
+			self.doubleClickedLeft.emit(row, col, QApplication.keyboardModifiers())
+		elif event.button() == Qt.MouseButton.RightButton:
+			print("Right button double clicked")
+			self.doubleClickedRight.emit(row, col, QApplication.keyboardModifiers())
+		elif event.button() == Qt.MouseButton.MiddleButton:
+			print("Middle button double clicked")
+			self.doubleClickedMiddle.emit(row, col, QApplication.keyboardModifiers())
+
+		super().mouseDoubleClickEvent(event)
 
 class MainWindow(QMainWindow):
 	def __init__(self, app, parent: QWidget | None = None) -> None:
@@ -213,7 +256,7 @@ class MainWindow(QMainWindow):
 		self.tabsWidget.setCurrentIndex(currentTabIndex)
 
 	def _createTableWidget(self, descs: list[BaseDescriptor], tableBuilder: BaseTableBuilder, contextMenu: BaseContextMenu, parent: QWidget):
-		tableWidget = QTableWidget(parent)
+		tableWidget = MyTableWidget(parent)
 
 		headers: list[str] = tableBuilder.GetTableCaptions()
 
@@ -236,6 +279,10 @@ class MainWindow(QMainWindow):
 		tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
 		tableWidget.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
 		tableWidget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+		tableWidget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+
+		tableWidget.doubleClickedLeft.connect(partial(self._onTableItemDoubleClickedLeft, tableWidget, tableBuilder))
+		tableWidget.clickedMiddle.connect(partial(self._onTableItemClickedMiddle, tableWidget, tableBuilder))
 
 		# TODO: this sounds like a temp solution
 		self.tableContextMenus: list[QMenu] = list()
@@ -260,6 +307,18 @@ class MainWindow(QMainWindow):
 		tableWidget.customContextMenuRequested.connect(showContextMenu)
 		
 		return tableWidget
+	
+	def _onTableItemDoubleClickedLeft(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
+		if row < 0 or col < 0:
+			return
+		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
+		tableBuilder.HandleClick(self.app.GetSoftwareDescriptions()[descIdx], row, col, True, 0, QApplication.keyboardModifiers())
+
+	def _onTableItemClickedMiddle(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
+		if row < 0 or col < 0:
+			return
+		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
+		tableBuilder.HandleClick(self.app.GetSoftwareDescriptions()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
 	
 	def UpdateTilesWidget(self):
 		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
@@ -330,6 +389,8 @@ class MainWindow(QMainWindow):
 				# Optional: keep tiles sorted or in original order
 				flowLayout.insertWidget(i, newTile)
 				break
+
+		self.tableWidget.update()
 
 
 	def _createFlowLayoutWithFromWidgets(self, parent, widgets: list[QWidget]):

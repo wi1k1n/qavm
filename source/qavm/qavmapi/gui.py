@@ -70,6 +70,7 @@ class RunningBorderWidget(QFrame):
 		self.setStyleSheet(self._getBackgroundColorGradientStyle(dir))
 
 class ClickableLabel(QLabel):
+	# TODO: change this to get modifier keys from the event instead
 	clickedLeft = pyqtSignal(bool, bool, bool)  # ctrl, alt, shift
 	clickedRight = pyqtSignal(bool, bool, bool)  # ctrl, alt, shift
 	clickedMiddle = pyqtSignal(bool, bool, bool)  # ctrl, alt, shift

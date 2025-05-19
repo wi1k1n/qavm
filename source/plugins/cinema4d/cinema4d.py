@@ -316,6 +316,31 @@ class C4DDescriptor(BaseDescriptor):
 	def __repr__(self):
 		return self.__str__()
 
+def RunC4DExecutable(desc: C4DDescriptor, extraArgs: list[str] = []):
+	if IsProcessRunning(desc.UID):
+		QMessageBox.warning(None, 'C4D Context Menu', 'Cinema 4D process is already running!')
+		return
+
+	# TODO: this is hardcoded now, fix it!
+	backendPluginPathStr: str = 'D:\\prj\\qavm\\source\\plugins\\cinema4d\\c4d-plugin'
+	args: list[str] = [
+		f'g_additionalModulePath="{backendPluginPathStr}"',
+		f'qavm_c4dUID="{desc.UID}"',
+		f'qavm_c4dCacheDataPath="{C4D_CACHEDATA_FILEPATH}"',
+	]
+	args.extend(extraArgs)
+
+	# os.startfile(str(desc.GetC4DExecutablePath()), arguments=args + ' ' + extraArgs)
+	StartProcess(desc.UID, desc.GetC4DExecutablePath(), args)
+	desc.updated.emit()
+
+def KillRunningC4D(desc: C4DDescriptor):
+	if not IsProcessRunning(desc.UID):
+		QMessageBox.warning(None, 'C4D Context Menu', 'Cinema 4D process is not running!')
+		return
+	StopProcess(desc.UID)
+	desc.updated.emit()
+
 class C4DTileBuilderDefault(BaseTileBuilder):
 	def __init__(self, settings: BaseSettings, contextMenu: BaseContextMenu):
 		super().__init__(settings, contextMenu)
@@ -455,19 +480,10 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		return animBorderWidget
 
 	def _iconClickedLeft(self, desc: C4DDescriptor, ctrl: bool, alt: bool, shift: bool):
-		if IsProcessRunning(desc.UID):
-			QMessageBox.warning(None, 'C4D Context Menu', 'Cinema 4D process is already running!')
-			return
-		
-		# TODO: maybe merge with the context menu one?
-		args: list[str] = ['g_console=true'] if self.settings['runWithConsole'][0] or ctrl else []
-		# os.startfile(str(desc.GetC4DExecutablePath()), arguments=args)
-		StartProcess(desc.UID, desc.GetC4DExecutablePath(), args)
-		desc.updated.emit()
+		RunC4DExecutable(desc, extraArgs=['g_console=true'] if self.settings['runWithConsole'][0] or ctrl else [])
 	
 	def _iconClickedMiddle(self, desc: C4DDescriptor, ctrl: bool, alt: bool, shift: bool):
-		StopProcess(desc.UID)
-		desc.updated.emit()
+		KillRunningC4D(desc)
 
 	def _getC4DSplashPixmap(self, desc: C4DDescriptor) -> Path | None:
 		mediaCache: MediaCache = MediaCache()
@@ -561,6 +577,16 @@ class C4DTableBuilder(BaseTableBuilder):
 	
 	def GetItemDelegate(self) -> QStyledItemDelegate:
 		return C4DColoredRowDelegate()
+
+	# TODO: change key from int to enum. Currently 0 - LMB, 1 - RMB, 2 - MMB
+	def HandleClick(self, desc: C4DDescriptor, row: int, col: int, isDouble: bool, key: int, modifiers: Qt.KeyboardModifier):
+		if key == 0:  # LMB
+			if isDouble:
+				isCtrl = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
+				RunC4DExecutable(desc, extraArgs=['g_console=true'] if self.settings['runWithConsole'][0] or isCtrl else [])
+		elif key == 2:  # MMB
+			if not isDouble:
+				KillRunningC4D(desc)
 
 class C4DSettings(BaseSettings):
 	def __init__(self) -> None:
@@ -682,35 +708,13 @@ class C4DContextMenu(BaseContextMenu):
 		return menu
 
 	def _run(self, desc: C4DDescriptor):
-		self._runC4DExecutable(desc)
+		RunC4DExecutable(desc)
 
 	def _runConsole(self, desc: C4DDescriptor):
-		self._runC4DExecutable(desc, extraArgs=['g_console=true'])
-	
-	def _runC4DExecutable(self, desc: C4DDescriptor, extraArgs: list[str] = []):
-		if IsProcessRunning(desc.UID):
-			QMessageBox.warning(None, 'C4D Context Menu', 'Cinema 4D process is already running!')
-			return
-
-		# TODO: this is hardcoded now, fix it!
-		backendPluginPathStr: str = 'D:\\prj\\qavm\\source\\plugins\\cinema4d\\c4d-plugin'
-		args: list[str] = [
-			f'g_additionalModulePath="{backendPluginPathStr}"',
-			f'qavm_c4dUID="{desc.UID}"',
-			f'qavm_c4dCacheDataPath="{C4D_CACHEDATA_FILEPATH}"',
-		]
-		args.extend(extraArgs)
-
-		# os.startfile(str(desc.GetC4DExecutablePath()), arguments=args + ' ' + extraArgs)
-		StartProcess(desc.UID, desc.GetC4DExecutablePath(), args)
-		desc.updated.emit()
+		RunC4DExecutable(desc, extraArgs=['g_console=true'])
 	
 	def _kill(self, desc: C4DDescriptor):
-		if not IsProcessRunning(desc.UID):
-			QMessageBox.warning(None, 'C4D Context Menu', 'Cinema 4D process is not running!')
-			return
-		StopProcess(desc.UID)
-		desc.updated.emit()
+		KillRunningC4D(desc)
 	
 	def _showVersionMessageBox(self, desc: C4DDescriptor):
 		QMessageBox.information(None, "Cinema 4D Version", str(desc.buildStringC4DLike))
