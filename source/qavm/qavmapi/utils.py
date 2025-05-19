@@ -337,3 +337,55 @@ def GetIconFromExecutableMacOS(executablePath: Path) -> bytes:
 ##################################################################################################################
 ############################### ///////////////////////////////////////////////////// ############################
 ##################################################################################################################
+
+processes: dict[str, subprocess.Popen] = dict()
+def StartProcess(uid: str, path: Path, args: list[str]) -> int:
+	p: subprocess.Popen | None = None
+
+	if PlatformWindows():
+		p = subprocess.Popen([str(path), *args])
+	elif PlatformMacOS():
+		p = subprocess.Popen(['open', str(path), *args])
+	# elif PlatformLinux():
+	# 	return subprocess.Popen([path, args]).pid
+	else:
+		raise Exception('Unsupported platform')
+	
+	if p is None:
+		raise Exception('Failed to start process')
+
+	processes[uid] = p
+	return p.pid
+
+def StopProcess(uid: str) -> bool:
+	if uid not in processes:
+		return False
+	
+	p = processes[uid]
+	if PlatformWindows():
+		if p and p.poll() is None:
+			p.terminate()
+			p.wait()
+			print('Process terminated')
+		else:
+			print('Process not running')
+		# subprocess.Popen(['taskkill', '/F', '/PID', str(p.pid)])
+	elif PlatformMacOS():
+		raise Exception('Not implemented')
+		subprocess.Popen(['kill', '-9', str(p.pid)])
+	# elif PlatformLinux():
+	# 	subprocess.Popen(['kill', '-9', str(p.pid)])
+	else:
+		raise Exception('Unsupported platform')
+	
+	del processes[uid]
+	return True
+
+def IsProcessRunning(uid: str) -> bool:
+	if uid not in processes:
+		return False
+	
+	p = processes[uid]
+	if p and p.poll() is None:
+		return True
+	return False
