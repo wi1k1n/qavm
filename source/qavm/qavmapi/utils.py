@@ -74,6 +74,7 @@ def GetHashFile(filePath: Path, hashAlgo='sha256'):
 			hashFunc.update(chunk)
 	return hashFunc.hexdigest()[:12]
 
+# TODO: this is better to be an QAVMApp class variable
 processes: dict[str, subprocess.Popen] = dict()
 def StartProcess(uid: str, path: Path, args: list[str]) -> int:
 	p: subprocess.Popen | None = None
@@ -81,6 +82,7 @@ def StartProcess(uid: str, path: Path, args: list[str]) -> int:
 	if PlatformWindows():
 		p = subprocess.Popen([str(path), *args])
 	elif PlatformMacOS():
+		raise Exception('Not implemented')
 		p = subprocess.Popen(['open', str(path), *args])
 	# elif PlatformLinux():
 	# 	return subprocess.Popen([path, args]).pid
@@ -102,9 +104,8 @@ def StopProcess(uid: str) -> bool:
 		if p and p.poll() is None:
 			p.terminate()
 			p.wait()
-			print('Process terminated')
-		else:
-			print('Process not running')
+		# else:
+		# 	print('Process not running')
 		# subprocess.Popen(['taskkill', '/F', '/PID', str(p.pid)])
 	elif PlatformMacOS():
 		raise Exception('Not implemented')
@@ -120,7 +121,6 @@ def StopProcess(uid: str) -> bool:
 def IsProcessRunning(uid: str) -> bool:
 	if uid not in processes:
 		return False
-	
 	p = processes[uid]
 	if p and p.poll() is None:
 		return True

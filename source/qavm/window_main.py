@@ -325,7 +325,7 @@ class MainWindow(QMainWindow):
 				newTile.customContextMenuRequested.connect(partial(lambda m, p: m.exec(QCursor.pos()), menu))
 
 				# Optional: keep tiles sorted or in original order
-				flowLayout.addWidget(newTile)
+				flowLayout.insertWidget(i, newTile)
 				break
 
 

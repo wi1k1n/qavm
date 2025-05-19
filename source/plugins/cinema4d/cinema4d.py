@@ -14,11 +14,12 @@ from typing import Any, Iterator
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu
 )
-from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem
+from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem, RunningBorderWidget
 from qavm.qavmapi.utils import (
 	GetQAVMDataPath, GetQAVMCachePath, GetAppDataPath, GetHashString, GetPrefsFolderPath,
 	PlatformWindows, PlatformMacOS, PlatformLinux,
-	OpenFolderInExplorer, GetTempDataPath, GetHashFile, GetQAVMTempPath
+	OpenFolderInExplorer, GetTempDataPath, GetHashFile, GetQAVMTempPath,
+	StartProcess, StopProcess, IsProcessRunning
 )
 from qavm.qavmapi.media_cache import MediaCache
 from qavm.qavmapi.icon_extractor import GetIconFromExecutable
@@ -143,9 +144,6 @@ class C4DDescriptor(BaseDescriptor):
 		self._loadBackendPluginData()
 
 		self.dateBuild = ''  # date when the build was created
-
-		# EXPERIMENTAL
-		self.isProcessRunning: bool = False
 	
 	@staticmethod
 	def _loadC4DCacheData():
@@ -234,7 +232,6 @@ class C4DDescriptor(BaseDescriptor):
 			return guessAndStoreInCacheC4dPrefsFolder()
 		
 		return Path(c4dCacheData['prefsPath'])
-
 
 	def _loadBackendPluginData(self):
 		if not self.prefsDirPath.exists():
@@ -329,9 +326,11 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 
 	def CreateTileWidget(self, descriptor: C4DDescriptor, parent) -> QWidget:
 		descWidget: QWidget = self._createDescWidget(descriptor, parent)
-		# return descWidget
-		borderColor: QColor = QColor(Qt.GlobalColor.darkGreen) if descriptor.isProcessRunning else QColor(self.themeData['secondaryDarkColor'])
-		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, borderColor, parent)
+		
+		isProcessRunning: bool = IsProcessRunning(descriptor.UID)
+		borderColor: QColor = QColor(Qt.GlobalColor.darkGreen) if isProcessRunning else QColor(self.themeData['secondaryDarkColor'])
+
+		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, borderColor, isProcessRunning, parent)
 		return animatedBorderWidget
 	
 	def _createDescWidget(self, desc: C4DDescriptor, parent: QWidget):
@@ -425,18 +424,22 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		toolTip: str = desc.buildStringC4DLike \
 					+ '\n' + str(desc.dirPath) \
 					+ f'\nInstalled: {timestampToStr(desc.dateInstalled)}' \
-					f'\nModified: {timestampToStr(desc.dateModified)}'
+					  f'\nModified: {timestampToStr(desc.dateModified)}'
 		descWidget.setToolTip(toolTip)
 
 		descWidget.setFixedSize(descWidget.minimumSizeHint())
 
 		return descWidget
 	
-	def _wrapWidgetInAnimatedBorder(self, widget, accentColor: QColor, parent):
+	def _wrapWidgetInAnimatedBorder(self, widget, accentColor: QColor, isAnimated: bool, parent):
 		tailColor = QColor(accentColor)
 		tailColor.setAlpha(30)
 		
-		animBorderWidget = StaticBorderWidget(accentColor)
+		if isAnimated:
+			animBorderWidget = RunningBorderWidget(accentColor, tailColor, parent)
+		else:
+			animBorderWidget = StaticBorderWidget(accentColor, parent)
+		
 		animBorderLayout = animBorderWidget.layout()
 		borderThickness = 5
 		animBorderLayout.setContentsMargins(borderThickness, borderThickness, borderThickness, borderThickness)
@@ -451,8 +454,11 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		return animBorderWidget
 
 	def _iconClicked(self, desc: C4DDescriptor):
-		args: str = 'g_console=true' if self.settings['runWithConsole'][0] else ''
-		os.startfile(str(desc.GetC4DExecutablePath()), arguments=args)
+		# TODO: maybe merge with the context menu one?
+		args: list[str] = ['g_console=true'] if self.settings['runWithConsole'][0] else []
+		# os.startfile(str(desc.GetC4DExecutablePath()), arguments=args)
+		StartProcess(desc.UID, desc.GetC4DExecutablePath(), args)
+		desc.updated.emit()
 
 	def _getC4DSplashPixmap(self, desc: C4DDescriptor) -> Path | None:
 		mediaCache: MediaCache = MediaCache()
@@ -629,9 +635,9 @@ class C4DContextMenu(BaseContextMenu):
 		titleAction.setDefaultWidget(titleLabel)
 
 		menu.addAction(titleAction)
-		menu.addAction('TEST', partial(self._test2, desc))
 		menu.addAction('Run', partial(self._run, desc))
 		menu.addAction('Run w/console', partial(self._runConsole, desc))
+		menu.addAction('Kill', partial(self._kill, desc))
 		menu.addSeparator()
 		menu.addAction('Open folder', partial(OpenFolderInExplorer, desc.dirPath))
 		if desc.prefsDirPath.exists():
@@ -640,23 +646,33 @@ class C4DContextMenu(BaseContextMenu):
 		menu.addAction('Show version', partial(self._showVersionMessageBox, desc))
 		menu.addAction('Copy version', partial(pyperclip.copy, str(desc.buildStringC4DLike)))
 		return menu
-	
-	def _test2(self, desc: C4DDescriptor):
-		desc.isProcessRunning = not desc.isProcessRunning
-		desc.updated.emit()
 
 	def _run(self, desc: C4DDescriptor):
 		self._runC4DExecutable(desc)
 
 	def _runConsole(self, desc: C4DDescriptor):
-		self._runC4DExecutable(desc, extraArgs='g_console=true')
+		self._runC4DExecutable(desc, extraArgs=['g_console=true'])
 	
-	def _runC4DExecutable(self, desc: C4DDescriptor, extraArgs: str = ''):
+	def _runC4DExecutable(self, desc: C4DDescriptor, extraArgs: list[str] = []):
+		# TODO: this is hardcoded now, fix it!
 		backendPluginPathStr: str = 'D:\\prj\\qavm\\source\\plugins\\cinema4d\\c4d-plugin'
-		args: str = f'g_additionalModulePath="{backendPluginPathStr}" ' \
-					f'qavm_c4dUID="{desc.UID}" ' \
-					f'qavm_c4dCacheDataPath="{C4D_CACHEDATA_FILEPATH}" '
-		os.startfile(str(desc.GetC4DExecutablePath()), arguments=args + ' ' + extraArgs)
+		args: list[str] = [
+			f'g_additionalModulePath="{backendPluginPathStr}"',
+			f'qavm_c4dUID="{desc.UID}"',
+			f'qavm_c4dCacheDataPath="{C4D_CACHEDATA_FILEPATH}"',
+		]
+		args.extend(extraArgs)
+
+		# os.startfile(str(desc.GetC4DExecutablePath()), arguments=args + ' ' + extraArgs)
+		StartProcess(desc.UID, desc.GetC4DExecutablePath(), args)
+		desc.updated.emit()
+	
+	def _kill(self, desc: C4DDescriptor):
+		if not IsProcessRunning(desc.UID):
+			QMessageBox.warning(None, 'C4D Context Menu', 'Cinema 4D process is not running!')
+			return
+		StopProcess(desc.UID)
+		desc.updated.emit()
 	
 	def _showVersionMessageBox(self, desc: C4DDescriptor):
 		QMessageBox.information(None, "Cinema 4D Version", str(desc.buildStringC4DLike))

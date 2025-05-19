@@ -1,6 +1,6 @@
 from PyQt6.QtCore import Qt, QSize, QRect, QPoint
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen
-from PyQt6.QtWidgets import QLabel, QLayout
+from PyQt6.QtWidgets import QLabel, QLayout, QWidget, QWidgetItem
 
 
 # Copied from experiments on 26th of June 2024
@@ -16,6 +16,12 @@ class FlowLayout(QLayout):
 
 	def __del__(self):
 		del self._items[:]
+	
+	def insertWidget(self, index: int, widget: QWidget):
+		self.addWidget(widget)
+		last = self._items.pop()
+		self._items.insert(index, last)
+		self.update()
 
 	def addItem(self, item):
 		self._items.append(item)

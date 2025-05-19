@@ -1,6 +1,6 @@
 import datetime as dt
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QPropertyAnimation, pyqtProperty
 from PyQt6.QtWidgets import QApplication, QFrame, QVBoxLayout, QLabel, QTableWidgetItem
 from PyQt6.QtGui import QColor
 
@@ -30,6 +30,44 @@ class StaticBorderWidget(QFrame):
 		cssColorString = f"rgba({self._color.red()}, {self._color.green()}, {self._color.blue()}, {self._color.alpha()})"
 		return (f"background-color: {cssColorString}")
 
+# Copied from experiments on 19th of May 2025
+class RunningBorderWidget(QFrame):
+	def __init__(self, accentColor: QColor, tailColor: QColor, parent=None):
+		super().__init__(parent)
+
+		self._accentColor = accentColor
+		self._tailColor = tailColor
+		
+		self.setStyleSheet(self._getBackgroundColorGradientStyle(0))
+
+		self._bgGradientDirection = 0
+		self.bgGradientAnim = QPropertyAnimation(self, b'bgGradientDirection')
+		self.bgGradientAnim.setStartValue(360)
+		self.bgGradientAnim.setEndValue(0)
+		self.bgGradientAnim.setDuration(2000)
+		self.bgGradientAnim.setLoopCount(-1)
+		self.bgGradientAnim.start()
+
+		self.setLayout(QVBoxLayout(self))
+
+	def _getBackgroundColorGradientStyle(self, direction):
+		cssAccentColorString = f"rgba({self._accentColor.red()}, {self._accentColor.green()}, {self._accentColor.blue()}, {self._accentColor.alpha()})"
+		cssTailColorString = f"rgba({self._tailColor.red()}, {self._tailColor.green()}, {self._tailColor.blue()}, {self._tailColor.alpha()})"
+		return ("background-color: qconicalgradient("
+																f"cx: 0.5, cy: 0.5, angle: {direction}, "
+																f"stop: 0.00 {cssAccentColorString}, "
+																f"stop: 0.10 {cssTailColorString}, "
+																f"stop: 0.90 {cssTailColorString}, "
+																f"stop: 1.00 {cssAccentColorString});")
+	
+	@pyqtProperty(int)
+	def bgGradientDirection(self):
+		return self._bgGradientDirection
+	
+	@bgGradientDirection.setter
+	def bgGradientDirection(self, dir):
+		self._bgGradientDirection = dir
+		self.setStyleSheet(self._getBackgroundColorGradientStyle(dir))
 
 class ClickableLabel(QLabel):
 	clicked = pyqtSignal()
