@@ -648,7 +648,7 @@ class MyExampleSettings(BaseSettings):
 def RegisterModuleSoftware():
 	return [
 		{
-			'id': 'software',  # this is a unique id under the PLUGIN_ID domain
+			'id': 'software.c4d',  # this is a unique id under the PLUGIN_ID domain
 			'name': 'Cinema 4D',
 			# 'description': 'Cinema 4D software module for QAVM',
 			# 'author': 'wi1k1n',
