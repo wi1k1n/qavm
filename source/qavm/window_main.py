@@ -3,10 +3,10 @@ from pathlib import Path
 from functools import partial
 
 from PyQt6.QtCore import Qt, QMargins, QPoint
-from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor
+from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
-	QHeaderView, QMenu, QMenuBar
+	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
@@ -225,6 +225,7 @@ class MainWindow(QMainWindow):
 		tableWidget.setColumnCount(len(headers) + 1)
 		tableWidget.setHorizontalHeaderLabels(headers + ['descIdx'])
 		tableWidget.hideColumn(len(headers))  # hide descIdx column, this is kinda dirty, but gives more flexibility comparing to qabstracttablemodel and qproxymodel
+		tableWidget.setItemDelegate(tableBuilder.GetItemDelegate())
 		
 		tableWidget.setSortingEnabled(True)
 		tableWidget.horizontalHeader().setStretchLastSection(True)
@@ -237,22 +238,23 @@ class MainWindow(QMainWindow):
 		tableWidget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
 		# TODO: this sounds like a temp solution
-		contextMenus: list[QMenu] = list()
+		self.tableContextMenus: list[QMenu] = list()
 		def showContextMenu(pos):
 			selectedRowsUnique: set = {idx.row() for idx in tableWidget.selectedIndexes()}
 			currentRow = selectedRowsUnique.pop()
 			descIdx: int = int(tableWidget.item(currentRow, len(headers)).text())
-			contextMenus[descIdx].exec(QCursor.pos())
-		
+			self.tableContextMenus[descIdx].exec(QCursor.pos())
+
 		for r, desc in enumerate(descs):
+			# rowColor = QBrush(colors[r % 3])
 			for c, header in enumerate(headers):
 				tableWidgetItem = tableBuilder.GetTableCellValue(desc, c)
 				if not isinstance(tableWidgetItem, QTableWidgetItem):
 					tableWidgetItem = QTableWidgetItem(tableWidgetItem)
 				tableWidget.setItem(r, c, tableWidgetItem)
-			tableWidget.setItem(r, len(headers) + 0, QTableWidgetItem(str(r)))
+			tableWidget.setItem(r, len(headers), QTableWidgetItem(str(r)))
 
-			contextMenus.append(contextMenu.CreateMenu(desc))
+			self.tableContextMenus.append(contextMenu.CreateMenu(desc))
 		
 		tableWidget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 		tableWidget.customContextMenuRequested.connect(showContextMenu)

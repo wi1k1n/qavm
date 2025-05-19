@@ -24,11 +24,11 @@ from qavm.qavmapi.utils import (
 from qavm.qavmapi.media_cache import MediaCache
 from qavm.qavmapi.icon_extractor import GetIconFromExecutable
 
-from PyQt6.QtCore import Qt, QProcess, QSize, QRect, QPoint
+from PyQt6.QtCore import Qt, QProcess, QSize, QRect, QPoint, QModelIndex, QTimer
 from PyQt6.QtGui import QFont, QColor, QPixmap, QAction, QBrush, QPainter, QImage
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox, QTableWidgetItem,
-	QMenu, QWidgetAction, QLayout
+	QMenu, QWidgetAction, QLayout, QStyledItemDelegate, QStyleOptionViewItem, QApplication
 )
 
 """
@@ -525,6 +525,25 @@ class C4DVersionTableWidgetItem(QTableWidgetItem):
 			return convoluteVersion(self.versionH) < convoluteVersion(other.versionH)
 		return super().__lt__(other)
 
+class C4DColoredRowDelegate(QStyledItemDelegate):
+	def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex):
+		tableWidget = option.widget
+		row = index.row()
+		descIdx: int = int(tableWidget.item(row, 4).text())
+
+		descs = QApplication.instance().GetSoftwareDescriptions()
+		if descIdx >= len(descs):
+			return QStyledItemDelegate.paint(self, painter, option, index)
+		
+		desc: C4DDescriptor = descs[descIdx]
+		if IsProcessRunning(desc.UID):
+			painter.save()
+			painter.fillRect(option.rect, QColor(Qt.GlobalColor.darkGreen).lighter(175))
+			painter.restore()
+			return QStyledItemDelegate.paint(self, painter, option, index)
+
+		QStyledItemDelegate.paint(self, painter, option, index)
+
 class C4DTableBuilder(BaseTableBuilder):
 	def GetTableCaptions(self) -> list[str]:
 		return ['Folder name', 'Version', 'Installed date', 'Path']
@@ -539,6 +558,9 @@ class C4DTableBuilder(BaseTableBuilder):
 		if col == 3:
 			return '{}{}'.format(f'({desc.dirType}) ' if desc.dirType else '', str(desc.dirPath))
 		return ''
+	
+	def GetItemDelegate(self) -> QStyledItemDelegate:
+		return C4DColoredRowDelegate()
 
 class C4DSettings(BaseSettings):
 	def __init__(self) -> None:
@@ -647,8 +669,8 @@ class C4DContextMenu(BaseContextMenu):
 		menu.addAction('Run', partial(self._run, desc))
 		menu.addAction('Run w/console', partial(self._runConsole, desc))
 		
-		kill_action = menu.addAction('Kill', partial(self._kill, desc))
-		kill_action.setEnabled(IsProcessRunning(desc.UID))
+		killAction: QAction = menu.addAction('Kill', partial(self._kill, desc))
+		killAction.setEnabled(IsProcessRunning(desc.UID))
 
 		menu.addSeparator()
 		menu.addAction('Open folder', partial(OpenFolderInExplorer, desc.dirPath))

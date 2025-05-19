@@ -111,3 +111,6 @@ class BaseTableBuilder(BaseBuilder):
 	
 	def GetTableCellValue(self, desc: BaseDescriptor, col: int) -> str | QTableWidgetItem:
 		return str(desc.dirPath)
+	
+	def GetItemDelegate(self) -> QTableWidgetItem:
+		return QTableWidgetItem()
