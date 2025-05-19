@@ -137,6 +137,9 @@ class C4DDescriptor(BaseDescriptor):
 		self._loadBackendPluginData()
 
 		self.dateBuild = ''  # date when the build was created
+
+		# EXPERIMENTAL
+		self.isProcessRunning: bool = False
 	
 	@staticmethod
 	def _loadC4DCacheData():
@@ -296,7 +299,8 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 	def CreateTileWidget(self, descriptor: C4DDescriptor, parent) -> QWidget:
 		descWidget: QWidget = self._createDescWidget(descriptor, parent)
 		# return descWidget
-		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, QColor(Qt.GlobalColor.darkGreen), parent)
+		borderColor: QColor = QColor(Qt.GlobalColor.darkGreen) if descriptor.isProcessRunning else QColor(self.themeData['secondaryDarkColor'])
+		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, borderColor, parent)
 		return animatedBorderWidget
 	
 	def _createDescWidget(self, desc: C4DDescriptor, parent: QWidget):
@@ -594,6 +598,7 @@ class C4DContextMenu(BaseContextMenu):
 		titleAction.setDefaultWidget(titleLabel)
 
 		menu.addAction(titleAction)
+		menu.addAction('TEST', partial(self._test2, desc))
 		menu.addAction('Run', partial(self._run, desc))
 		menu.addAction('Run w/console', partial(self._runConsole, desc))
 		menu.addSeparator()
@@ -605,8 +610,13 @@ class C4DContextMenu(BaseContextMenu):
 		menu.addAction('Copy version', partial(pyperclip.copy, str(desc.buildStringC4DLike)))
 		return menu
 	
+	def _test2(self, desc: C4DDescriptor):
+		desc.isProcessRunning = not desc.isProcessRunning
+		desc.updated.emit()
+
 	def _run(self, desc: C4DDescriptor):
 		self._runC4DExecutable(desc)
+
 	def _runConsole(self, desc: C4DDescriptor):
 		self._runC4DExecutable(desc, extraArgs='g_console=true')
 	

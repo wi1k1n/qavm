@@ -52,8 +52,11 @@ class BaseQualifier(object):
 	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> list[str]:
 		return True
 
-class BaseDescriptor(object):
+class BaseDescriptor(QObject):
+	updated = pyqtSignal()
+
 	def __init__(self, dirPath: Path, settings: BaseSettings, fileContents: dict[str, str | bytes]):
+		super().__init__()
 		self.UID: str = utils.GetHashString(str(dirPath))
 		self.dirPath: Path = dirPath
 		self.settings: BaseSettings = settings

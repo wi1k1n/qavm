@@ -246,8 +246,10 @@ class MainWindow(QMainWindow):
 		tiles: list[QWidget] = list()
 
 		for desc in descs:
+			desc.updated.connect(partial(self._onDescriptorUpdated, desc))
 			tileWidget = tileBuilder.CreateTileWidget(desc, parent)
 			
+			tileWidget.descriptor = desc
 			tileWidget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 			menu = contextMenu.CreateMenu(desc)
 			tileWidget.customContextMenuRequested.connect(partial(lambda m, p: m.exec(QCursor.pos()), menu))
@@ -258,6 +260,40 @@ class MainWindow(QMainWindow):
 		scrollWidget = self._wrapWidgetInScrollArea(flWidget, self)
 
 		return scrollWidget
+	
+	def _onDescriptorUpdated(self, desc: BaseDescriptor):
+		if not hasattr(self, 'tilesWidget'):
+			return
+		
+		scrollArea = self.tilesWidget
+		flWidget = scrollArea.widget()
+		if not flWidget or not isinstance(flWidget.layout(), FlowLayout):
+			return
+
+		flowLayout: FlowLayout = flWidget.layout()
+
+		for i in range(flowLayout.count()):
+			widget = flowLayout.itemAt(i).widget()
+			if getattr(widget, 'descriptor', None) == desc:
+				# Remove old widget
+				flowLayout.removeWidget(widget)
+				widget.deleteLater()
+
+				# Create and insert new tile
+				softwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
+				contextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
+				tileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
+
+				newTile = tileBuilder.CreateTileWidget(desc, self)
+				newTile.descriptor = desc
+				newTile.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+				menu = contextMenu.CreateMenu(desc)
+				newTile.customContextMenuRequested.connect(partial(lambda m, p: m.exec(QCursor.pos()), menu))
+
+				# Optional: keep tiles sorted or in original order
+				flowLayout.addWidget(newTile)
+				break
+
 
 	def _createFlowLayoutWithFromWidgets(self, parent, widgets: list[QWidget]):
 		flWidget = QWidget(parent)
