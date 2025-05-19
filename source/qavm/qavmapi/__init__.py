@@ -59,6 +59,7 @@ class BaseDescriptor(QObject):
 		super().__init__()
 		self.UID: str = utils.GetHashString(str(dirPath))
 		self.dirPath: Path = dirPath
+		self.dirType: str = self._retrieveDirType()  # '' - normal dir, 's' - symlink, 'j' - junction
 		self.settings: BaseSettings = settings
 
 	def __hash__(self) -> int:
@@ -69,6 +70,23 @@ class BaseDescriptor(QObject):
 	
 	def __repr__(self):
 		return self.__str__()
+	
+	def _retrieveDirType(self) -> str:
+		dirType = ''
+		if self.dirPath.is_symlink():
+			dirType = 'S'
+		elif self._isDirJunction(self.dirPath):
+			dirType = 'J'
+		return dirType
+	
+	def _isDirJunction(self, path: Path) -> bool:
+		if not path.is_dir() or not utils.PlatformWindows():
+			return False
+		
+		import ctypes
+		FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
+		attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
+		return attrs != -1 and bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT) and not path.is_symlink()
 
 class BaseContextMenu(QObject):
 	def __init__(self, settings: BaseSettings):

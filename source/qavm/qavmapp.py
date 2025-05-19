@@ -68,13 +68,14 @@ class QAVMApp(QApplication):
 		if self.softwareDescriptions is None:
 			self.softwareDescriptions = self.ScanSoftware()
 		return self.softwareDescriptions
+	
 	def ResetSoftwareDescriptions(self) -> None:
 		self.softwareDescriptions = None
 	
 	def ScanSoftware(self) -> list[BaseDescriptor]:
 		qavmSettings = self.settingsManager.GetQAVMSettings()
 
-		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(qavmSettings.GetSelectedSoftwareUID())
+		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
 		if softwareHandler is None:
 			raise Exception('No software handler found')
 
@@ -155,5 +156,8 @@ class QAVMApp(QApplication):
 		return softwareDescs
 	
 	def processArgs(self, args: argparse.Namespace) -> None:
+		# TODO: make these args globally accessible from everywhere
 		if args.pluginsFolder:
 			self.pluginPaths.add(Path(args.pluginsFolder))
+
+		self.selectedSoftwareUID = args.selectedSoftwareUID

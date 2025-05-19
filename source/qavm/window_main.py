@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt, QMargins, QPoint
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
-	QHeaderView, QMenu
+	QHeaderView, QMenu, QMenuBar
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
@@ -20,6 +20,25 @@ import qavm.qavmapi_utils as qavmapi_utils
 
 import qavm.logs as logs
 logger = logs.logger
+
+class MyTableViewHeader(QHeaderView):
+	def __init__(self, orientation, parent=None):
+			super().__init__(orientation, parent)
+			self.setSortIndicatorShown(True)
+			self.setSortIndicator(0, Qt.SortOrder.AscendingOrder)
+
+	def mousePressEvent(self, event):
+			logicalIndex = self.logicalIndexAt(event.position().toPoint())
+			currentOrder = self.sortIndicatorOrder()
+
+			if logicalIndex != self.sortIndicatorSection() or currentOrder == Qt.SortOrder.AscendingOrder:
+					self.setSortIndicator(logicalIndex, Qt.SortOrder.DescendingOrder)
+			else:
+					self.setSortIndicator(logicalIndex, Qt.SortOrder.AscendingOrder)
+
+			self.sectionClicked.emit(logicalIndex)  # Emit the signal for the section clicked
+
+			super().mousePressEvent(event)
 
 class MainWindow(QMainWindow):
 	def __init__(self, app, parent: QWidget | None = None) -> None:
@@ -106,7 +125,7 @@ class MainWindow(QMainWindow):
 		# self.newAction.setToolTip(newTip)
 
 	def _setupMenuBar(self):
-		menuBar = self.menuBar()
+		menuBar: QMenuBar = self.menuBar()
 		menuBar.setNativeMenuBar(True)
 		
 		fileMenu = menuBar.addMenu('&File')
@@ -132,6 +151,19 @@ class MainWindow(QMainWindow):
 		# viewMenu.addSeparator()
 		# # for k, action in self.actionsGrouping.items():
 		# # 	viewMenu.addAction(action)
+		
+		switchMenu = menuBar.addMenu("&Switch")
+		def populate_switch_menu():
+			switchMenu.clear()
+			swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()  # [pluginID, softwareID, SoftwareHandler]
+			for pluginID, softwareID, softwareHandler in swHandlers:
+				plugin: QAVMPlugin = self.pluginManager.GetPlugin(pluginID)
+				swUID: str = f'{pluginID}#{softwareID}'
+				title: str = f'{softwareHandler.GetName()} [{plugin.GetName()} @ {plugin.GetVersionStr()}] ({swUID})'
+				action = QAction(title, self)
+				action.triggered.connect(partial(self._switchToPluginSelection, swUID))
+				switchMenu.addAction(action)
+		switchMenu.aboutToShow.connect(populate_switch_menu)
 
 		helpMenu = menuBar.addMenu("&Help")
 		# helpMenu.addAction(self.actionShortcuts)
@@ -151,7 +183,7 @@ class MainWindow(QMainWindow):
 		self.UpdateTableWidget()
 
 		# TODO: handle case when softwareHandler is None
-		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
+		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
 		contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
 		tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
 
@@ -164,7 +196,7 @@ class MainWindow(QMainWindow):
 		return QLabel("Freemove", parent)
 	
 	def UpdateTableWidget(self):
-		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())  # TODO: handle case when softwareHandler is None
+		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
 		contextMenu: BaseContextMenu = softwareHandler.GetTableBuilderContextMenuClass()(softwareHandler.GetSettings())
 		tableBuilder = softwareHandler.GetTableBuilderClass()(softwareHandler.GetSettings(), contextMenu)
 		if type(tableBuilder) is BaseTableBuilder:
@@ -185,14 +217,16 @@ class MainWindow(QMainWindow):
 
 		headers: list[str] = tableBuilder.GetTableCaptions()
 
-		tableWidget.setColumnCount(len(headers) + 1)
-		tableWidget.setHorizontalHeaderLabels(headers + ['descIdx'])
 		tableWidget.setRowCount(len(descs))
 		tableWidget.verticalHeader().setVisible(False)
+
+		myHeader = MyTableViewHeader(Qt.Orientation.Horizontal, tableWidget)
+		tableWidget.setHorizontalHeader(myHeader)
+		tableWidget.setColumnCount(len(headers) + 1)
+		tableWidget.setHorizontalHeaderLabels(headers + ['descIdx'])
 		tableWidget.hideColumn(len(headers))  # hide descIdx column, this is kinda dirty, but gives more flexibility comparing to qabstracttablemodel and qproxymodel
 		
 		tableWidget.setSortingEnabled(True)
-
 		tableWidget.horizontalHeader().setStretchLastSection(True)
 		tableWidget.horizontalHeader().setMinimumSectionSize(150)
 		tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
@@ -226,7 +260,7 @@ class MainWindow(QMainWindow):
 		return tableWidget
 	
 	def UpdateTilesWidget(self):
-		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())  # TODO: handle case when softwareHandler is None
+		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
 		contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
 		tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
 		if type(tileBuilder) is BaseTileBuilder:
@@ -314,9 +348,10 @@ class MainWindow(QMainWindow):
 		scrollWidget.setWidget(widget)
 		return scrollWidget
 	
-	def _switchToPluginSelection(self):
+	def _switchToPluginSelection(self, swUID: str = ''):
 		# TODO: this should probably has clearer handling
-		self.qavmSettings.SetSelectedSoftwareUID('')
+		self.qavmSettings.SetSelectedSoftwareUID(swUID)
+		self.app.selectedSoftwareUID = swUID
 		self.qavmSettings.Save()
 		self.dialogsManager.GetPluginSelectionWindow().show()
 		self.close()

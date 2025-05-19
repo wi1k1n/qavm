@@ -21,6 +21,7 @@ def ParseArgs() -> argparse.Namespace:
 	parser = argparse.ArgumentParser(description='QAVM - Quick Application Version Manager')
 	# TODO: make this handle list of paths
 	parser.add_argument('--pluginsFolder', type=str, help='Path to the plugins folder (Default: %APPDATA%/qavm/plugins)', default=utils.GetDefaultPluginsFolderPath())
+	parser.add_argument('--selectedSoftwareUID', type=str, help='UID of the selected software (Default: empty)', default='')
 	return parser.parse_args()
 
 def main():

@@ -5,7 +5,7 @@ copyright
 PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.cinema4d'
 PLUGIN_VERSION = '0.1.0'
 
-import os, subprocess, re, json, sys, logging, cv2, pyperclip
+import os, subprocess, re, json, sys, logging, cv2, pyperclip, re
 import datetime as dt, numpy as np
 from pathlib import Path
 from functools import partial
@@ -15,8 +15,13 @@ from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu
 )
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem
-import qavm.qavmapi.utils as utils
+from qavm.qavmapi.utils import (
+	GetQAVMDataPath, GetQAVMCachePath, GetAppDataPath, GetHashString, GetPrefsFolderPath,
+	PlatformWindows, PlatformMacOS, PlatformLinux,
+	OpenFolderInExplorer, GetTempDataPath, GetHashFile, GetQAVMTempPath
+)
 from qavm.qavmapi.media_cache import MediaCache
+from qavm.qavmapi.icon_extractor import GetIconFromExecutable
 
 from PyQt6.QtCore import Qt, QProcess, QSize, QRect, QPoint
 from PyQt6.QtGui import QFont, QColor, QPixmap, QAction, QBrush, QPainter, QImage
@@ -34,13 +39,13 @@ Each plugin can implement multiple modules. Modules can be of different types, e
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-LOGS_PATH = utils.GetQAVMDataPath()/'qavm-c4d.log'
+LOGS_PATH = GetQAVMDataPath()/'qavm-c4d.log'
 loggerFileHandler = logging.FileHandler(LOGS_PATH)
 loggerFileHandler.setLevel(logging.ERROR)
 loggerFileHandler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(loggerFileHandler)
 
-C4D_CACHEDATA_FILEPATH: Path = utils.GetQAVMCachePath()/'c4d/index.json'
+C4D_CACHEDATA_FILEPATH: Path = GetQAVMCachePath()/'c4d/index.json'
 
 class C4DQualifier(BaseQualifier):
 	def ProcessSearchPaths(self, searchPaths: list[str]) -> list[str]:
@@ -52,7 +57,7 @@ class C4DQualifier(BaseQualifier):
 			'resource/version.h',
 			'resource/build.txt',
 		]
-		if utils.PlatformWindows():
+		if PlatformWindows():
 			ret['requiredFileList'] = [
 				'c4dpy.exe',
 				'Cinema 4D.exe',
@@ -63,7 +68,7 @@ class C4DQualifier(BaseQualifier):
 			'corelibs',
 			'resource',
 		]
-		if utils.PlatformMacOS():
+		if PlatformMacOS():
 			ret['requiredDirList'].append('Cinema 4D.app')
 			ret['requiredDirList'].append('c4dpy.app')
 			ret['requiredDirList'].append('cineware.bundle')
@@ -97,6 +102,7 @@ class C4DDescriptor(BaseDescriptor):
 		# self.UID: str
 		# self.dirPath: Path
 		# self.settings: BaseSettings
+		# self.dirType: str  # '' - normal dir, 's' - symlink, 'j' - junction
 
 		if C4DDescriptor._c4dCacheData is None:
 			C4DDescriptor._loadC4DCacheData()
@@ -122,7 +128,7 @@ class C4DDescriptor(BaseDescriptor):
 		self.dirNameAdjusted: str = self._adjustDirname()
 
 		buildTxtPath: Path = self.dirPath/'resource/build.txt'
-		self.dateInstalled = buildTxtPath.stat().st_birthtime if utils.PlatformMacOS() else buildTxtPath.stat().st_ctime
+		self.dateInstalled = buildTxtPath.stat().st_birthtime if PlatformMacOS() else buildTxtPath.stat().st_ctime
 		self.dateModified = buildTxtPath.stat().st_mtime
 
 		self.commitRef = ''  # e.g. CL363640.28201 for R25, db1a05477b8f_1095604919 for 2024
@@ -178,13 +184,38 @@ class C4DDescriptor(BaseDescriptor):
 			C4DDescriptor._loadC4DCacheData()
 
 		def guessAndStoreInCacheC4dPrefsFolder():
-			maxonPrefsDirPath: Path = utils.GetAppDataPath()/'Maxon'
-			expectedPrefsDirNameLeftPart: str = f'{self.dirPath.name}_'
-			candidates: list[Path] = [f for f in maxonPrefsDirPath.iterdir() if f.is_dir() and f.name.startswith(expectedPrefsDirNameLeftPart)]
-			if not candidates:
+			maxonPrefsDirPath: Path = GetAppDataPath()/'Maxon'			
+			expectedPrefsDirNameLeftPart: str = f'{self.dirPath.name}_'  # e.g. "Maxon Cinema 4D 2024_"
+			
+			pattern = rf"^{re.escape(expectedPrefsDirNameLeftPart)}[a-zA-Z0-9]{{8,12}}(?:_[a-z])?$"  # e.g. "Maxon Cinema 4D 2024_A5DBFF93_p"
+			candidates: list[Path] = [f for f in maxonPrefsDirPath.iterdir() if f.is_dir() and re.match(pattern, f.name)]
+			# candidates can be: [""Maxon Cinema 4D 2024_A5DBFF93", ""Maxon Cinema 4D 2024_A5DBFF93_p", ""Maxon Cinema 4D 2024_A5DBFF93_x"]
+
+			# filter out the auxialiary prefs folders candidates (i.e. "*_p", "*_x", etc...)
+			base_pattern = re.compile(r'^(.*?_[A-Za-z0-9]{8,12})(?:_[a-z])?$')
+			seen_bases = set()
+			prefsFolders = []
+			for path in candidates:
+				match = base_pattern.fullmatch(path.name.strip())
+				if not match:
+					continue
+				base = match.group(1)
+				if base in seen_bases:
+					continue
+				seen_bases.add(base)
+				prefsFolders.append(path)
+
+			if not prefsFolders:
 				logger.error(f'Failed to find Cinema 4D prefs folder for {self.dirPath}')
 				return maxonPrefsDirPath/expectedPrefsDirNameLeftPart
-			c4dPrefsDirPath: Path = candidates[0]
+			
+			if len(prefsFolders) > 1:
+				print('Failed guessing Cinema 4D prefs folder. Multiple found:')
+				for c in prefsFolders:
+					print(f'\t{c}')
+				return maxonPrefsDirPath/expectedPrefsDirNameLeftPart
+			
+			c4dPrefsDirPath: Path = prefsFolders[0]
 
 			C4DDescriptor._c4dCacheData[self.UID] = {
 				'prefsPath': str(c4dPrefsDirPath),
@@ -273,10 +304,10 @@ class C4DDescriptor(BaseDescriptor):
 		return folderName[RAWFOLDERNAME_MAXLEN]
 
 	def GetC4DExecutablePath(self) -> Path | None:
-		if utils.PlatformWindows():
+		if PlatformWindows():
 			if (c4d := self.dirPath/'Cinema 4D.exe').exists():
 				return c4d
-		elif utils.PlatformMacOS():
+		elif PlatformMacOS():
 			if (c4d := self.dirPath/'Cinema 4D.app').exists():
 				return c4d
 		QMessageBox.warning(None, 'C4D Descriptor', 'Cinema 4D executable not found!')
@@ -340,7 +371,7 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		ICONC4D_SIZE: QSize = QSize(32, 32)
 		iconC4D: Path | None = None
 		if self.settings['extractIcons'][0]:
-			iconC4D = utils.GetIconFromExecutable(desc.GetC4DExecutablePath())  # TODO: this has to be done on initialization, preferable in a separate thread
+			iconC4D = GetIconFromExecutable(desc.GetC4DExecutablePath())  # TODO: this has to be done on initialization, preferable in a separate thread
 		if iconC4D is None:
 			iconC4D: Path = Path('./res/icons/c4d-teal.png')
 		iconPixmap: QPixmap = QPixmap(str(iconC4D)).scaled(ICONC4D_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
@@ -456,9 +487,9 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		if not success:
 			return None
 		
-		tempDirPath: Path = utils.GetQAVMTempPath()
+		tempDirPath: Path = GetQAVMTempPath()
 		tempDirPath.mkdir(parents=True, exist_ok=True)
-		tempPath: Path = tempDirPath/f'{utils.GetHashString(str(videoPath))}.jpg'
+		tempPath: Path = tempDirPath/f'{GetHashString(str(videoPath))}.jpg'
 
 		cv2.imwrite(tempPath, image)
 		
@@ -491,7 +522,7 @@ class C4DTableBuilder(BaseTableBuilder):
 		if col == 2:
 			return DateTimeTableWidgetItem(dt.datetime.fromtimestamp(desc.dateInstalled), '%d-%b-%y %H:%M:%S')
 		if col == 3:
-			return str(desc.dirPath)
+			return '{}{}'.format(f'({desc.dirType}) ' if desc.dirType else '', str(desc.dirPath))
 		return ''
 
 class C4DSettings(BaseSettings):
@@ -504,7 +535,7 @@ class C4DSettings(BaseSettings):
 			'extractIcons': 		[True, 'Extract icons', 'Use actual icons extracted from Cinema 4D executables', True, False],
 		}
 
-		self.prefFilePath: Path = utils.GetPrefsFolderPath()/'c4d-preferences.json'
+		self.prefFilePath: Path = GetPrefsFolderPath()/'c4d-preferences.json'
 		if not self.prefFilePath.exists():
 			logger.info(f'C4D settings file not found, creating a new one. Path: {self.prefFilePath}')
 			self.Save()
@@ -602,9 +633,9 @@ class C4DContextMenu(BaseContextMenu):
 		menu.addAction('Run', partial(self._run, desc))
 		menu.addAction('Run w/console', partial(self._runConsole, desc))
 		menu.addSeparator()
-		menu.addAction('Open folder', partial(utils.OpenFolderInExplorer, desc.dirPath))
+		menu.addAction('Open folder', partial(OpenFolderInExplorer, desc.dirPath))
 		if desc.prefsDirPath.exists():
-			menu.addAction('Open prefs folder', partial(utils.OpenFolderInExplorer, desc.prefsDirPath))
+			menu.addAction('Open prefs folder', partial(OpenFolderInExplorer, desc.prefsDirPath))
 		menu.addSeparator()
 		menu.addAction('Show version', partial(self._showVersionMessageBox, desc))
 		menu.addAction('Copy version', partial(pyperclip.copy, str(desc.buildStringC4DLike)))
@@ -658,7 +689,7 @@ class MyExampleSettings(BaseSettings):
 def RegisterModuleSoftware():
 	return [
 		{
-			'id': 'software',  # this is a unique id under the PLUGIN_ID domain
+			'id': 'software.c4d',  # this is a unique id under the PLUGIN_ID domain
 			'name': 'Cinema 4D',
 			# 'description': 'Cinema 4D software module for QAVM',
 			# 'author': 'wi1k1n',
