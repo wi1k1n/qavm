@@ -21,6 +21,25 @@ import qavm.qavmapi_utils as qavmapi_utils
 import qavm.logs as logs
 logger = logs.logger
 
+class MyTableViewHeader(QHeaderView):
+	def __init__(self, orientation, parent=None):
+			super().__init__(orientation, parent)
+			self.setSortIndicatorShown(True)
+			self.setSortIndicator(0, Qt.SortOrder.AscendingOrder)
+
+	def mousePressEvent(self, event):
+			logicalIndex = self.logicalIndexAt(event.position().toPoint())
+			currentOrder = self.sortIndicatorOrder()
+
+			if logicalIndex != self.sortIndicatorSection() or currentOrder == Qt.SortOrder.AscendingOrder:
+					self.setSortIndicator(logicalIndex, Qt.SortOrder.DescendingOrder)
+			else:
+					self.setSortIndicator(logicalIndex, Qt.SortOrder.AscendingOrder)
+
+			self.sectionClicked.emit(logicalIndex)  # Emit the signal for the section clicked
+
+			super().mousePressEvent(event)
+
 class MainWindow(QMainWindow):
 	def __init__(self, app, parent: QWidget | None = None) -> None:
 		super(MainWindow, self).__init__(parent)
@@ -198,14 +217,16 @@ class MainWindow(QMainWindow):
 
 		headers: list[str] = tableBuilder.GetTableCaptions()
 
-		tableWidget.setColumnCount(len(headers) + 1)
-		tableWidget.setHorizontalHeaderLabels(headers + ['descIdx'])
 		tableWidget.setRowCount(len(descs))
 		tableWidget.verticalHeader().setVisible(False)
+
+		myHeader = MyTableViewHeader(Qt.Orientation.Horizontal, tableWidget)
+		tableWidget.setHorizontalHeader(myHeader)
+		tableWidget.setColumnCount(len(headers) + 1)
+		tableWidget.setHorizontalHeaderLabels(headers + ['descIdx'])
 		tableWidget.hideColumn(len(headers))  # hide descIdx column, this is kinda dirty, but gives more flexibility comparing to qabstracttablemodel and qproxymodel
 		
 		tableWidget.setSortingEnabled(True)
-
 		tableWidget.horizontalHeader().setStretchLastSection(True)
 		tableWidget.horizontalHeader().setMinimumSectionSize(150)
 		tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
