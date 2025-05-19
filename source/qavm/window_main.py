@@ -295,6 +295,7 @@ class MainWindow(QMainWindow):
 
 		return scrollWidget
 	
+	# TODO: this is very similar to UpdateTilesWidget, code duplication
 	def _onDescriptorUpdated(self, desc: BaseDescriptor):
 		if not hasattr(self, 'tilesWidget'):
 			return

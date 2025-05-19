@@ -70,14 +70,28 @@ class RunningBorderWidget(QFrame):
 		self.setStyleSheet(self._getBackgroundColorGradientStyle(dir))
 
 class ClickableLabel(QLabel):
-	clicked = pyqtSignal()
+	clickedLeft = pyqtSignal(bool, bool, bool)  # ctrl, alt, shift
+	clickedRight = pyqtSignal(bool, bool, bool)  # ctrl, alt, shift
+	clickedMiddle = pyqtSignal(bool, bool, bool)  # ctrl, alt, shift
+	
+	clickedAny = pyqtSignal(bool, bool, bool)  # ctrl, alt, shift
 
 	def __init__(self, parent=None):
 		super().__init__(parent)
 
 	def mousePressEvent(self, evt):
+		# get modifier keys
+		ctrl = bool(evt.modifiers() & Qt.KeyboardModifier.ControlModifier)
+		alt = bool(evt.modifiers() & Qt.KeyboardModifier.AltModifier)
+		shift = bool(evt.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+		
+		self.clickedAny.emit(ctrl, alt, shift)
 		if evt.button() == Qt.MouseButton.LeftButton:
-			self.clicked.emit()
+			self.clickedLeft.emit(ctrl, alt, shift)
+		elif evt.button() == Qt.MouseButton.RightButton:
+			self.clickedRight.emit(ctrl, alt, shift)
+		elif evt.button() == Qt.MouseButton.MiddleButton:
+			self.clickedMiddle.emit(ctrl, alt, shift)
 		super().mousePressEvent(evt)
 
 

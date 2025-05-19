@@ -401,7 +401,8 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 
 			iconLabelC4D.setPixmap(splashPixmap)
 		
-		iconLabelC4D.clicked.connect(partial(self._iconClicked, desc))
+		iconLabelC4D.clickedLeft.connect(partial(self._iconClickedLeft, desc))
+		iconLabelC4D.clickedMiddle.connect(partial(self._iconClickedMiddle, desc))
 		iconLabelC4D.setFixedSize(SPLASH_SIZE)
 		
 
@@ -453,11 +454,19 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 
 		return animBorderWidget
 
-	def _iconClicked(self, desc: C4DDescriptor):
+	def _iconClickedLeft(self, desc: C4DDescriptor, ctrl: bool, alt: bool, shift: bool):
+		if IsProcessRunning(desc.UID):
+			QMessageBox.warning(None, 'C4D Context Menu', 'Cinema 4D process is already running!')
+			return
+		
 		# TODO: maybe merge with the context menu one?
-		args: list[str] = ['g_console=true'] if self.settings['runWithConsole'][0] else []
+		args: list[str] = ['g_console=true'] if self.settings['runWithConsole'][0] or ctrl else []
 		# os.startfile(str(desc.GetC4DExecutablePath()), arguments=args)
 		StartProcess(desc.UID, desc.GetC4DExecutablePath(), args)
+		desc.updated.emit()
+	
+	def _iconClickedMiddle(self, desc: C4DDescriptor, ctrl: bool, alt: bool, shift: bool):
+		StopProcess(desc.UID)
 		desc.updated.emit()
 
 	def _getC4DSplashPixmap(self, desc: C4DDescriptor) -> Path | None:
@@ -637,7 +646,10 @@ class C4DContextMenu(BaseContextMenu):
 		menu.addAction(titleAction)
 		menu.addAction('Run', partial(self._run, desc))
 		menu.addAction('Run w/console', partial(self._runConsole, desc))
-		menu.addAction('Kill', partial(self._kill, desc))
+		
+		kill_action = menu.addAction('Kill', partial(self._kill, desc))
+		kill_action.setEnabled(IsProcessRunning(desc.UID))
+
 		menu.addSeparator()
 		menu.addAction('Open folder', partial(OpenFolderInExplorer, desc.dirPath))
 		if desc.prefsDirPath.exists():
@@ -654,6 +666,10 @@ class C4DContextMenu(BaseContextMenu):
 		self._runC4DExecutable(desc, extraArgs=['g_console=true'])
 	
 	def _runC4DExecutable(self, desc: C4DDescriptor, extraArgs: list[str] = []):
+		if IsProcessRunning(desc.UID):
+			QMessageBox.warning(None, 'C4D Context Menu', 'Cinema 4D process is already running!')
+			return
+
 		# TODO: this is hardcoded now, fix it!
 		backendPluginPathStr: str = 'D:\\prj\\qavm\\source\\plugins\\cinema4d\\c4d-plugin'
 		args: list[str] = [
