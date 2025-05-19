@@ -18,7 +18,7 @@ from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWi
 from qavm.qavmapi.utils import (
 	GetQAVMDataPath, GetQAVMCachePath, GetAppDataPath, GetHashString, GetPrefsFolderPath,
 	PlatformWindows, PlatformMacOS, PlatformLinux,
-	OpenFolderInExplorer, GetTempDataPath, GetHashFile
+	OpenFolderInExplorer, GetTempDataPath, GetHashFile, GetQAVMTempPath
 )
 from qavm.qavmapi.media_cache import MediaCache
 from qavm.qavmapi.icon_extractor import GetIconFromExecutable
