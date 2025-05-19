@@ -117,7 +117,7 @@ class SettingsManager:
 	def LoadSoftwareSettings(self):
 		if not self.qavmSettings.GetSelectedSoftwareUID():
 			raise Exception('No software selected')
-		softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
+		softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetCurrentSoftwareHandler()
 		self.softwareSettings = softwareHandler.GetSettings()
 		self.softwareSettings.Load()
 	

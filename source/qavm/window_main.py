@@ -151,7 +151,7 @@ class MainWindow(QMainWindow):
 		self.UpdateTableWidget()
 
 		# TODO: handle case when softwareHandler is None
-		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
+		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
 		contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
 		tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
 
@@ -164,7 +164,7 @@ class MainWindow(QMainWindow):
 		return QLabel("Freemove", parent)
 	
 	def UpdateTableWidget(self):
-		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())  # TODO: handle case when softwareHandler is None
+		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
 		contextMenu: BaseContextMenu = softwareHandler.GetTableBuilderContextMenuClass()(softwareHandler.GetSettings())
 		tableBuilder = softwareHandler.GetTableBuilderClass()(softwareHandler.GetSettings(), contextMenu)
 		if type(tableBuilder) is BaseTableBuilder:
@@ -225,7 +225,7 @@ class MainWindow(QMainWindow):
 		return tableWidget
 	
 	def UpdateTilesWidget(self):
-		softwareHandler: SoftwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())  # TODO: handle case when softwareHandler is None
+		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
 		contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
 		tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
 		if type(tileBuilder) is BaseTileBuilder:

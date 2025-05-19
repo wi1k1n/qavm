@@ -97,6 +97,7 @@ class C4DDescriptor(BaseDescriptor):
 		# self.UID: str
 		# self.dirPath: Path
 		# self.settings: BaseSettings
+		# self.dirType: str  # '' - normal dir, 's' - symlink, 'j' - junction
 
 		if C4DDescriptor._c4dCacheData is None:
 			C4DDescriptor._loadC4DCacheData()
@@ -487,7 +488,7 @@ class C4DTableBuilder(BaseTableBuilder):
 		if col == 2:
 			return DateTimeTableWidgetItem(dt.datetime.fromtimestamp(desc.dateInstalled), '%d-%b-%y %H:%M:%S')
 		if col == 3:
-			return str(desc.dirPath)
+			return '{}{}'.format(f'({desc.dirType}) ' if desc.dirType else '', str(desc.dirPath))
 		return ''
 
 class C4DSettings(BaseSettings):

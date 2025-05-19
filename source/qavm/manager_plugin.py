@@ -255,6 +255,7 @@ class PluginManager:
 			for softwareID, softwareHandler in plugin.GetSoftwareHandlers().items():
 				result.append((plugin.pluginID, softwareID, softwareHandler))
 		return result
+	
 	def GetSoftwareHandler(self, softwareUID: str) -> SoftwareHandler:
 		if '#' not in softwareUID:
 			return None
@@ -263,6 +264,10 @@ class PluginManager:
 		if not plugin:
 			return None
 		return plugin.GetSoftwareHandlers().get(softwareID, None)
+	
+	def GetCurrentSoftwareHandler(self) -> SoftwareHandler:
+		qavmSettings = self.app.GetSettingsManager().GetQAVMSettings()
+		return self.GetSoftwareHandler(qavmSettings.GetSelectedSoftwareUID())
 	
 
 	def GetSettingsHandlers(self) -> list[tuple[str, str, SettingsHandler]]:
