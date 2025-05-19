@@ -5,7 +5,7 @@ copyright
 PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.cinema4d'
 PLUGIN_VERSION = '0.1.0'
 
-import os, subprocess, re, json, sys, logging, cv2, pyperclip
+import os, subprocess, re, json, sys, logging, cv2, pyperclip, re
 import datetime as dt, numpy as np
 from pathlib import Path
 from functools import partial
@@ -181,13 +181,38 @@ class C4DDescriptor(BaseDescriptor):
 			C4DDescriptor._loadC4DCacheData()
 
 		def guessAndStoreInCacheC4dPrefsFolder():
-			maxonPrefsDirPath: Path = GetAppDataPath()/'Maxon'
-			expectedPrefsDirNameLeftPart: str = f'{self.dirPath.name}_'
-			candidates: list[Path] = [f for f in maxonPrefsDirPath.iterdir() if f.is_dir() and f.name.startswith(expectedPrefsDirNameLeftPart)]
-			if not candidates:
+			maxonPrefsDirPath: Path = GetAppDataPath()/'Maxon'			
+			expectedPrefsDirNameLeftPart: str = f'{self.dirPath.name}_'  # e.g. "Maxon Cinema 4D 2024_"
+			
+			pattern = rf"^{re.escape(expectedPrefsDirNameLeftPart)}[a-zA-Z0-9]{{8,12}}(?:_[a-z])?$"  # e.g. "Maxon Cinema 4D 2024_A5DBFF93_p"
+			candidates: list[Path] = [f for f in maxonPrefsDirPath.iterdir() if f.is_dir() and re.match(pattern, f.name)]
+			# candidates can be: [""Maxon Cinema 4D 2024_A5DBFF93", ""Maxon Cinema 4D 2024_A5DBFF93_p", ""Maxon Cinema 4D 2024_A5DBFF93_x"]
+
+			# filter out the auxialiary prefs folders candidates (i.e. "*_p", "*_x", etc...)
+			base_pattern = re.compile(r'^(.*?_[A-Za-z0-9]{8,12})(?:_[a-z])?$')
+			seen_bases = set()
+			prefsFolders = []
+			for path in candidates:
+				match = base_pattern.fullmatch(path.name.strip())
+				if not match:
+					continue
+				base = match.group(1)
+				if base in seen_bases:
+					continue
+				seen_bases.add(base)
+				prefsFolders.append(path)
+
+			if not prefsFolders:
 				logger.error(f'Failed to find Cinema 4D prefs folder for {self.dirPath}')
 				return maxonPrefsDirPath/expectedPrefsDirNameLeftPart
-			c4dPrefsDirPath: Path = candidates[0]
+			
+			if len(prefsFolders) > 1:
+				print('Failed guessing Cinema 4D prefs folder. Multiple found:')
+				for c in prefsFolders:
+					print(f'\t{c}')
+				return maxonPrefsDirPath/expectedPrefsDirNameLeftPart
+			
+			c4dPrefsDirPath: Path = prefsFolders[0]
 
 			C4DDescriptor._c4dCacheData[self.UID] = {
 				'prefsPath': str(c4dPrefsDirPath),
