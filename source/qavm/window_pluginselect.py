@@ -36,9 +36,10 @@ class PluginSelectionWindow(QMainWindow):
 
 		for pluginID, softwareID, softwareHandler in swHandlers:
 			plugin: QAVMPlugin = self.pluginManager.GetPlugin(pluginID)
-			button = QPushButton(f'[{plugin.GetName()} @ {plugin.GetVersionStr()} ({pluginID})] {softwareHandler.GetName()} ({softwareID})')
+			swUID: str = f'{pluginID}#{softwareID}'
+			button = QPushButton(f'{softwareHandler.GetName()} [{plugin.GetName()} @ {plugin.GetVersionStr()}] ({swUID})')
 			button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-			button.clicked.connect(partial(self.selectPlugin, plugin.pluginID, softwareID))
+			button.clicked.connect(partial(self.selectPlugin, swUID))
 			layout.addWidget(button)
 
 		widget: QWidget = QWidget()
@@ -67,9 +68,9 @@ class PluginSelectionWindow(QMainWindow):
 
 		super(PluginSelectionWindow, self).show()
 	
-	def selectPlugin(self, pluginUID: str, softwareID: str):
+	def selectPlugin(self, swUID: str):
 		# self.pluginSelected.emit(pluginUID, softwareID)
-		self.qavmSettings.SetSelectedSoftwareUID(f'{pluginUID}#{softwareID}')
+		self.qavmSettings.SetSelectedSoftwareUID(swUID)
 		
 		# this is needed since we don't distinguish between initial load and running "select plugin" action
 		self.qavmSettings.Save()  # TODO: doesn't sound super correct

@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt, QMargins, QPoint
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
-	QHeaderView, QMenu
+	QHeaderView, QMenu, QMenuBar
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
@@ -106,7 +106,7 @@ class MainWindow(QMainWindow):
 		# self.newAction.setToolTip(newTip)
 
 	def _setupMenuBar(self):
-		menuBar = self.menuBar()
+		menuBar: QMenuBar = self.menuBar()
 		menuBar.setNativeMenuBar(True)
 		
 		fileMenu = menuBar.addMenu('&File')
@@ -132,6 +132,19 @@ class MainWindow(QMainWindow):
 		# viewMenu.addSeparator()
 		# # for k, action in self.actionsGrouping.items():
 		# # 	viewMenu.addAction(action)
+		
+		switchMenu = menuBar.addMenu("&Switch")
+		def populate_switch_menu():
+			switchMenu.clear()
+			swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()  # [pluginID, softwareID, SoftwareHandler]
+			for pluginID, softwareID, softwareHandler in swHandlers:
+				plugin: QAVMPlugin = self.pluginManager.GetPlugin(pluginID)
+				swUID: str = f'{pluginID}#{softwareID}'
+				title: str = f'{softwareHandler.GetName()} [{plugin.GetName()} @ {plugin.GetVersionStr()}] ({swUID})'
+				action = QAction(title, self)
+				action.triggered.connect(partial(self._switchToPluginSelection, swUID))
+				switchMenu.addAction(action)
+		switchMenu.aboutToShow.connect(populate_switch_menu)
 
 		helpMenu = menuBar.addMenu("&Help")
 		# helpMenu.addAction(self.actionShortcuts)
@@ -278,10 +291,10 @@ class MainWindow(QMainWindow):
 		scrollWidget.setWidget(widget)
 		return scrollWidget
 	
-	def _switchToPluginSelection(self):
+	def _switchToPluginSelection(self, swUID: str = ''):
 		# TODO: this should probably has clearer handling
-		self.qavmSettings.SetSelectedSoftwareUID('')
-		self.app.selectedSoftwareUID = ''
+		self.qavmSettings.SetSelectedSoftwareUID(swUID)
+		self.app.selectedSoftwareUID = swUID
 		self.qavmSettings.Save()
 		self.dialogsManager.GetPluginSelectionWindow().show()
 		self.close()
