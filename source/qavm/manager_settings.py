@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtWidgets import QWidget, QFormLayout, QCheckBox, QLineEdit
+from PyQt6.QtWidgets import QWidget, QFormLayout, QCheckBox, QLineEdit, QApplication
 
 import qavm.qavmapi.utils as utils
 
@@ -40,6 +40,7 @@ class QAVMSettingsContainer:
 		for key in self.SETTINGS_ENTRIES.keys():
 			data[key] = getattr(self, key)
 		return json.dumps(data)
+	
 	def InitializeFromString(self, dataStr: str) -> bool:
 		try:
 			data: dict = json.loads(dataStr)
@@ -88,6 +89,9 @@ class QAVMSettings(BaseSettings):
 		return self.GetSelectedSoftwareUID().split('#')[0]
 	
 	def GetSelectedSoftwareUID(self) -> str:
+		app = QApplication.instance()  # QAVMApp
+		if app.selectedSoftwareUID:
+			return app.selectedSoftwareUID
 		return self.container.selectedSoftwareUID
 	
 	""" The softwareUID is in the format: PLUGIN_ID#SoftwareID """

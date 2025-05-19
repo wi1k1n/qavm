@@ -56,8 +56,8 @@ class BaseDescriptor(object):
 	def __init__(self, dirPath: Path, settings: BaseSettings, fileContents: dict[str, str | bytes]):
 		self.UID: str = utils.GetHashString(str(dirPath))
 		self.dirPath: Path = dirPath
-		self.settings: BaseSettings = settings
 		self.dirType: str = self._retrieveDirType()  # '' - normal dir, 's' - symlink, 'j' - junction
+		self.settings: BaseSettings = settings
 
 	def __hash__(self) -> int:
 		return hash(str(self.dirPath))

@@ -49,11 +49,7 @@ class PluginSelectionWindow(QMainWindow):
 		self.update()
 
 	def show(self):
-		if self.app.selectedSoftwareUID:
-			selectedSoftwareUID = self.app.selectedSoftwareUID
-		else:
-			selectedSoftwareUID = self.qavmSettings.GetSelectedSoftwareUID()
-			
+		selectedSoftwareUID = self.qavmSettings.GetSelectedSoftwareUID()
 		swHandlers: dict[str, SoftwareHandler] = {f'{pUID}#{sID}': swHandler for pUID, sID, swHandler in self.pluginManager.GetSoftwareHandlers()}  # {softwareUID: SoftwareHandler}
 
 		if selectedSoftwareUID and selectedSoftwareUID not in swHandlers:

@@ -13,7 +13,7 @@ def PlatformMacOS():
 
 
 def GetQAVMDataPath() -> Path:
-	path: str = GetAppDataPath()/'qamv'
+	path: Path = GetAppDataPath()/'qamv'
 	os.makedirs(path, exist_ok=True)
 	return path
 
@@ -32,7 +32,7 @@ def GetQAVMCachePath() -> Path:
 def GetAppDataPath() -> Path:
 	"""Returns the path to the AppData folder for the current user."""
 	if PlatformWindows():
-		return Path(os.getenv('APPDATA'))
+		return Path(str(os.getenv('APPDATA')))
 	if PlatformMacOS():
 		return Path.home()/'Library/Preferences'
 	# if PlatformLinux():
@@ -42,7 +42,7 @@ def GetAppDataPath() -> Path:
 def GetTempDataPath() -> Path:
 	"""Returns the path to the temporary directory."""
 	if PlatformWindows():
-		return Path(os.getenv('TEMP'))
+		return Path(str(os.getenv('TEMP')))
 	if PlatformMacOS():
 		raise Exception('Not implemented')
 		return Path('/tmp')
@@ -331,7 +331,7 @@ def GetIconFromExecutableWindows(executablePath: Path) -> Path | None:
 	tempPath: Path = GetQAVMTempPath()/'icons'
 	return extract_icons(path7z, executablePath, icon_files, tempPath)
 
-def GetIconFromExecutableMacOS(executablePath: Path) -> bytes:
+def GetIconFromExecutableMacOS(executablePath: Path) -> Path | None:
 	raise Exception('Not implemented')
 
 ##################################################################################################################

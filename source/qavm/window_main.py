@@ -281,6 +281,7 @@ class MainWindow(QMainWindow):
 	def _switchToPluginSelection(self):
 		# TODO: this should probably has clearer handling
 		self.qavmSettings.SetSelectedSoftwareUID('')
+		self.app.selectedSoftwareUID = ''
 		self.qavmSettings.Save()
 		self.dialogsManager.GetPluginSelectionWindow().show()
 		self.close()
