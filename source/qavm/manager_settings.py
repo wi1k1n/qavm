@@ -2,7 +2,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtWidgets import QWidget, QFormLayout, QCheckBox, QLineEdit, QApplication
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtWidgets import (
+	QWidget, QFormLayout, QCheckBox, QLineEdit, QApplication, QListWidget, QListWidgetItem,
+	QVBoxLayout, QPushButton, QLabel, QFileDialog
+)
 
 import qavm.qavmapi.utils as utils
 
@@ -15,10 +20,11 @@ logger = logs.logger
 # TODO: should this be part of qavmapi?
 class QAVMSettingsContainer:
 	SETTINGS_ENTRIES: dict[str, Any] = {  # key: default value
-		'selectedSoftwareUID': '', 	# str
-		'searchPaths': [], 			# list[str]
-		'searchSubfoldersDepth': 2, # int
-		'hideOnClose': False, 		# bool
+		'selectedSoftwareUID': 						'', 			# str
+		'searchPaths': 								[], 			# list[str]
+		'searchSubfoldersDepth': 					2, 				# int
+		'hideOnClose': 								False, 			# bool
+		'lastOpenedTab': 							0, 				# enum  # TODO: use enum, currently 0 - tiles, 1 - table, 2 - freemove
 	}
 
 	def __init__(self):
@@ -52,6 +58,14 @@ class QAVMSettingsContainer:
 			logger.exception(f'Failed to parse settings data: {e}')
 			return False
 
+class DeletableListWidget(QListWidget):
+	def keyPressEvent(self, event: QKeyEvent) -> None:
+		if event.key() == Qt.Key.Key_Delete:
+			for item in self.selectedItems():
+				self.takeItem(self.row(item))
+		else:
+			super().keyPressEvent(event)
+
 class QAVMSettings(BaseSettings):
 	def __init__(self) -> None:
 		super().__init__()
@@ -76,21 +90,73 @@ class QAVMSettings(BaseSettings):
 
 	def CreateWidget(self, parent: QWidget) -> QWidget:
 		settingsWidget: QWidget = QWidget(parent)
-		formLayout: QFormLayout = QFormLayout(settingsWidget)
 
-		formLayout.addRow('Search paths', QWidget())
-		formLayout.addRow('Search subfolders depth', QLineEdit())
-		formLayout.addRow('Hide on close', QCheckBox())
+		vboxLayout: QVBoxLayout = QVBoxLayout(settingsWidget)
+		vboxLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+		vboxLayout.addWidget(QLabel('Search paths', settingsWidget))
+		vboxLayout.addWidget(self._createSearchPathsWidget(settingsWidget))
+
+		# vboxLayout.addWidget(QLabel('Search subfolders depth', self._createSearchSubfoldersDepthSliderWidget(settingsWidget)))
+		# formLayout.addRow('Hide on close', QCheckBox())
 
 		return settingsWidget
+	
+	def _spListWidgetAddSearchPathItem(self, path: str) -> None:
+		item: QListWidgetItem = QListWidgetItem(path)
+		item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
+		self.spListWidget.addItem(item)
 
+	def _createSearchPathsWidget(self, parent: QWidget) -> QWidget:
+		spWidget: QWidget = QWidget(parent)
+		vboxLayout: QVBoxLayout = QVBoxLayout(spWidget)
+		vboxLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+		self.spListWidget: DeletableListWidget = DeletableListWidget(spWidget)
+		self.spListWidget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+
+		for path in self.container.searchPaths:
+			self._spListWidgetAddSearchPathItem(path)
+		
+		btnBrowse: QPushButton = QPushButton('Browse', spWidget)
+		btnBrowse.clicked.connect(self._browseSearchPath)
+		
+		vboxLayout.addWidget(self.spListWidget)
+		vboxLayout.addWidget(btnBrowse)
+
+		return spWidget
+	
+	def _browseSearchPath(self) -> None:
+		if folder := QFileDialog.getExistingDirectory(None, "Select a folder", None, QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks):
+			path: Path = Path(folder)
+			if path not in self.container.searchPaths:
+				pathStr: str = str(path)
+				self.container.searchPaths.append(pathStr)
+				self._spListWidgetAddSearchPathItem(pathStr)
+		
+
+	
+	# def _createSearchSubfoldersDepthSliderWidget(self, parent: QWidget) -> QWidget:
+	# 	sliderWidget: QWidget = QWidget(parent)
+
+	# 	formLayout: QFormLayout = QFormLayout(sliderWidget)
+	# 	formLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+	# 	slider: QLineEdit = QLineEdit(str(self.container.searchSubfoldersDepth), sliderWidget)
+	# 	# slider.setValidator(utils.IntValidator(0, 10, slider))
+	# 	slider.setMaximumWidth(50)
+	# 	slider.editingFinished.connect(lambda: print('Slider value changed'))
+
+	# 	formLayout.addRow('Search subfolders depth', slider)
+
+	# 	return sliderWidget
 	
 	def GetSelectedSoftwarePluginID(self) -> str:
 		return self.GetSelectedSoftwareUID().split('#')[0]
 	
 	def GetSelectedSoftwareUID(self) -> str:
 		app = QApplication.instance()  # QAVMApp
-		if app.selectedSoftwareUID:
+		if app.selectedSoftwareUID:  # selectedSoftwareUID override coming from CL argument
 			return app.selectedSoftwareUID
 		return self.container.selectedSoftwareUID
 	
@@ -103,6 +169,11 @@ class QAVMSettings(BaseSettings):
 	
 	def GetSearchSubfoldersDepth(self) -> int:
 		return self.container.searchSubfoldersDepth
+	
+	def GetLastOpenedTab(self) -> int:
+		return self.container.lastOpenedTab
+	def SetLastOpenedTab(self, tabIndex: int) -> None:
+		self.container.lastOpenedTab = tabIndex
 
 class SettingsManager:
 	def __init__(self, app, prefsFolderPath: Path):

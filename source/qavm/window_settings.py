@@ -19,6 +19,7 @@ class PreferencesWindowExample(QWidget):
 		self.setWindowTitle("QAVM - Settings")
 		self.resize(600, 600)
 		self.setMinimumHeight(300)
+		self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
 
 		self.settingsManager: SettingsManager = self.app.GetSettingsManager()
 

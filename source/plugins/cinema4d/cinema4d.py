@@ -453,7 +453,7 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 					  f'\nModified: {timestampToStr(desc.dateModified)}'
 		descWidget.setToolTip(toolTip)
 
-		descWidget.setFixedSize(descWidget.minimumSizeHint())
+		# descWidget.setFixedSize(descWidget.minimumSizeHint())  # TODO: this is heavy call, is it really needed?
 
 		return descWidget
 	

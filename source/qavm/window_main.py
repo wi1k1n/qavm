@@ -234,6 +234,15 @@ class MainWindow(QMainWindow):
 		self.tabsWidget.insertTab(2, self.freeMoveWidget, "Free Move")
 
 		self.setCentralWidget(self.tabsWidget)
+
+		self.tabsWidget.currentChanged.connect(self._onTabChanged)
+		lastOpenedTab: int = self.qavmSettings.GetLastOpenedTab()
+		if lastOpenedTab >= 0 and lastOpenedTab < self.tabsWidget.count():
+			self.tabsWidget.setCurrentIndex(lastOpenedTab)
+
+	def _onTabChanged(self, index: int):
+		self.qavmSettings.SetLastOpenedTab(index)
+		self.qavmSettings.Save()  # TODO: should save now or later once per all changes?
 	
 	def _createFreeMoveWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
 		return QLabel("Freemove", parent)

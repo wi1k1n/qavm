@@ -1,5 +1,7 @@
 import sys, os, argparse
 
+import cProfile, pstats
+
 import qavm.logs as logs
 logger = logs.logger
 
@@ -29,12 +31,19 @@ def main():
 	WindowsSetupCustomIcon()
 	args = ParseArgs()
 
+	# profiler = cProfile.Profile()
+	# profiler.enable()
+
 	try:
 		app: QAVMApp = QAVMApp(sys.argv, args)
 		SetTheme(GetThemeName())
-		sys.exit(app.exec())
+		# sys.exit(app.exec())
+		app.exec()
 	except Exception as e:
 		logger.exception("QAVM application crashed")
+		
+	# profiler.disable()
+	# profiler.dump_stats("app_profile.prof")
 
 if __name__ == "__main__":
 	main()
