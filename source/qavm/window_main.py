@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt, QMargins, QPoint, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QMouseEvent
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
-	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication
+	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication, QAbstractItemView
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
@@ -277,12 +277,14 @@ class MainWindow(QMainWindow):
 		tableWidget.setColumnCount(len(headers) + 1)
 		tableWidget.setHorizontalHeaderLabels(headers + ['descIdx'])
 		tableWidget.hideColumn(len(headers))  # hide descIdx column, this is kinda dirty, but gives more flexibility comparing to qabstracttablemodel and qproxymodel
-		tableWidget.setItemDelegate(tableBuilder.GetItemDelegate())
+		tableWidget.setItemDelegate(tableBuilder.GetItemDelegateClass()(tableWidget))
 		
 		tableWidget.setSortingEnabled(True)
 		tableWidget.horizontalHeader().setStretchLastSection(True)
 		tableWidget.horizontalHeader().setMinimumSectionSize(150)
 		tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+		tableWidget.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+		tableWidget.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
 		
 		tableWidget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 		tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)

@@ -24,11 +24,17 @@ from qavm.qavmapi.utils import (
 from qavm.qavmapi.media_cache import MediaCache
 from qavm.qavmapi.icon_extractor import GetIconFromExecutable
 
-from PyQt6.QtCore import Qt, QProcess, QSize, QRect, QPoint, QModelIndex, QTimer
-from PyQt6.QtGui import QFont, QColor, QPixmap, QAction, QBrush, QPainter, QImage
+from PyQt6.QtCore import (
+	Qt, QProcess, QSize, QRect, QPoint, QModelIndex, QTimer, QPropertyAnimation, pyqtSignal, pyqtProperty,
+	QEasingCurve, QPointF
+)
+from PyQt6.QtGui import (
+	QFont, QColor, QPixmap, QAction, QBrush, QPainter, QImage, QPainter, QLinearGradient, QGradient
+)
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox, QTableWidgetItem,
-	QMenu, QWidgetAction, QLayout, QStyledItemDelegate, QStyleOptionViewItem, QApplication
+	QMenu, QWidgetAction, QLayout, QStyledItemDelegate, QStyleOptionViewItem, QApplication, QTableWidget,
+	QScrollBar,
 )
 
 """
@@ -541,7 +547,50 @@ class C4DVersionTableWidgetItem(QTableWidgetItem):
 			return convoluteVersion(self.versionH) < convoluteVersion(other.versionH)
 		return super().__lt__(other)
 
-class C4DColoredRowDelegate(QStyledItemDelegate):
+# # TODO: move to archive
+# class C4DColoredRowDelegate(QStyledItemDelegate):
+# 	def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex):
+# 		tableWidget = option.widget
+# 		row = index.row()
+# 		descIdx: int = int(tableWidget.item(row, 4).text())
+
+# 		descs = QApplication.instance().GetSoftwareDescriptions()
+# 		if descIdx >= len(descs):
+# 			return QStyledItemDelegate.paint(self, painter, option, index)
+		
+# 		desc: C4DDescriptor = descs[descIdx]
+# 		if IsProcessRunning(desc.UID):
+# 			painter.save()
+# 			painter.fillRect(option.rect, QColor(Qt.GlobalColor.darkGreen).lighter(175))
+# 			painter.restore()
+# 			return QStyledItemDelegate.paint(self, painter, option, index)
+
+# 		QStyledItemDelegate.paint(self, painter, option, index)
+
+# TODO: move to qavmapi
+class AnimatedRowGradientDelegate(QStyledItemDelegate):
+	def __init__(self, parent = None):
+		super().__init__(parent)
+		self._pos = 0.0
+
+		self.type = 1  # 0 - bouncing, 1 - wrapping  # TODO: make it configurable and enum
+		
+		self.anim = QPropertyAnimation(self, b"pos", self)
+
+		if self.type == 0:
+			self.anim.setDuration(10000)
+			self.anim.setKeyValueAt(0.0, 0.0)
+			self.anim.setKeyValueAt(0.5, 1.0)
+			self.anim.setKeyValueAt(1.0, 0.0)
+		elif self.type == 1:
+			self.anim.setDuration(5000)
+			self.anim.setKeyValueAt(0.0, 1.0)
+			self.anim.setKeyValueAt(1.0, 0.0)
+		
+		self.anim.setLoopCount(-1)
+		self.anim.setEasingCurve(QEasingCurve.Type.Linear)
+		self.anim.start()
+	
 	def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex):
 		tableWidget = option.widget
 		row = index.row()
@@ -553,12 +602,91 @@ class C4DColoredRowDelegate(QStyledItemDelegate):
 		
 		desc: C4DDescriptor = descs[descIdx]
 		if IsProcessRunning(desc.UID):
-			painter.save()
-			painter.fillRect(option.rect, QColor(Qt.GlobalColor.darkGreen).lighter(175))
-			painter.restore()
-			return QStyledItemDelegate.paint(self, painter, option, index)
+			return self._doPpaint(painter, option, index)
 
 		QStyledItemDelegate.paint(self, painter, option, index)
+
+	def _doPpaint(self, painter: QPainter, option, index):
+		table = option.widget  # or maybe use self.parent() instead?
+		if table is None:
+			return super().paint(painter, option, index)
+
+		tableContentColumnsWidth = sum(table.columnWidth(c) for c in range(table.columnCount()))
+		# scrollBarVerticalWidth = table.verticalScrollBar().width() if table.verticalScrollBar().isVisible() else 0
+		# verticalHeaderWidth = table.verticalHeader().width()
+		
+		hScrollBar: QScrollBar = table.horizontalScrollBar()
+		# scrollOffPercent = hScrollBar.value() / max(hScrollBar.maximum(), 1)
+		# scrollOffset = hScrollBar.sliderPosition()
+		scrollOffset = hScrollBar.value()
+
+		# left = 0 - scrollOffset
+		# right = 2 * tableContentColumnsWidth - scrollOffset
+		
+		left = -tableContentColumnsWidth * self._pos - scrollOffset
+		right = 2 * tableContentColumnsWidth - tableContentColumnsWidth * self._pos - scrollOffset
+		
+		grad = QLinearGradient(QPointF(left, 0), QPointF(right, 0))
+		
+		grad.setCoordinateMode(QGradient.CoordinateMode.LogicalMode)
+		grad.setSpread(QGradient.Spread.PadSpread)
+
+		if self.type == 0:
+			colorMid = QColor(255, 255, 255)  # TODO: get background color from theme
+			colorEnd = QColor(Qt.GlobalColor.darkGreen)
+			colorEnd.setAlpha(75)
+			stripeWPercent = 0.35
+
+			grad.setColorAt(0.0, colorMid)
+			grad.setColorAt(0.5 - stripeWPercent / 2, colorMid)
+			grad.setColorAt(0.5, colorEnd)
+			grad.setColorAt(0.5 + stripeWPercent / 2, colorMid)
+			grad.setColorAt(1.0, colorMid)
+		elif self.type == 1:
+			colorMidMy = QColor(255, 255, 255)
+			colorEndMy = QColor(Qt.GlobalColor.darkGreen)
+			colorEndMy.setAlpha(75)
+			stripeWPercent = 0.35
+
+			colorEnd1 = colorEndMy
+			colorMid = colorMidMy
+			colorEnd2 = colorEndMy
+			grad.setColorAt(0.0, colorEnd1)
+			grad.setColorAt(0.0 + stripeWPercent / 2, colorMid)
+			grad.setColorAt(0.5 - stripeWPercent / 2, colorMid)
+			grad.setColorAt(0.5, colorEnd2)
+			grad.setColorAt(0.5 + stripeWPercent / 2, colorMid)
+			grad.setColorAt(1.0 - stripeWPercent / 2, colorMid)
+			grad.setColorAt(1.0, colorEnd1)
+
+		painter.save()
+		painter.fillRect(option.rect, grad)
+		# painter.setPen(option.palette.color(option.palette.ColorRole.Text))
+		# painter.drawText(option.rect, Qt.AlignmentFlag.AlignCenter, index.data())
+		painter.restore()
+		return super().paint(painter, option, index)
+
+	def getPos(self) -> float:
+		return self._pos
+	
+	def setPos(self, v: float):
+		tableWidget = self.parent()
+		if tableWidget is None:
+			return
+		
+		self._pos = v
+		tableWidget.viewport().update()  # this is likely expensive, so should be better solution for multiple rows repainting
+		return
+	
+		# repaint exactly the span of the whole row
+		# first = tableWidget.model().index(self.target_row, 0)
+		# last  = tableWidget.model().index(self.target_row, tableWidget.columnCount() - 1)
+		first = tableWidget.model().index(0, 0)
+		last  = tableWidget.model().index(tableWidget.rowCount(), tableWidget.columnCount() - 1)
+		row_rect = (tableWidget.visualRect(first).united(tableWidget.visualRect(last)))
+		tableWidget.viewport().update(row_rect)
+
+	pos = pyqtProperty(float, getPos, setPos)
 
 class C4DTableBuilder(BaseTableBuilder):
 	def GetTableCaptions(self) -> list[str]:
@@ -575,8 +703,8 @@ class C4DTableBuilder(BaseTableBuilder):
 			return '{}{}'.format(f'({desc.dirType}) ' if desc.dirType else '', str(desc.dirPath))
 		return ''
 	
-	def GetItemDelegate(self) -> QStyledItemDelegate:
-		return C4DColoredRowDelegate()
+	def GetItemDelegateClass(self) -> QStyledItemDelegate.__class__:
+		return AnimatedRowGradientDelegate
 
 	# TODO: change key from int to enum. Currently 0 - LMB, 1 - RMB, 2 - MMB
 	def HandleClick(self, desc: C4DDescriptor, row: int, col: int, isDouble: bool, key: int, modifiers: Qt.KeyboardModifier):

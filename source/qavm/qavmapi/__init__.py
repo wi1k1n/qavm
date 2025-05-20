@@ -112,8 +112,8 @@ class BaseTableBuilder(BaseBuilder):
 	def GetTableCellValue(self, desc: BaseDescriptor, col: int) -> str | QTableWidgetItem:
 		return str(desc.dirPath)
 	
-	def GetItemDelegate(self) -> QTableWidgetItem:
-		return QTableWidgetItem()
+	def GetItemDelegateClass(self) -> QTableWidgetItem.__class__:
+		return QTableWidgetItem
 	
 	# TODO: change key from int to enum. Currently 0 - LMB, 1 - RMB, 2 - MMB
 	def HandleClick(self, desc: BaseDescriptor, row: int, col: int, isDouble: bool, key: int, modifiers: Qt.KeyboardModifier):
