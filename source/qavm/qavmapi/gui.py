@@ -101,7 +101,45 @@ def GetThemeName() -> str:
 	return CURRENT_THEME
 
 def SetTheme(theme: str) -> None:
-	apply_stylesheet(QApplication.instance(), theme=GetThemeName(), extra={'density_scale': '-1'})
+	app: QApplication = QApplication.instance()
+	
+	apply_stylesheet(app, theme=GetThemeName(), extra={'density_scale': '-1'})
+	
+	# Append custom style to override scrollbar thickness
+	app.setStyleSheet(app.styleSheet() + """
+		QScrollBar:vertical {
+			width: 14px;
+			margin: 0px;
+		}
+
+		QScrollBar:horizontal {
+			height: 14px;
+			margin: 0px;
+		}
+
+		QScrollBar::handle:vertical {
+			min-height: 20px;
+			background-color: #888;
+			border-radius: 7px;
+		}
+
+		QScrollBar::handle:horizontal {
+			min-width: 20px;
+			background-color: #888;
+			border-radius: 7px;
+		}
+
+		QScrollBar::add-line,
+		QScrollBar::sub-line {
+			background: none;
+			border: none;
+		}
+
+		QScrollBar::add-page,
+		QScrollBar::sub-page {
+			background: none;
+		}
+	""")
 
 def GetThemesList() -> list[str]:
 	return list_themes()
