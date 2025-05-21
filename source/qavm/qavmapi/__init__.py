@@ -71,11 +71,11 @@ class BaseDescriptor(QObject):
 	def __repr__(self):
 		return self.__str__()
 	
-	def _retrieveDirType(self) -> str:
+	def _retrieveDirType(self) -> str:  # TODO: make it enum
 		dirType = ''
-		if self.dirPath.is_symlink():
+		if utils.IsPathSymlink(self.dirPath):
 			dirType = 'S'
-		elif self._isDirJunction(self.dirPath):
+		elif utils.IsPathJunction(self.dirPath):
 			dirType = 'J'
 		return dirType
 	

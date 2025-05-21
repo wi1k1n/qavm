@@ -74,6 +74,24 @@ def GetHashFile(filePath: Path, hashAlgo='sha256'):
 			hashFunc.update(chunk)
 	return hashFunc.hexdigest()[:12]
 
+def IsPathSymlink(path: Path) -> bool:
+  return path.is_symlink()
+
+def IsPathJunction(path: Path) -> bool:
+		if not path.is_dir() or not PlatformWindows():
+			return False
+		import ctypes
+		FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
+		attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
+		return attrs != -1 and bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT) and not path.is_symlink()
+
+def GetPathSymlinkTarget(path: Path) -> Path:
+  return path.resolve(strict=False) if IsPathSymlink(path) else path
+
+def GetPathJunctionTarget(path: Path) -> Path:
+  print('TODO: this is not tested!')  # TODO: test and fix
+  return path.resolve(strict=False) if IsPathJunction(path) else path
+
 # TODO: this is better to be an QAVMApp class variable
 processes: dict[str, subprocess.Popen] = dict()
 def StartProcess(uid: str, path: Path, args: list[str]) -> int:

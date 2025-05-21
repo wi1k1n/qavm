@@ -19,7 +19,7 @@ from qavm.qavmapi.utils import (
 	GetQAVMDataPath, GetQAVMCachePath, GetAppDataPath, GetHashString, GetPrefsFolderPath,
 	PlatformWindows, PlatformMacOS, PlatformLinux,
 	OpenFolderInExplorer, GetTempDataPath, GetHashFile, GetQAVMTempPath,
-	StartProcess, StopProcess, IsProcessRunning
+	StartProcess, StopProcess, IsProcessRunning, GetPathSymlinkTarget, GetPathJunctionTarget,
 )
 from qavm.qavmapi.media_cache import MediaCache
 from qavm.qavmapi.icon_extractor import GetIconFromExecutable
@@ -700,7 +700,13 @@ class C4DTableBuilder(BaseTableBuilder):
 		if col == 2:
 			return DateTimeTableWidgetItem(dt.datetime.fromtimestamp(desc.dateInstalled), '%d-%b-%y %H:%M:%S')
 		if col == 3:
-			return '{}{}'.format(f'({desc.dirType}) ' if desc.dirType else '', str(desc.dirPath))
+			dirTypePrefix: str = f'({desc.dirType}) ' if desc.dirType else ''
+			dirLinkTarget: str = ''
+			if desc.dirType == 'S':
+				dirLinkTarget = f' ( → {GetPathSymlinkTarget(desc.dirPath)})'
+			elif desc.dirType == 'J':
+				dirLinkTarget = f' ( → {GetPathJunctionTarget(desc.dirPath)})'
+			return f'{dirTypePrefix}{str(desc.dirPath)}{dirLinkTarget}'
 		return ''
 	
 	def GetItemDelegateClass(self) -> QStyledItemDelegate.__class__:
