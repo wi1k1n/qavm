@@ -65,7 +65,7 @@ class C4DQualifier(BaseQualifier):
 			'resource/build.txt',
 		]
 		if PlatformWindows():
-			ret['requiredFileList'] = [
+			ret['requiredFileList'] += [
 				'c4dpy.exe',
 				'Cinema 4D.exe',
 				'cineware.dll',

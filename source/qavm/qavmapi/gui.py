@@ -106,6 +106,7 @@ def SetTheme(theme: str) -> None:
 	apply_stylesheet(app, theme=GetThemeName(), extra={'density_scale': '-1'})
 	
 	# Append custom style to override scrollbar thickness
+	# TODO: use secondColor as a background color for the scrollbar
 	app.setStyleSheet(app.styleSheet() + """
 		QScrollBar:vertical {
 			width: 14px;
