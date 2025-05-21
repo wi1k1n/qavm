@@ -13,7 +13,7 @@ This is a rethought version of the [C4D Version Manager](https://github.com/wi1k
 
 * PluginUID and SoftwareID are used all over the place separately or concatenated, and this creates kind of a mess. Should be a centralized place of hanlding such IDs
 
-* Somehow avoid the deadlock, when switching to another software is saved in preferences, but the plugin crashes
+* (Bug) Somehow avoid the deadlock, when switching to another software is saved in preferences, but the plugin crashes
 
 * Improve performance of creating tiles
 	* More caching
@@ -30,6 +30,10 @@ This is a rethought version of the [C4D Version Manager](https://github.com/wi1k
 * Start/Stop/IsRunning processes API should include checking the already running processes, being able to "attach" to them (i.e. control them even if not executed from QAVM)
 
 * Add API for having "context", which ties together different software aspects (i.e. having access e.g.. to Settings from within the Tile/TableBuilder or ContextMenu)
+
+* Keep in mind that the app can technically list everything, hence the executables can be more than one
+
+* Add API versioning (such that the plugins can declare the minimal supported API and report it instead of crashing)
 
 * Unpack the built-in plugins on first startup (no installers please!)
 
