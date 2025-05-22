@@ -31,6 +31,12 @@ This is a rethought version of the [C4D Version Manager](https://github.com/wi1k
 
 * Add API for having "context", which ties together different software aspects (i.e. having access e.g.. to Settings from within the Tile/TableBuilder or ContextMenu)
 
+* Allow the plugin to work with multiple tile tabs, multiple table tabs
+
+* Allow the plugin to order tabs
+
+* Store last opened tab as tab id, rather than index
+
 * Unpack the built-in plugins on first startup (no installers please!)
 
 * Save table widget sorting settings for next run
