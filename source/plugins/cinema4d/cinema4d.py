@@ -34,7 +34,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox, QTableWidgetItem,
 	QMenu, QWidgetAction, QLayout, QStyledItemDelegate, QStyleOptionViewItem, QApplication, QTableWidget,
-	QScrollBar,
+	QScrollBar, QInputDialog
 )
 
 """
