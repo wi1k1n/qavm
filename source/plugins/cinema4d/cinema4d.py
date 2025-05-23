@@ -853,28 +853,6 @@ class C4DContextMenu(BaseContextMenu):
 	def _showVersionMessageBox(self, desc: C4DDescriptor):
 		QMessageBox.information(None, "Cinema 4D Version", str(desc.buildStringC4DLike))
 
-##############################################################################################
-##################### TESTING THINGS #########################################################
-##############################################################################################
-class C4DExampleQualifier(BaseQualifier):
-	pass
-class C4DExampleDescriptor(BaseDescriptor):
-	pass
-class C4DExampleTileBuilder(BaseTileBuilder):
-	pass
-
-class MyExampleSettings(BaseSettings):
-	def __init__(self) -> None:
-		super().__init__()
-	def CreateWidget(self, parent):
-		return QWidget(parent)
-	
-	def GetName(self) -> str:
-		return 'Example Settings'
-##############################################################################################
-##################### TESTING THINGS #########################################################
-##############################################################################################
-
 
 
 
@@ -899,22 +877,6 @@ def RegisterModuleSoftware():
 				'context_menu': C4DContextMenu,
 			},
 		},
-
-
-
-		{
-			'id': 'software.example',  # this is a unique id under the PLUGIN_ID domain
-			'name': 'C4D - Example',
-			# 'description': 'Cinema 4D software module for QAVM',
-			# 'author': 'wi1k1n',
-			# 'author_email': 'vfpkjd@gmail.com',
-
-			'qualifier': C4DExampleQualifier,
-			'descriptor': C4DExampleDescriptor,
-			'tile_view': {
-				'tile_builder': C4DExampleTileBuilder,
-			},
-		}
 	]
 
 def RegisterModuleSettings():
