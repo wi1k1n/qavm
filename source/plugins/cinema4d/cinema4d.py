@@ -594,7 +594,7 @@ class AnimatedRowGradientDelegate(QStyledItemDelegate):
 	def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex):
 		tableWidget = option.widget
 		row = index.row()
-		descIdx: int = int(tableWidget.item(row, 4).text())
+		descIdx: int = int(tableWidget.item(row, tableWidget.columnCount() - 1).text())
 
 		descs = QApplication.instance().GetSoftwareDescriptions()
 		if descIdx >= len(descs):
