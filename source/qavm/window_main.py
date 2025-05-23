@@ -24,22 +24,54 @@ logger = logs.logger
 # TODO: wtf, rename it please!
 class MyTableViewHeader(QHeaderView):
 	def __init__(self, orientation, parent=None):
-			super().__init__(orientation, parent)
-			self.setSortIndicatorShown(True)
-			self.setSortIndicator(0, Qt.SortOrder.AscendingOrder)
+		super().__init__(orientation, parent)
+		self.setSortIndicatorShown(True)
+		self.setSortIndicator(0, Qt.SortOrder.AscendingOrder)
+		self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+		self.customContextMenuRequested.connect(self._showContextMenu)
+		self.setSectionsMovable(True)
 
+		self._mousePressedPos = None
+		self._mousePressedSection = -1
+
+	def _showContextMenu(self, pos: QPoint):
+		menu = QMenu(self)
+
+		tableWidget = self.parent()
+		if not isinstance(tableWidget, QTableWidget):
+			return
+
+		columnCount = tableWidget.columnCount() - 1  # Exclude the last column (descIdx)
+		for col in range(columnCount):
+			header_label = tableWidget.horizontalHeaderItem(col).text()
+			action = QAction(header_label, menu)
+			action.setCheckable(True)
+			action.setChecked(not tableWidget.isColumnHidden(col))
+			action.toggled.connect(lambda checked, col=col: tableWidget.setColumnHidden(col, not checked))
+			menu.addAction(action)
+   
+		menu.exec(self.mapToGlobal(pos))
+  
 	def mousePressEvent(self, event):
-			logicalIndex = self.logicalIndexAt(event.position().toPoint())
-			currentOrder = self.sortIndicatorOrder()
-
-			if logicalIndex != self.sortIndicatorSection() or currentOrder == Qt.SortOrder.AscendingOrder:
-					self.setSortIndicator(logicalIndex, Qt.SortOrder.DescendingOrder)
-			else:
-					self.setSortIndicator(logicalIndex, Qt.SortOrder.AscendingOrder)
-
-			self.sectionClicked.emit(logicalIndex)  # Emit the signal for the section clicked
-
-			super().mousePressEvent(event)
+		if event.button() == Qt.MouseButton.LeftButton:
+			self._mousePressedPos = event.pos()
+			self._mousePressedSection = self.logicalIndexAt(self._mousePressedPos)
+		super().mousePressEvent(event)
+		
+	def mouseReleaseEvent(self, event):
+		if event.button() == Qt.MouseButton.LeftButton:
+			releasedSection = self.logicalIndexAt(event.pos())
+			if (
+				releasedSection == self._mousePressedSection
+				and (event.pos() - self._mousePressedPos).manhattanLength() < 4
+			):
+				currentOrder = self.sortIndicatorOrder()
+				if releasedSection != self.sortIndicatorSection() or currentOrder == Qt.SortOrder.AscendingOrder:
+					self.setSortIndicator(releasedSection, Qt.SortOrder.DescendingOrder)
+				else:
+					self.setSortIndicator(releasedSection, Qt.SortOrder.AscendingOrder)
+				# self.sectionClicked.emit(releasedSection)  # Emit the signal for the section clicked
+		super().mouseReleaseEvent(event)
 			
 # TODO: wtf, rename it please!
 class MyTableWidget(QTableWidget):
