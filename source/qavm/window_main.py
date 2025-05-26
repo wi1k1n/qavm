@@ -293,6 +293,7 @@ class MainWindow(QMainWindow):
 		
 		self.tableWidget = self._createTableWidget(self.app.GetSoftwareDescriptions(), tableBuilder, contextMenu, self)
 		self.tabsWidget.insertTab(1, self.tableWidget, "Details")
+		self.tabsWidget.currentChanged.connect(partial(self._tableItemFocusBuggedWorkaround, self.tableWidget))
 		
 		self.tabsWidget.setCurrentIndex(currentTabIndex)
 
@@ -302,7 +303,7 @@ class MainWindow(QMainWindow):
 		headers: list[str] = tableBuilder.GetTableCaptions()
 
 		tableWidget.setRowCount(len(descs))
-		tableWidget.verticalHeader().setVisible(False)
+		# tableWidget.verticalHeader().setVisible(False)  # TODO: make this preferences option
 
 		myHeader = MyTableViewHeader(Qt.Orientation.Horizontal, tableWidget)
 		tableWidget.setHorizontalHeader(myHeader)
@@ -326,6 +327,7 @@ class MainWindow(QMainWindow):
 
 		tableWidget.doubleClickedLeft.connect(partial(self._onTableItemDoubleClickedLeft, tableWidget, tableBuilder))
 		tableWidget.clickedMiddle.connect(partial(self._onTableItemClickedMiddle, tableWidget, tableBuilder))
+		tableWidget.itemSelectionChanged.connect(partial(self._tableItemFocusBuggedWorkaround, tableWidget))
 
 		# TODO: this sounds like a temp solution
 		self.tableContextMenus: list[QMenu] = list()
@@ -350,6 +352,14 @@ class MainWindow(QMainWindow):
 		tableWidget.customContextMenuRequested.connect(showContextMenu)
 		
 		return tableWidget
+	
+	def _tableItemFocusBuggedWorkaround(self, tableWidget: QTableWidget):
+		"""
+		For some reason, after switching to the TilesWidget + RMB click there and switching back to the TableWidget,
+		the TableWidget starts highlighting the currently selected item regardless of the Qt.FocusPolicy.NoFocus
+		"""
+		if self.tabsWidget.currentIndex() == 1:  # TODO: dynamically get table tab index, don't hardcode!
+			tableWidget.clearFocus()
 	
 	def _onTableItemDoubleClickedLeft(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
