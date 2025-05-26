@@ -10,7 +10,7 @@ from PyQt6.QtCore import (
 	pyqtSignal
 )
 from PyQt6.QtWidgets import (
-	QMainWindow, QWidget, QVBoxLayout, QPushButton, QSizePolicy
+	QMainWindow, QWidget, QVBoxLayout, QPushButton, QSizePolicy, QMessageBox
 )
 
 class PluginSelectionWindow(QMainWindow):
@@ -52,6 +52,11 @@ class PluginSelectionWindow(QMainWindow):
 	def show(self):
 		selectedSoftwareUID = self.qavmSettings.GetSelectedSoftwareUID()
 		swHandlers: dict[str, SoftwareHandler] = {f'{pUID}#{sID}': swHandler for pUID, sID, swHandler in self.pluginManager.GetSoftwareHandlers()}  # {softwareUID: SoftwareHandler}
+
+		if not swHandlers:
+			QMessageBox.warning(self, "No Software Handlers", "No software handlers found. Please install at least one plugin with a software handler.", QMessageBox.StandardButton.Ok)
+			logger.warning('No software handlers found')
+			return
 
 		if selectedSoftwareUID and selectedSoftwareUID not in swHandlers:
 			logger.warning(f'Selected software plugin not found: {selectedSoftwareUID}')
