@@ -70,7 +70,7 @@ def ExtractIconFromExecutable(executablePath: Path) -> Path | None:
 	# if PlatformLinux():
 	# 	iconPath = GetIconFromExecutableLinux(executablePath)
 	if iconPath is None:
-		logger.error(f'Failed to extract icon from executable: {executablePath}')
+		print(f'Failed to extract icon from executable: {executablePath}')  # TODO: make logger a part of qavmapi and use it instead
 		return None
 	
 	mediaCache: MediaCache = MediaCache()
