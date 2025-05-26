@@ -92,6 +92,14 @@ def GetPathJunctionTarget(path: Path) -> Path:
   print('TODO: this is not tested!')  # TODO: test and fix
   return path.resolve(strict=False) if IsPathJunction(path) else path
 
+def GetFileBirthtime(path: Path) -> float:
+	if PlatformWindows():
+		return path.stat().st_ctime
+	elif PlatformMacOS():
+		return path.stat().st_birthtime
+	elif PlatformLinux():
+		raise NotImplementedError('Linux does not support file birthtime retrieval in a standard way')
+
 # TODO: this is better to be an QAVMApp class variable
 processes: dict[str, subprocess.Popen] = dict()
 def StartProcess(uid: str, path: Path, args: list[str]) -> int:

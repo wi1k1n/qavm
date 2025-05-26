@@ -20,6 +20,7 @@ from qavm.qavmapi.utils import (
 	PlatformWindows, PlatformMacOS, PlatformLinux,
 	OpenFolderInExplorer, GetTempDataPath, GetHashFile, GetQAVMTempPath,
 	StartProcess, StopProcess, IsProcessRunning, GetPathSymlinkTarget, GetPathJunctionTarget,
+	GetFileBirthtime
 )
 from qavm.qavmapi.media_cache import MediaCache
 from qavm.qavmapi.icon_extractor import GetIconFromExecutable
@@ -135,7 +136,7 @@ class C4DDescriptor(BaseDescriptor):
 		self.dirNameAdjusted: str = self._adjustDirname()
 
 		buildTxtPath: Path = self.dirPath/'resource/build.txt'
-		self.dateInstalled = buildTxtPath.stat().st_birthtime if PlatformMacOS() else buildTxtPath.stat().st_ctime
+		self.dateInstalled = GetFileBirthtime(buildTxtPath)
 		self.dateModified = buildTxtPath.stat().st_mtime
 
 		self.commitRef = ''  # e.g. CL363640.28201 for R25, db1a05477b8f_1095604919 for 2024
