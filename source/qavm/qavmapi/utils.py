@@ -10,6 +10,8 @@ def PlatformLinux():
 	return platform.system() == 'Linux'
 def PlatformMacOS():
 	return platform.system() == 'Darwin'
+def PlatformName() -> str:
+	return platform.system().lower()
 
 
 def GetQAVMDataPath() -> Path:

@@ -17,7 +17,7 @@ from qavm.qavmapi import (
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem, RunningBorderWidget
 from qavm.qavmapi.utils import (
 	GetQAVMDataPath, GetQAVMCachePath, GetAppDataPath, GetHashString, GetPrefsFolderPath,
-	PlatformWindows, PlatformMacOS, PlatformLinux,
+	PlatformWindows, PlatformMacOS, PlatformLinux, PlatformName,
 	OpenFolderInExplorer, GetTempDataPath, GetHashFile, GetQAVMTempPath,
 	StartProcess, StopProcess, IsProcessRunning, GetPathSymlinkTarget, GetPathJunctionTarget,
 	GetFileBirthtime
@@ -306,16 +306,15 @@ class C4DDescriptor(BaseDescriptor):
 			tokens = [''.join(tokens[:versionTokensNum]), '.'.join(tokens[versionTokensNum:])]
 			return f'{tokens[1]} {match.group()}'
 		return folderName[RAWFOLDERNAME_MAXLEN]
-
-	def GetC4DExecutablePath(self) -> Path | None:
+	
+	def GetExecutablePath(self) -> Path:
 		if PlatformWindows():
-			if (c4d := self.dirPath/'Cinema 4D.exe').exists():
-				return c4d
+			return self.dirPath/'Cinema 4D.exe'
 		elif PlatformMacOS():
-			if (c4d := self.dirPath/'Cinema 4D.app').exists():
-				return c4d
-		QMessageBox.warning(None, 'C4D Descriptor', 'Cinema 4D executable not found!')
-		return None
+			return self.dirPath/'Cinema 4D.app'
+		elif PlatformLinux():
+			raise NotImplementedError('Linux is not supported yet')
+		return super().GetExecutablePath()
 	
 	def __str__(self):
 		return f'C4D: {os.path.basename(self.dirPath)}'
@@ -336,9 +335,8 @@ def RunC4DExecutable(desc: C4DDescriptor, extraArgs: list[str] = []):
 		f'qavm_c4dCacheDataPath="{C4D_CACHEDATA_FILEPATH}"',
 	]
 	args.extend(extraArgs)
-
-	# os.startfile(str(desc.GetC4DExecutablePath()), arguments=args + ' ' + extraArgs)
-	StartProcess(desc.UID, desc.GetC4DExecutablePath(), args)
+	
+	StartProcess(desc.UID, desc.GetExecutablePath(), args)
 	desc.updated.emit()
 
 def KillRunningC4D(desc: C4DDescriptor):
@@ -349,6 +347,8 @@ def KillRunningC4D(desc: C4DDescriptor):
 	desc.updated.emit()
 
 class C4DTileBuilderDefault(BaseTileBuilder):
+	SPLASH_SIZE: QSize = QSize(128, 72)
+
 	def __init__(self, settings: BaseSettings, contextMenu: BaseContextMenu):
 		super().__init__(settings, contextMenu)
 		# From BaseTileBuilder:
@@ -376,33 +376,12 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		descLayout.setContentsMargins(margins, margins, margins, margins)
 		descLayout.setSpacing(5)  # space between labels inside tile
 
-		#############################################################
-		############# This part should be precomputed ###############
-		#############################################################
-		def cv2ToQImage(cv_img):
-			height, width, channel = cv_img.shape
-			bytes_per_line = 3 * width
-			# Convert BGR (OpenCV) to RGB (QImage)
-			return QImage(cv_img.data, width, height, bytes_per_line, QImage.Format.Format_RGB888).rgbSwapped()
-		
-		SPLASH_SIZE: QSize = QSize(128, 72)
-		splashImage: QImage = QImage(SPLASH_SIZE, QImage.Format.Format_RGBA8888)
-		if (splashC4DImagePath := self._getC4DSplashPixmap(desc)):
-			img = cv2.imread(str(splashC4DImagePath))
-			contrast, brightness = 0.8, 40  # contrast (1.0 - 3.0), brightness (0 - 100)
-			imgAdjusted = cv2.convertScaleAbs(img, alpha=contrast, beta=brightness)
-			splashImage = cv2ToQImage(imgAdjusted)
-		else:
-			splashImage.fill(QColor(Qt.GlobalColor.transparent))
-		splashPixmap = QPixmap.fromImage(splashImage).scaled(SPLASH_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-		#############################################################
-		#############################################################
-		#############################################################
+		splashPixmap: QPixmap | None = self._getSplashPixmap(desc)
 		
 		ICONC4D_SIZE: QSize = QSize(32, 32)
 		iconC4D: Path | None = None
 		if self.settings['extractIcons'][0]:
-			iconC4D = GetIconFromExecutable(desc.GetC4DExecutablePath())  # TODO: this has to be done on initialization, preferable in a separate thread
+			iconC4D = GetIconFromExecutable(desc.GetExecutablePath())  # TODO: this has to be done on initialization, preferable in a separate thread
 		if iconC4D is None:
 			iconC4D: Path = Path('./res/icons/c4d-teal.png')
 		iconPixmap: QPixmap = QPixmap(str(iconC4D)).scaled(ICONC4D_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
@@ -426,7 +405,7 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 				RSLOGO_SIZE: QSize = QSize(16, 16)
 				rsPixmap: QPixmap = QPixmap(str(redshiftLogoPath))
 				rsLogoRect: QRect = QRect(QPoint(), RSLOGO_SIZE)
-				rsLogoRect.moveTopRight(QPoint(SPLASH_SIZE.width(), 0))
+				rsLogoRect.moveTopRight(QPoint(C4DTileBuilderDefault.SPLASH_SIZE.width(), 0))
 				painter.drawPixmap(rsLogoRect, rsPixmap)
 
 			painter.end()
@@ -435,8 +414,7 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		
 		iconLabelC4D.clickedLeft.connect(partial(self._iconClickedLeft, desc))
 		iconLabelC4D.clickedMiddle.connect(partial(self._iconClickedMiddle, desc))
-		iconLabelC4D.setFixedSize(SPLASH_SIZE)
-		
+		iconLabelC4D.setFixedSize(C4DTileBuilderDefault.SPLASH_SIZE)
 
 		def createQLabel(text) -> QLabel:
 			label = QLabel(text, parent)
@@ -492,12 +470,35 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 	def _iconClickedMiddle(self, desc: C4DDescriptor, ctrl: bool, alt: bool, shift: bool):
 		KillRunningC4D(desc)
 
-	def _getC4DSplashPixmap(self, desc: C4DDescriptor) -> Path | None:
-		mediaCache: MediaCache = MediaCache()
+	def _getSplashPixmap(self, desc: C4DDescriptor) -> QPixmap | None:
+		#############################################################
+		############# This part should be precomputed ###############
+		#############################################################
+		def cv2ToQImage(cv_img):
+			height, width, channel = cv_img.shape
+			bytes_per_line = 3 * width
+			# Convert BGR (OpenCV) to RGB (QImage)
+			return QImage(cv_img.data, width, height, bytes_per_line, QImage.Format.Format_RGB888).rgbSwapped()
 		
-		mediaUID: str = f'{str(desc.GetC4DExecutablePath())}_splash-image-frame.png'
-		if cachedPath := mediaCache.GetCachedPath(mediaUID):
-			return cachedPath
+		splashImage: QImage = QImage(C4DTileBuilderDefault.SPLASH_SIZE, QImage.Format.Format_RGBA8888)
+		if (splashC4DImagePath := self._extractSplashPixmap(desc)):
+			img = cv2.imread(str(splashC4DImagePath))
+			contrast, brightness = 0.8, 40  # contrast (1.0 - 3.0), brightness (0 - 100)
+			imgAdjusted = cv2.convertScaleAbs(img, alpha=contrast, beta=brightness)
+			splashImage = cv2ToQImage(imgAdjusted)
+		else:
+			splashImage.fill(QColor(Qt.GlobalColor.transparent))
+		return QPixmap.fromImage(splashImage).scaled(C4DTileBuilderDefault.SPLASH_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+		#############################################################
+		#############################################################
+		#############################################################
+
+	def _extractSplashPixmap(self, desc: BaseDescriptor, useCache: bool = True) -> Path | None:
+		mediaUID: str = f'{str(desc.GetExecutablePath())}_splash-image-frame.png'
+		mediaCache: MediaCache = MediaCache()
+		if useCache:
+			if cachedPath := mediaCache.GetCachedPath(mediaUID):
+				return cachedPath
 		
 		splashVideoPath: Path = desc.dirPath/'resource/modules/gui.module/images/splash.mp4'
 		for i in range(3):
@@ -509,7 +510,10 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		splashFramePath: Path = self._extractVideoFrame(splashVideoPath, -1)
 		if splashFramePath is None or not splashFramePath.exists():
 			return None
-		mediaCache.CacheMedia(mediaUID, splashFramePath)
+		
+		if useCache:
+			mediaCache.CacheMedia(mediaUID, splashFramePath)
+
 		return splashFramePath
 	
 	def _extractVideoFrame(self, videoPath: Path, frameNum: int) -> Path | None:
@@ -525,12 +529,13 @@ class C4DTileBuilderDefault(BaseTileBuilder):
 		if not success:
 			return None
 		
+		return self._saveCVImageTempFile(image, videoPath)
+	
+	def _saveCVImageTempFile(self, image, sourceFilePath: Path) -> Path:
 		tempDirPath: Path = GetQAVMTempPath()
 		tempDirPath.mkdir(parents=True, exist_ok=True)
-		tempPath: Path = tempDirPath/f'{GetHashString(str(videoPath))}.jpg'
-
+		tempPath: Path = tempDirPath/f'{GetHashString(str(sourceFilePath))}.jpg'
 		cv2.imwrite(tempPath, image)
-		
 		return tempPath
 
 class C4DVersionTableWidgetItem(QTableWidgetItem):
