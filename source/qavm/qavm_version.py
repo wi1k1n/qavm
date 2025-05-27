@@ -1,5 +1,4 @@
-import os
-
+from pathlib import Path
 import qavm.logs as logs
 logger = logs.logger
 
@@ -8,8 +7,15 @@ BUILD_VERSION = ''
 
 def LoadVersionInfo(rootPath: str):
 	global BUILD_VERSION, logger
+	buildFilePath: Path = Path(rootPath) / '_internal' / 'build.txt'
+	if not buildFilePath.exists():
+		buildFilePath = Path(rootPath) / 'build.txt'
+	if not buildFilePath.exists():
+		logger.exception('Failed to load build info from build.txt file')
+		return
+	
 	try:
-		with open(os.path.join(rootPath, 'build.txt'), 'r') as f:
+		with open(buildFilePath, 'r') as f:
 			buildDateStr: str = ''
 			buildCommitStr: str = ''
 			while line := f.readline():

@@ -1,11 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+APP_NAME = 'qavm' # !!! Changing this would create separate .spec file with default settings
 
 a = Analysis(
     ['..\\..\\source\\qavm.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[(f'build/{APP_NAME}/build.txt', '.')],
     hiddenimports=['qavm.qavmapi'],
     hookspath=['..\\..\\source\\qavm\\pyinstaller-hooks'],
     hooksconfig={},
@@ -21,7 +22,8 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='qavm',
+    name=APP_NAME,
+    icon='..\\..\\res\\qavm_icon.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -36,9 +38,10 @@ exe = EXE(
 coll = COLLECT(
     exe,
     a.binaries,
+    a.zipfiles,
     a.datas,
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='qavm',
+    name=APP_NAME,
 )
