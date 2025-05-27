@@ -3,10 +3,11 @@ import qavm.logs as logs
 logger = logs.logger
 
 QAVM_VERSION = '0.1.0'
+PACKAGE_VERSION = ''
 BUILD_VERSION = ''
 
 def LoadVersionInfo(rootPath: Path):
-	global BUILD_VERSION, logger
+	global BUILD_VERSION, PACKAGE_VERSION, logger
 	
 	buildFilePath = rootPath / 'build.txt'
 	if not buildFilePath.exists():
@@ -27,14 +28,14 @@ def LoadVersionInfo(rootPath: Path):
 				if not len(buildCommitStr):
 					buildCommitStr = line
 					break
-			BUILD_VERSION = '{} ({})'.format(
-				buildDateStr if buildDateStr else 'unknown',
-				buildCommitStr if buildCommitStr else 'unknown',
-			)
+			PACKAGE_VERSION = buildDateStr
+			BUILD_VERSION = buildCommitStr
 	except:
 		logger.exception('Failed to load build info from build.txt file')
 
 def GetQAVMVersion() -> str:
 	return QAVM_VERSION
+def GetPackageVersion() -> str:
+	return PACKAGE_VERSION
 def GetBuildVersion() -> str:
 	return BUILD_VERSION

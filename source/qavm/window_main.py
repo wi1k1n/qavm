@@ -16,7 +16,7 @@ from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu
 )
 from qavm.utils_gui import FlowLayout
-from qavm.qavm_version import GetBuildVersion, GetQAVMVersion
+from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion
 
 import qavm.logs as logs
 logger = logs.logger
@@ -487,5 +487,7 @@ class MainWindow(QMainWindow):
 		prefsWindow.activateWindow()
 	
 	def _showAboutDialog(self):
-		aboutText = f"QAVM {GetQAVMVersion()} ({GetBuildVersion()})"
+		aboutText = f"QAVM {GetQAVMVersion()}"
+		aboutText += f"\nPackage: {GetPackageVersion()}"
+		aboutText += f"\nBuild: {GetBuildVersion()}"
 		QMessageBox.about(self, "About QAVM", aboutText)
