@@ -5,11 +5,10 @@ logger = logs.logger
 QAVM_VERSION = '0.1.0'
 BUILD_VERSION = ''
 
-def LoadVersionInfo(rootPath: str):
+def LoadVersionInfo(rootPath: Path):
 	global BUILD_VERSION, logger
-	buildFilePath: Path = Path(rootPath) / '_internal' / 'build.txt'
-	if not buildFilePath.exists():
-		buildFilePath = Path(rootPath) / 'build.txt'
+	
+	buildFilePath = rootPath / 'build.txt'
 	if not buildFilePath.exists():
 		logger.exception('Failed to load build info from build.txt file')
 		return

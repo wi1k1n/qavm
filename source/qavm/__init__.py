@@ -27,7 +27,7 @@ def ParseArgs() -> argparse.Namespace:
 	return parser.parse_args()
 
 def main():
-	LoadVersionInfo(os.getcwd())
+	LoadVersionInfo(utils.GetQAVMRootPath())
 	if utils.PlatformWindows():
 		WindowsSetupCustomIcon()
 	args = ParseArgs()

@@ -52,6 +52,25 @@ def GetTempDataPath() -> Path:
 	# 	return Path('/tmp')
 	raise Exception('Unsupported platform')
 
+def GetQAVMExecutablePath() -> Path:
+	if PlatformWindows():
+		return Path(os.path.dirname(os.path.abspath(__file__))) / 'qavm.exe'
+	elif PlatformMacOS():
+		raise Exception('Not implemented')
+	elif PlatformLinux():
+		raise Exception('Not implemented')
+	raise Exception('Unsupported platform')
+
+# TODO: this is likely for internal use only, so it should be outside of qavmapi
+def GetQAVMRootPath() -> Path:
+	if PlatformWindows():
+		return GetQAVMExecutablePath().parent
+	elif PlatformMacOS():
+		raise Exception('Not implemented')
+	elif PlatformLinux():
+		raise Exception('Not implemented')
+	raise Exception('Unsupported platform')
+
 def OpenFolderInExplorer(folderPath: Path):
 	if PlatformWindows():
 		os.startfile(folderPath)

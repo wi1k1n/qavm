@@ -31,7 +31,7 @@ class QAVMApp(QApplication):
 		self.setOrganizationName('wi1k.in.prod')
 		self.setOrganizationDomain('wi1k.in')
 		
-		self.iconApp: QIcon = QIcon(str(Path('res/qavm_icon.ico').resolve()))
+		self.iconApp: QIcon = QIcon(str(Path('res/qavm_icon.png').resolve()))
 		self.setWindowIcon(self.iconApp)
 
 		self.pluginPaths: set[Path] = {utils.GetDefaultPluginsFolderPath()}
