@@ -28,7 +28,8 @@ def ParseArgs() -> argparse.Namespace:
 
 def main():
 	LoadVersionInfo(os.getcwd())
-	WindowsSetupCustomIcon()
+	if utils.PlatformWindows():
+		WindowsSetupCustomIcon()
 	args = ParseArgs()
 
 	# profiler = cProfile.Profile()

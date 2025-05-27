@@ -7,7 +7,9 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[(f'build/{APP_NAME}/build.txt', '.')],
-    hiddenimports=['qavm.qavmapi'],
+    hiddenimports=['qavm.qavmapi',
+        'cv2', 'pyperclip',  # TODO: can this by dynamically linked on the target system?
+    ],
     hookspath=['..\\..\\source\\qavm\\pyinstaller-hooks'],
     hooksconfig={},
     runtime_hooks=[],

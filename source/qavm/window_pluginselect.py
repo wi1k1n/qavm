@@ -1,3 +1,4 @@
+import sys
 from functools import partial
 
 import qavm.logs as logs
@@ -56,7 +57,7 @@ class PluginSelectionWindow(QMainWindow):
 		if not swHandlers:
 			QMessageBox.warning(self, "No Software Handlers", "No software handlers found. Please install at least one plugin with a software handler.", QMessageBox.StandardButton.Ok)
 			logger.warning('No software handlers found')
-			return
+			sys.exit(0)
 
 		if selectedSoftwareUID and selectedSoftwareUID not in swHandlers:
 			logger.warning(f'Selected software plugin not found: {selectedSoftwareUID}')
