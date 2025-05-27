@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt, QMargins, QPoint, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QMouseEvent
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
-	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication, QAbstractItemView
+	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication, QAbstractItemView, QMessageBox
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
@@ -16,7 +16,7 @@ from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu
 )
 from qavm.utils_gui import FlowLayout
-import qavm.qavmapi_utils as qavmapi_utils
+from qavm.qavm_version import GetBuildVersion, GetQAVMVersion
 
 import qavm.logs as logs
 logger = logs.logger
@@ -129,7 +129,9 @@ class MainWindow(QMainWindow):
 		self.softwareSettings.tilesUpdateRequired.connect(self.UpdateTilesWidget)
 		self.softwareSettings.tablesUpdateRequired.connect(self.UpdateTableWidget)
 
-		self.setWindowTitle("QAVM")
+		
+		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
+		self.setWindowTitle(f'QAVM - {softwareHandler.GetName()}')
 		self.resize(1420, 840)
 		self.setMinimumSize(350, 250)
 
@@ -158,7 +160,7 @@ class MainWindow(QMainWindow):
 		self.actionRescan.setShortcut("Ctrl+F5")
 		self.actionRescan.triggered.connect(self._rescanSoftware)
 
-		# self.actionAbout = QAction("&About", self)
+		self.actionAbout = QAction("&About", self)
 		# self.actionShortcuts = QAction("&Shortcuts", self)
 		# self.actionShortcuts.setShortcut("F1")
 		# self.actionReportBug = QAction("&Report a bug", self)
@@ -184,7 +186,7 @@ class MainWindow(QMainWindow):
 		# self.actionSave.triggered.connect(self._storeData)
 		# self.actionPrefs.triggered.connect(self.openPreferences)
 		# self.actionExit.triggered.connect(sys.exit)
-		# self.actionAbout.triggered.connect(self.about)
+		self.actionAbout.triggered.connect(self._showAboutDialog)
 		# self.actionCheckUpdates.triggered.connect(CheckForUpdates)
 		# self.actionShortcuts.triggered.connect(self.help)
 		# self.actionReportBug.triggered.connect(lambda: self._showActivateDialog('trackbugs'))
@@ -241,7 +243,7 @@ class MainWindow(QMainWindow):
 		switchMenu.aboutToShow.connect(populate_switch_menu)
 
 		helpMenu = menuBar.addMenu("&Help")
-		# helpMenu.addAction(self.actionShortcuts)
+		helpMenu.addAction(self.actionAbout)
 		# helpMenu.addAction(self.actionReportBug)
 		# helpMenu.addAction(self.actionCheckUpdates)
 		# helpMenu.addAction(self.actionAbout)
@@ -483,3 +485,7 @@ class MainWindow(QMainWindow):
 		prefsWindow: QMainWindow = self.app.GetDialogsManager().GetPreferencesWindow()
 		prefsWindow.show()
 		prefsWindow.activateWindow()
+	
+	def _showAboutDialog(self):
+		aboutText = f"QAVM {GetQAVMVersion()} ({GetBuildVersion()})"
+		QMessageBox.about(self, "About QAVM", aboutText)

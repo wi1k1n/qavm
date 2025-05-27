@@ -27,6 +27,14 @@ def LoadVersionInfo(rootPath: Path):
 				if not len(buildCommitStr):
 					buildCommitStr = line
 					break
-			BUILD_VERSION = buildCommitStr
+			BUILD_VERSION = '{} ({})'.format(
+				buildDateStr if buildDateStr else 'unknown',
+				buildCommitStr if buildCommitStr else 'unknown',
+			)
 	except:
 		logger.exception('Failed to load build info from build.txt file')
+
+def GetQAVMVersion() -> str:
+	return QAVM_VERSION
+def GetBuildVersion() -> str:
+	return BUILD_VERSION

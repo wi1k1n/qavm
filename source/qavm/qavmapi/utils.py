@@ -1,4 +1,4 @@
-import os, platform, json, hashlib, subprocess
+import os, platform, json, hashlib, subprocess, sys
 from pathlib import Path
 from typing import Any
 
@@ -54,7 +54,7 @@ def GetTempDataPath() -> Path:
 
 def GetQAVMExecutablePath() -> Path:
 	if PlatformWindows():
-		return Path(os.path.dirname(os.path.abspath(__file__))) / 'qavm.exe'
+		return Path(sys.argv[0]).absolute()
 	elif PlatformMacOS():
 		raise Exception('Not implemented')
 	elif PlatformLinux():
