@@ -1,4 +1,4 @@
-import os, platform, json, hashlib, subprocess
+import os, platform, json, hashlib, subprocess, sys
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +50,25 @@ def GetTempDataPath() -> Path:
 		return Path('/tmp')
 	# if PlatformLinux():
 	# 	return Path('/tmp')
+	raise Exception('Unsupported platform')
+
+def GetQAVMExecutablePath() -> Path:
+	if PlatformWindows():
+		return Path(sys.argv[0]).absolute()
+	elif PlatformMacOS():
+		raise Exception('Not implemented')
+	elif PlatformLinux():
+		raise Exception('Not implemented')
+	raise Exception('Unsupported platform')
+
+# TODO: this is likely for internal use only, so it should be outside of qavmapi
+def GetQAVMRootPath() -> Path:
+	if PlatformWindows():
+		return GetQAVMExecutablePath().parent
+	elif PlatformMacOS():
+		raise Exception('Not implemented')
+	elif PlatformLinux():
+		raise Exception('Not implemented')
 	raise Exception('Unsupported platform')
 
 def OpenFolderInExplorer(folderPath: Path):

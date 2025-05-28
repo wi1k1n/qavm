@@ -203,9 +203,11 @@ class QAVMPlugin:
 
 
 class PluginManager:
-	def __init__(self, app, pluginsFolderPaths: list[Path]) -> None:
+	def __init__(self, app, pluginsFolderPaths: list[Path], pluginPaths: list[Path] = []) -> None:
 		self.app = app
 		self.pluginsFolderPaths: list[Path] = pluginsFolderPaths
+		self.pluginsPaths: list[Path] = pluginPaths  # individual plugins paths
+
 		self.plugins: dict[str, QAVMPlugin] = dict()
 
 		defaultPluginsFolderPath = utils.GetDefaultPluginsFolderPath()
@@ -214,37 +216,51 @@ class PluginManager:
 			logger.info(f'Created plugins folder: {defaultPluginsFolderPath}')
 
 	def LoadPlugins(self) -> bool:
+		# Iterate over plugins folders first
 		for pluginsFolderPath in self.pluginsFolderPaths:
 			if not pluginsFolderPath.exists():
 				logger.error(f'Plugins folder not found: {pluginsFolderPath}')
-				return False
-
-			# Iterate over plugins
-			for pluginFolderPath in pluginsFolderPath.iterdir():
-				if not pluginFolderPath.is_dir():
+				continue
+			# Iterate over plugin folders inside current plugins folder
+			for pluginPath in pluginsFolderPath.iterdir():
+				if not pluginPath.is_dir():
 					continue
-				
-				pluginName = pluginFolderPath.name
-				pluginMainFile = pluginFolderPath/f'{pluginName}.py'
+				if not self.LoadPluginFromPath(pluginPath):
+					logger.error(f'Failed to load plugin from path: {pluginPath}')
+					continue
 
-				if not pluginMainFile.exists():
-					logger.error(f'Plugin main file not found: {pluginMainFile}')
-					return
+		# Iterate over individual plugin paths
+		for pluginPath in self.pluginsPaths:
+			if not pluginPath.is_dir():
+				continue
+			if not self.LoadPluginFromPath(pluginPath):
+				logger.error(f'Failed to load plugin from path: {pluginPath}')
+				continue
 
-				try:
-					spec = importlib.util.spec_from_file_location(pluginName, pluginMainFile)
-					pluginPyModule = importlib.util.module_from_spec(spec)
-					spec.loader.exec_module(pluginPyModule)
-					
-					plugin = QAVMPlugin(pluginPyModule)
-					logger.info(f'Loaded plugin: {pluginName} @ {plugin.GetVersionStr()} ({plugin.GetUID()})')
-					self.plugins[plugin.pluginID] = plugin
-				
-				except:
-					logger.exception(f'Failed to load plugin: {pluginMainFile}')
+	def LoadPluginFromPath(self, pluginPath: Path) -> bool:
+		pluginName = pluginPath.name
+		pluginMainFile = pluginPath/f'{pluginName}.py'
+
+		if not pluginMainFile.exists():
+			logger.error(f'Plugin main file not found: {pluginMainFile}')
+			return False
+
+		try:
+			spec = importlib.util.spec_from_file_location(pluginName, pluginMainFile)
+			pluginPyModule = importlib.util.module_from_spec(spec)
+			spec.loader.exec_module(pluginPyModule)
+			
+			plugin = QAVMPlugin(pluginPyModule)
+			logger.info(f'Loaded plugin: {pluginName} @ {plugin.GetVersionStr()} ({plugin.GetUID()})')
+			self.plugins[plugin.pluginID] = plugin
+		except:
+			logger.exception(f'Failed to load plugin: {pluginMainFile}')
+			return False
+		return True
 	
 	def GetPlugins(self) -> list[QAVMPlugin]:
 		return list(self.plugins.values())  # TODO: rewrite with yield
+	
 	def GetPlugin(self, pluginID: str) -> QAVMPlugin:
 		return self.plugins.get(pluginID, None)
 

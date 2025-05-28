@@ -31,13 +31,17 @@ class QAVMApp(QApplication):
 		self.setOrganizationName('wi1k.in.prod')
 		self.setOrganizationDomain('wi1k.in')
 		
-		self.iconApp: QIcon = QIcon(str(Path('res/qavm_icon.ico').resolve()))
+		self.iconApp: QIcon = QIcon(str(Path('res/qavm_icon.png').resolve()))
 		self.setWindowIcon(self.iconApp)
 
-		self.pluginPaths: set[Path] = {utils.GetDefaultPluginsFolderPath()}
+		self.pluginsFolderPaths: set[Path] = {utils.GetDefaultPluginsFolderPath()}
+		self.pluginPaths: set[Path] = set()  # Paths to individual plugins
 		self.softwareDescriptions: list[BaseDescriptor] = None
 
 		self.processArgs(args)
+
+		logger.info(f'Plugins folder paths: {[str(p) for p in self.pluginsFolderPaths]}')
+		logger.info(f'Extra individial plugin paths: {[str(p) for p in self.pluginPaths]}')
 		
 		self.dialogsManager: DialogsManager = DialogsManager(self)
 
@@ -45,7 +49,7 @@ class QAVMApp(QApplication):
 		self.settingsManager.LoadQAVMSettings()
 		self.qavmSettings: QAVMSettings = self.settingsManager.GetQAVMSettings()
 
-		self.pluginManager = PluginManager(self, self.GetPluginPaths())
+		self.pluginManager = PluginManager(self, self.GetPluginsFolderPaths(), self.GetPluginPaths())
 		self.pluginManager.LoadPlugins()
 
 		self.settingsManager.LoadModuleSettings()
@@ -61,7 +65,12 @@ class QAVMApp(QApplication):
 	def GetDialogsManager(self) -> DialogsManager:
 		return self.dialogsManager
 	
+	def GetPluginsFolderPaths(self) -> list[Path]:
+		""" Returns a list of paths to the plugins folders (i.e. folder, containing plugin folders). """
+		return list(self.pluginsFolderPaths)
+	
 	def GetPluginPaths(self) -> list[Path]:
+		""" Returns a set of paths to individual plugins (i.e. a folder, containing the plugin). """
 		return list(self.pluginPaths)
 	
 	def GetSoftwareDescriptions(self) -> list[BaseDescriptor]:
@@ -132,7 +141,14 @@ class QAVMApp(QApplication):
 	
 	def processArgs(self, args: argparse.Namespace) -> None:
 		# TODO: make these args globally accessible from everywhere
+		logger.info(f'QAVMApp arguments: {vars(args)}')
+		
 		if args.pluginsFolder:
-			self.pluginPaths.add(Path(args.pluginsFolder))
+			self.pluginsFolderPaths = {Path(args.pluginsFolder)}
+		if args.extraPluginsFolder:
+			self.pluginsFolderPaths.update({Path(p) for p in args.extraPluginsFolder})
+		
+		if args.extraPluginPath:
+			self.pluginPaths.update({Path(p) for p in args.extraPluginPath})
 
 		self.selectedSoftwareUID = args.selectedSoftwareUID
