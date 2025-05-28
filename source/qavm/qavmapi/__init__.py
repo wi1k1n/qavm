@@ -11,8 +11,8 @@ from qavm.qavmapi.gui import GetThemeData
 ##############################################################################
 
 class BaseSettings(QObject):
-	tilesUpdateRequired = pyqtSignal()
-	tablesUpdateRequired = pyqtSignal()
+	tilesUpdateRequired = pyqtSignal()  # is emitted when settings are changing something that requires tiles to be updated
+	tablesUpdateRequired = pyqtSignal()  # same as tilesUpdateRequired, but for tables
 
 	def Load(self):
 		pass
@@ -81,15 +81,6 @@ class BaseDescriptor(QObject):
 		elif utils.IsPathJunction(self.dirPath):
 			dirType = 'J'
 		return dirType
-	
-	def _isDirJunction(self, path: Path) -> bool:
-		if not path.is_dir() or not utils.PlatformWindows():
-			return False
-		
-		import ctypes
-		FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
-		attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
-		return attrs != -1 and bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT) and not path.is_symlink()
 
 class BaseContextMenu(QObject):
 	def __init__(self, settings: BaseSettings):

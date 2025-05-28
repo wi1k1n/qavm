@@ -23,8 +23,18 @@ def ParseArgs() -> argparse.Namespace:
 	parser = argparse.ArgumentParser(description='QAVM - Quick Application Version Manager')
 	# TODO: make this handle list of paths
 	parser.add_argument('--pluginsFolder', type=str, help='Path to the plugins folder (Default: %APPDATA%/qavm/plugins)', default=utils.GetDefaultPluginsFolderPath())
+	parser.add_argument('--extraPluginsFolder', type=str, action='append', help='Path to an additional plugins folder (can be used multiple times)', default=[])
+	parser.add_argument('--extraPluginPath', type=str, action='append', help='Path to an additional plugin to load (can be used multiple times)', default=[])
 	parser.add_argument('--selectedSoftwareUID', type=str, help='UID of the selected software (Default: empty)', default='')
-	return parser.parse_args()
+	args = parser.parse_args()
+	
+	provided_args = {
+		k: v for k, v in vars(args).items()
+		if v != parser.get_default(k)
+	}
+	logger.info(f'Provided arguments: {provided_args}')
+
+	return args
 
 def main():
 	LoadVersionInfo(utils.GetQAVMRootPath())
@@ -34,6 +44,7 @@ def main():
 
 	if utils.PlatformWindows():
 		WindowsSetupCustomIcon()
+	
 	args = ParseArgs()
 
 	# profiler = cProfile.Profile()
