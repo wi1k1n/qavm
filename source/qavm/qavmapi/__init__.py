@@ -28,6 +28,92 @@ class BaseSettings(QObject):
 ########################### QAVM Plugin: Software ############################
 ##############################################################################
 
+class QualifierIdentificationConfig(object):
+	def __init__(self, 
+			  requiredFileList: list[str | list[str]] = [],
+			  requiredDirList: list[str | list[str]] = [],
+			  negativeFileList: list[str] = [],
+			  negativeDirList: list[str] = [],
+			  fileContentsList: list[tuple[str, bool, int]] = []):
+		"""
+		QualifierIdentificationConfig is used to define the identification mask for the qualifier.
+		- requiredFileList: list of files that MUST be present in the directory
+		- requiredDirList: list of directories that MUST be present in the directory
+		- negativeFileList: list of files that MUST NOT be present in the directory
+		- negativeDirList: list of directories that MUST NOT be present in the directory
+		- fileContentsList: list of files to be read from the disk, each item is a tuple: (filename, isBinary, lengthLimit)
+
+		The required can contain list entries, which will be treated as OR condition.
+		For example, the following requiredFileList: ['file1.txt', ['file2.txt', 'file3.txt']]
+		will match both ['file1.txt', 'file2.txt'] and ['file1.txt', 'file3.txt']
+		"""
+		self.requiredFileList = requiredFileList or []  # list of files that MUST be present
+		self.requiredDirList = requiredDirList or []  # list of directories that MUST be present
+		self.negativeFileList = negativeFileList or []  # list of files that MUST NOT be present
+		self.negativeDirList = negativeDirList or []  # list of directories that MUST NOT be present
+
+		self.fileContentsList = fileContentsList or []  # list of files to be read from the disk: tuples: (filename, isBinary, lengthLimit)
+
+	def SetRequiredFileList(self, fileList: list[str | list[str]]):
+		self.requiredFileList = fileList
+	def SetRequiredDirList(self, dirList: list[str | list[str]]):
+		self.requiredDirList = dirList
+	def SetNegativeFileList(self, fileList: list[str]):
+		self.negativeFileList = fileList
+	def SetNegativeDirList(self, dirList: list[str]):
+		self.negativeDirList = dirList
+	def SetFileContentsList(self, fileContentsList: list[tuple[str, bool, int]]):
+		self.fileContentsList = fileContentsList
+	
+	def GetRequiredFileList(self) -> list[str | list[str]]:
+		return self.requiredFileList
+	def GetRequiredDirList(self) -> list[str | list[str]]:
+		return self.requiredDirList
+	def GetNegativeFileList(self) -> list[str]:
+		return self.negativeFileList
+	def GetNegativeDirList(self) -> list[str]:
+		return self.negativeDirList
+	def GetFileContentsList(self) -> list[tuple[str, bool, int]]:
+		return self.fileContentsList
+	
+	def IdentificationMaskPasses(self, dirPath: Path) -> bool:
+		""" Checks if the directory path passes the file mask defined in this config. """
+		for file in self.requiredFileList:
+			if isinstance(file, list):
+				if not any((dirPath / f).is_file() for f in file):
+					return False
+			elif not (dirPath / file).is_file():
+				return False
+		
+		for folder in self.requiredDirList:
+			if isinstance(folder, list):
+				if not any((dirPath / f).is_dir() for f in folder):
+					return False
+			elif not (dirPath / folder).is_dir():
+				return False
+		
+		for file in self.negativeFileList:
+			if (dirPath / file).is_file():
+				return False
+		
+		for folder in self.negativeDirList:
+			if (dirPath / folder).is_dir():
+				return False
+			
+		return True
+	
+	def GetFileContents(self, dirPath: Path) -> dict[str, str | bytes]:
+		""" Reads the files from the disk and returns their contents as a dictionary. """
+		fileContents = dict()
+		for file, isBinary, lengthLimit in self.fileContentsList:
+			try:
+				with open(dirPath / file, 'rb' if isBinary else 'r') as f:
+					fileContents[file] = f.read(lengthLimit if lengthLimit else -1)
+			except Exception as e:
+				# logger.warning(f'Failed to read file "{dirPath/file}": {e}')
+				pass
+		return fileContents
+
 # TODO: rename this and others to BaseSoftwareQualifier?
 class BaseQualifier(object):
 	def __init__(self):
@@ -38,16 +124,9 @@ class BaseQualifier(object):
 		return searchPaths
 	
 	# TODO: Add support for subfolder file list
-	def GetIdentificationConfig(self) -> dict:
+	def GetIdentificationConfig(self) -> QualifierIdentificationConfig:
 		""" Sets the identification mask for the qualifier."""
-		return {
-			'requiredFileList': [],  # list of files that MUST be present
-			'requiredDirList': [],  # list of directories that MUST be present
-			'negativeFileList': [],  # list of files that MUST NOT be present
-			'negativeDirList': [],  # list of directories that MUST NOT be present
-
-			'fileContentsList': [],  # list of files to be read from the disk: tuples: (filename, isBinary, lengthLimit)
-		}
+		return QualifierIdentificationConfig()
 
 	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> list[str]:
 		return True
