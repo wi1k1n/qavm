@@ -253,9 +253,10 @@ class PluginManager:
 			plugin = QAVMPlugin(pluginPyModule)
 			logger.info(f'Loaded plugin: {pluginName} @ {plugin.GetVersionStr()} ({plugin.GetUID()})')
 			self.plugins[plugin.pluginID] = plugin
-		
 		except:
 			logger.exception(f'Failed to load plugin: {pluginMainFile}')
+			return False
+		return True
 	
 	def GetPlugins(self) -> list[QAVMPlugin]:
 		return list(self.plugins.values())  # TODO: rewrite with yield
