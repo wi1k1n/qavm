@@ -9,7 +9,10 @@
             "type": "debugpy",
             "request": "launch",
             "program": "source/qavm.py",
-            "args": ["--pluginsFolder", "source/plugins"],
+            "args": [
+                "--extraPluginsFolder", "source/plugins",
+                "--extraPluginsFolder", "../qavm-plugins/plugins",
+            ],
             "console": "integratedTerminal",
         },
         {

@@ -1,4 +1,4 @@
-import os, platform, json, hashlib, subprocess
+import os, platform, json, hashlib, subprocess, sys
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +10,8 @@ def PlatformLinux():
 	return platform.system() == 'Linux'
 def PlatformMacOS():
 	return platform.system() == 'Darwin'
+def PlatformName() -> str:
+	return platform.system().lower()
 
 
 def GetQAVMDataPath() -> Path:
@@ -48,6 +50,25 @@ def GetTempDataPath() -> Path:
 		return Path('/tmp')
 	# if PlatformLinux():
 	# 	return Path('/tmp')
+	raise Exception('Unsupported platform')
+
+def GetQAVMExecutablePath() -> Path:
+	if PlatformWindows():
+		return Path(sys.argv[0]).absolute()
+	elif PlatformMacOS():
+		raise Exception('Not implemented')
+	elif PlatformLinux():
+		raise Exception('Not implemented')
+	raise Exception('Unsupported platform')
+
+# TODO: this is likely for internal use only, so it should be outside of qavmapi
+def GetQAVMRootPath() -> Path:
+	if PlatformWindows():
+		return GetQAVMExecutablePath().parent
+	elif PlatformMacOS():
+		raise Exception('Not implemented')
+	elif PlatformLinux():
+		raise Exception('Not implemented')
 	raise Exception('Unsupported platform')
 
 def OpenFolderInExplorer(folderPath: Path):
@@ -91,6 +112,14 @@ def GetPathSymlinkTarget(path: Path) -> Path:
 def GetPathJunctionTarget(path: Path) -> Path:
   print('TODO: this is not tested!')  # TODO: test and fix
   return path.resolve(strict=False) if IsPathJunction(path) else path
+
+def GetFileBirthtime(path: Path) -> float:
+	if PlatformWindows():
+		return path.stat().st_ctime
+	elif PlatformMacOS():
+		return path.stat().st_birthtime
+	elif PlatformLinux():
+		raise NotImplementedError('Linux does not support file birthtime retrieval in a standard way')
 
 # TODO: this is better to be an QAVMApp class variable
 processes: dict[str, subprocess.Popen] = dict()

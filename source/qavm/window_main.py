@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt, QMargins, QPoint, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QMouseEvent
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
-	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication, QAbstractItemView
+	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication, QAbstractItemView, QMessageBox
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
@@ -16,7 +16,7 @@ from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu
 )
 from qavm.utils_gui import FlowLayout
-import qavm.qavmapi_utils as qavmapi_utils
+from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion
 
 import qavm.logs as logs
 logger = logs.logger
@@ -24,22 +24,54 @@ logger = logs.logger
 # TODO: wtf, rename it please!
 class MyTableViewHeader(QHeaderView):
 	def __init__(self, orientation, parent=None):
-			super().__init__(orientation, parent)
-			self.setSortIndicatorShown(True)
-			self.setSortIndicator(0, Qt.SortOrder.AscendingOrder)
+		super().__init__(orientation, parent)
+		self.setSortIndicatorShown(True)
+		self.setSortIndicator(0, Qt.SortOrder.AscendingOrder)
+		self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+		self.customContextMenuRequested.connect(self._showContextMenu)
+		self.setSectionsMovable(True)
 
+		self._mousePressedPos = None
+		self._mousePressedSection = -1
+
+	def _showContextMenu(self, pos: QPoint):
+		menu = QMenu(self)
+
+		tableWidget = self.parent()
+		if not isinstance(tableWidget, QTableWidget):
+			return
+
+		columnCount = tableWidget.columnCount() - 1  # Exclude the last column (descIdx)
+		for col in range(columnCount):
+			header_label = tableWidget.horizontalHeaderItem(col).text()
+			action = QAction(header_label, menu)
+			action.setCheckable(True)
+			action.setChecked(not tableWidget.isColumnHidden(col))
+			action.toggled.connect(lambda checked, col=col: tableWidget.setColumnHidden(col, not checked))
+			menu.addAction(action)
+   
+		menu.exec(self.mapToGlobal(pos))
+  
 	def mousePressEvent(self, event):
-			logicalIndex = self.logicalIndexAt(event.position().toPoint())
-			currentOrder = self.sortIndicatorOrder()
-
-			if logicalIndex != self.sortIndicatorSection() or currentOrder == Qt.SortOrder.AscendingOrder:
-					self.setSortIndicator(logicalIndex, Qt.SortOrder.DescendingOrder)
-			else:
-					self.setSortIndicator(logicalIndex, Qt.SortOrder.AscendingOrder)
-
-			self.sectionClicked.emit(logicalIndex)  # Emit the signal for the section clicked
-
-			super().mousePressEvent(event)
+		if event.button() == Qt.MouseButton.LeftButton:
+			self._mousePressedPos = event.pos()
+			self._mousePressedSection = self.logicalIndexAt(self._mousePressedPos)
+		super().mousePressEvent(event)
+		
+	def mouseReleaseEvent(self, event):
+		if event.button() == Qt.MouseButton.LeftButton:
+			releasedSection = self.logicalIndexAt(event.pos())
+			if (
+				releasedSection == self._mousePressedSection
+				and (event.pos() - self._mousePressedPos).manhattanLength() < 4
+			):
+				currentOrder = self.sortIndicatorOrder()
+				if releasedSection != self.sortIndicatorSection() or currentOrder == Qt.SortOrder.AscendingOrder:
+					self.setSortIndicator(releasedSection, Qt.SortOrder.DescendingOrder)
+				else:
+					self.setSortIndicator(releasedSection, Qt.SortOrder.AscendingOrder)
+				# self.sectionClicked.emit(releasedSection)  # Emit the signal for the section clicked
+		super().mouseReleaseEvent(event)
 			
 # TODO: wtf, rename it please!
 class MyTableWidget(QTableWidget):
@@ -97,7 +129,9 @@ class MainWindow(QMainWindow):
 		self.softwareSettings.tilesUpdateRequired.connect(self.UpdateTilesWidget)
 		self.softwareSettings.tablesUpdateRequired.connect(self.UpdateTableWidget)
 
-		self.setWindowTitle("QAVM")
+		
+		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
+		self.setWindowTitle(f'QAVM - {softwareHandler.GetName()}')
 		self.resize(1420, 840)
 		self.setMinimumSize(350, 250)
 
@@ -126,7 +160,7 @@ class MainWindow(QMainWindow):
 		self.actionRescan.setShortcut("Ctrl+F5")
 		self.actionRescan.triggered.connect(self._rescanSoftware)
 
-		# self.actionAbout = QAction("&About", self)
+		self.actionAbout = QAction("&About", self)
 		# self.actionShortcuts = QAction("&Shortcuts", self)
 		# self.actionShortcuts.setShortcut("F1")
 		# self.actionReportBug = QAction("&Report a bug", self)
@@ -152,7 +186,7 @@ class MainWindow(QMainWindow):
 		# self.actionSave.triggered.connect(self._storeData)
 		# self.actionPrefs.triggered.connect(self.openPreferences)
 		# self.actionExit.triggered.connect(sys.exit)
-		# self.actionAbout.triggered.connect(self.about)
+		self.actionAbout.triggered.connect(self._showAboutDialog)
 		# self.actionCheckUpdates.triggered.connect(CheckForUpdates)
 		# self.actionShortcuts.triggered.connect(self.help)
 		# self.actionReportBug.triggered.connect(lambda: self._showActivateDialog('trackbugs'))
@@ -209,7 +243,7 @@ class MainWindow(QMainWindow):
 		switchMenu.aboutToShow.connect(populate_switch_menu)
 
 		helpMenu = menuBar.addMenu("&Help")
-		# helpMenu.addAction(self.actionShortcuts)
+		helpMenu.addAction(self.actionAbout)
 		# helpMenu.addAction(self.actionReportBug)
 		# helpMenu.addAction(self.actionCheckUpdates)
 		# helpMenu.addAction(self.actionAbout)
@@ -261,6 +295,7 @@ class MainWindow(QMainWindow):
 		
 		self.tableWidget = self._createTableWidget(self.app.GetSoftwareDescriptions(), tableBuilder, contextMenu, self)
 		self.tabsWidget.insertTab(1, self.tableWidget, "Details")
+		self.tabsWidget.currentChanged.connect(partial(self._tableItemFocusBuggedWorkaround, self.tableWidget))
 		
 		self.tabsWidget.setCurrentIndex(currentTabIndex)
 
@@ -270,7 +305,7 @@ class MainWindow(QMainWindow):
 		headers: list[str] = tableBuilder.GetTableCaptions()
 
 		tableWidget.setRowCount(len(descs))
-		tableWidget.verticalHeader().setVisible(False)
+		# tableWidget.verticalHeader().setVisible(False)  # TODO: make this preferences option
 
 		myHeader = MyTableViewHeader(Qt.Orientation.Horizontal, tableWidget)
 		tableWidget.setHorizontalHeader(myHeader)
@@ -294,6 +329,7 @@ class MainWindow(QMainWindow):
 
 		tableWidget.doubleClickedLeft.connect(partial(self._onTableItemDoubleClickedLeft, tableWidget, tableBuilder))
 		tableWidget.clickedMiddle.connect(partial(self._onTableItemClickedMiddle, tableWidget, tableBuilder))
+		tableWidget.itemSelectionChanged.connect(partial(self._tableItemFocusBuggedWorkaround, tableWidget))
 
 		# TODO: this sounds like a temp solution
 		self.tableContextMenus: list[QMenu] = list()
@@ -318,6 +354,14 @@ class MainWindow(QMainWindow):
 		tableWidget.customContextMenuRequested.connect(showContextMenu)
 		
 		return tableWidget
+	
+	def _tableItemFocusBuggedWorkaround(self, tableWidget: QTableWidget):
+		"""
+		For some reason, after switching to the TilesWidget + RMB click there and switching back to the TableWidget,
+		the TableWidget starts highlighting the currently selected item regardless of the Qt.FocusPolicy.NoFocus
+		"""
+		if self.tabsWidget.currentIndex() == 1:  # TODO: dynamically get table tab index, don't hardcode!
+			tableWidget.clearFocus()
 	
 	def _onTableItemDoubleClickedLeft(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
@@ -441,3 +485,9 @@ class MainWindow(QMainWindow):
 		prefsWindow: QMainWindow = self.app.GetDialogsManager().GetPreferencesWindow()
 		prefsWindow.show()
 		prefsWindow.activateWindow()
+	
+	def _showAboutDialog(self):
+		aboutText = f"QAVM {GetQAVMVersion()}"
+		aboutText += f"\nPackage: {GetPackageVersion()}"
+		aboutText += f"\nBuild: {GetBuildVersion()}"
+		QMessageBox.about(self, "About QAVM", aboutText)

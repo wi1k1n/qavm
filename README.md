@@ -35,6 +35,12 @@ This is a rethought version of the [C4D Version Manager](https://github.com/wi1k
 
 * Add API versioning (such that the plugins can declare the minimal supported API and report it instead of crashing)
 
+* Allow the plugin to work with multiple tile tabs, multiple table tabs
+
+* Allow the plugin to order tabs
+
+* Store last opened tab as tab id, rather than index
+
 * Unpack the built-in plugins on first startup (no installers please!)
 
 * Save table widget sorting settings for next run
@@ -46,6 +52,11 @@ This is a rethought version of the [C4D Version Manager](https://github.com/wi1k
 
 * Improve preferences API (for easier usage by plugins)
 	* (Bug) and make it actually work ;)
+
+* Reorder plugins in the "Switch" list
+	* have "favorites" system
+	* only list software handlers there
+	* have a separate "plugin manager" window, showing what's where
 
 ## Further ideas
 
