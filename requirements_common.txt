@@ -3,3 +3,4 @@ qt_material==2.14.0
 pyinstaller==6.9.0
 opencv-python==4.10.0.84
 pyperclip==1.9.0
+gitpython==3.1.0
