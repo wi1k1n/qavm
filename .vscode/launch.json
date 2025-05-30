@@ -11,7 +11,7 @@
             "program": "source/qavm.py",
             "args": [
                 "--extraPluginsFolder", "source/plugins",
-                "--extraPluginsFolder", "../qavm-plugins/plugins",
+                // "--extraPluginsFolder", "../qavm-plugins/plugins",
             ],
             "console": "integratedTerminal",
         },

@@ -10,11 +10,12 @@ import qavm.qavmapi.utils as utils
 import qavm.logs as logs
 logger = logs.logger
 
-class QAVMModule:
+class QAVMHandler:
+	""" Base class for QAVM handlers, e.g. is used as base for software handler, settings handler, etc. """
 	def __init__(self, plugin, regData):
 		self.id = regData.get('id', None)
 
-class QAVMModuleNamed(QAVMModule):
+class QAVMHandlerNamed(QAVMHandler):
 	def __init__(self, plugin, regData) -> None:
 		super().__init__(plugin, regData)
 		self.name = regData.get('name', self.id)
@@ -22,7 +23,7 @@ class QAVMModuleNamed(QAVMModule):
 	def GetName(self) -> str:
 		return self.name
 
-class SoftwareHandler(QAVMModuleNamed):
+class SoftwareHandler(QAVMHandlerNamed):
 	def __init__(self, plugin, regData) -> None:
 		super().__init__(plugin, regData)
 		
@@ -36,7 +37,7 @@ class SoftwareHandler(QAVMModuleNamed):
 			self.settingsClass = BaseSettings
 		if not issubclass(self.settingsClass, BaseSettings):
 			raise Exception(f'Invalid settings for software: {self.id}')
-		self.settingsInstance = self.settingsClass()
+		self.settingsInstance = self.settingsClass(self.id)
 
 		self.qualifierClass = regData.get('qualifier', None)
 		if not self.qualifierClass or not issubclass(self.qualifierClass, BaseQualifier):  # required
@@ -99,22 +100,29 @@ class SoftwareHandler(QAVMModuleNamed):
 	
 	def GetDescriptorClass(self) -> BaseDescriptor.__class__:
 		return self.descriptorClass
+	
 	def GetTileBuilderClass(self) -> BaseTileBuilder.__class__:
 		return self.tileBuilderClass
+	
 	def GetTileBuilderContextMenuClass(self) -> BaseContextMenu.__class__:
 		return self.tileContextMenuClass
+	
 	def GetTableBuilderClass(self) -> BaseTableBuilder.__class__:
 		return self.tableBuilderClass
+	
 	def GetTableBuilderContextMenuClass(self) -> BaseContextMenu.__class__:
 		return self.tableContextMenuClass
+	
 	def GetQualifier(self) -> BaseQualifier:
 		return self.qualifierInstance
+	
 	def GetSettings(self) -> BaseSettings:
 		return self.settingsInstance
+	
 	def GetCustomViews(self) -> list[tuple[BaseCustomView.__class__, str]]:
 		return self.customViews
 
-class SettingsHandler(QAVMModuleNamed):
+class SettingsHandler(QAVMHandlerNamed):
 	def __init__(self, plugin, regData) -> None:
 		super().__init__(plugin, regData)
 
@@ -127,6 +135,11 @@ class SettingsHandler(QAVMModuleNamed):
 		return self.settingsInstance
 
 class QAVMPlugin:
+	"""
+	Represents a QAVM plugin.
+	QAVM plugins are used to implement functionality that solves specific tasks.
+	For example, software handlers handle specific software and automate related tasks.
+	"""
 	def __init__(self, pluginModule: object) -> None:
 		self.module = pluginModule
 
@@ -147,7 +160,7 @@ class QAVMPlugin:
 			raise Exception(f'Invalid or missing PLUGIN_VERSION for: {self.module.__name__}')
 
 		self.LoadModuleSoftware()
-		self.LoadModuleSettings()
+		# self.LoadModuleSettings()
 	
 	def LoadModuleSoftware(self) -> None:
 		pluginSoftwareRegisterFunc = getattr(self.module, 'RegisterModuleSoftware', None)
@@ -164,20 +177,20 @@ class QAVMPlugin:
 			
 			self.softwareHandlers[softwareHandler.id] = softwareHandler
 	
-	def LoadModuleSettings(self) -> None:
-		pluginSettingsRegisterFunc = getattr(self.module, 'RegisterModuleSettings', None)
-		if pluginSettingsRegisterFunc is None or not callable(pluginSettingsRegisterFunc):
-			return
+	# def LoadModuleSettings(self) -> None:
+	# 	pluginSettingsRegisterFunc = getattr(self.module, 'RegisterModuleSettings', None)
+	# 	if pluginSettingsRegisterFunc is None or not callable(pluginSettingsRegisterFunc):
+	# 		return
 		
-		moduleSettingsRegDataList = pluginSettingsRegisterFunc()
+	# 	moduleSettingsRegDataList = pluginSettingsRegisterFunc()
 
-		for moduleSettingsRegData in moduleSettingsRegDataList:
-			moduleSettings = SettingsHandler(self, moduleSettingsRegData)
+	# 	for moduleSettingsRegData in moduleSettingsRegDataList:
+	# 		moduleSettings = SettingsHandler(self, moduleSettingsRegData)
 			
-			if moduleSettings.id in self.softwareHandlers:
-				raise Exception(f'Duplicate module ID found: {self.id}')
+	# 		if moduleSettings.id in self.softwareHandlers:
+	# 			raise Exception(f'Duplicate module ID found: {self.id}')
 			
-			self.settingsHandlers[moduleSettings.id] = moduleSettings
+	# 		self.settingsHandlers[moduleSettings.id] = moduleSettings
 
 	def GetUID(self) -> str:
 		return self.pluginID
@@ -241,6 +254,7 @@ class PluginManager:
 			for pluginPath in pluginsFolderPath.iterdir():
 				if not pluginPath.is_dir():
 					continue
+				logger.info(f'Loading plugin from path: {pluginPath.resolve().absolute()}')
 				if not self.LoadPluginFromPath(pluginPath):
 					logger.error(f'Failed to load plugin from path: {pluginPath}')
 					continue

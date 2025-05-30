@@ -13,7 +13,7 @@ from typing import Any, Iterator
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu,
-	BaseCustomView,	QualifierIdentificationConfig
+	BaseCustomView,	QualifierIdentificationConfig, BaseSettingsContainer, BaseSettingsEntry
 )
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem, RunningBorderWidget
 from qavm.qavmapi.utils import (
@@ -196,95 +196,43 @@ class ExampleTableBuilder(BaseTableBuilder):
 		return ''
 
 class ExampleSettings(BaseSettings):
-	def __init__(self) -> None:
-		super().__init__()
-
-		self.settings: dict[str, list] = {  # key: (defaultValue, text, tooltip, isTileUpdateRequired, isTableUpdateRequired)
-			'exampleCheckbox': 	[True, 'Example checkbox', 'This is an example checkbox setting', False, False],
-		}
-
-		self.prefFilePath: Path = GetPrefsFolderPath()/'example-preferences.json'
-		if not self.prefFilePath.exists():
-			logger.info(f'Example settings file not found, creating a new one. Path: {self.prefFilePath}')
-			self.Save()
-	
-	def __getitem__(self, key: str) -> Any:
-		return self.settings.get(key, None)
+	CONTAINER_DEFAULTS: dict[str, Any] = {
+		'search_paths': []
+	}
+	# SETTINGS_ENTRIES: dict[str, BaseSettingsEntry] = {
+	# 	'searchPaths': BaseSettingsEntry([], 'Search paths', 'Paths to search for software', False, True),
+	# }
 	
 	def GetName(self) -> str:
 		return 'Example'
-
-	def Load(self):
-		with open(self.prefFilePath, 'r') as f:
-			try:
-				data: dict = json.loads(f.read())
-				for key in self.settings.keys():
-					if key not in data:
-						return logger.error(f'Missing key in preferences data: {key}')
-					if type(data[key]) != type(self.settings[key][0]):
-						logger.error(f'Incompatible preferences data type for #{key}!')
-						return False
-					self.settings[key][0] = data[key]
-			except Exception as e:
-				logger.exception(f'Failed to parse settings data: {e}')
-
-	def Save(self):
-		if not self.prefFilePath.parent.exists():
-			logger.info(f"Example preferences folder doesn't exist. Creating: {self.prefFilePath.parent}")
-			self.prefFilePath.parent.mkdir(parents=True, exist_ok=True)
-		with open(self.prefFilePath, 'w') as f:
-			data: dict[str, Any] = {key: val[0] for key, val in self.settings.items()}
-			f.write(json.dumps(data))
 
 	def CreateWidget(self, parent: QWidget) -> QWidget:
 		settingsWidget: QWidget = QWidget(parent)
 		formLayout: QFormLayout = QFormLayout(settingsWidget)
 
-		# TODO: refactor this
-		def addRowTyped(key: str):
-			settingsEntry: list = self.settings[key]
-			text: str = settingsEntry[1]
-			value: Any = settingsEntry[0]
-			tooltip: str = settingsEntry[2]
-
-			textLabel = QLabel(text)
-			textLabel.setToolTip(tooltip)
-			if isinstance(value, bool):
-				checkbox = QCheckBox()
-				checkbox.setChecked(value)
-				checkbox.checkStateChanged.connect(partial(self._settingChangedCheckbox, settingsEntry=settingsEntry))
-				formLayout.addRow(textLabel, checkbox)
-				return checkbox
-			if isinstance(value, str):
-				lineEdit = QLineEdit(value)
-				lineEdit.textChanged.connect(partial(self._settingsChangedLineEdit, settingsEntry=settingsEntry))
-				formLayout.addRow(textLabel, lineEdit)
-				return lineEdit
-			return None
-
-		for key in self.settings.keys():
-			if addRowTyped(key) is None:
-				logger.info(f'Unknown value type for key: {key}')
-
-		# formLayout.addRow('Adjust folder name', QCheckBox())
+		# add temporary placeholder qlabel
+		placeholderLabel = QLabel('This is a placeholder for settings widget.', settingsWidget)
+		placeholderLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		placeholderLabel.setStyleSheet("color: gray; font-style: italic;")
+		formLayout.addRow(placeholderLabel)
 
 		return settingsWidget
 
-	def _settingChangedCheckbox(self, state, settingsEntry: list):
-		settingsEntry[0] = state == Qt.CheckState.Checked
-		self._emitVisualUpdateOnSettingsEntryChange(settingsEntry)
+	# def _settingChangedCheckbox(self, state, settingsEntry: list):
+	# 	settingsEntry[0] = state == Qt.CheckState.Checked
+	# 	self._emitVisualUpdateOnSettingsEntryChange(settingsEntry)
 
-	def _settingsChangedLineEdit(self, text, settingsEntry: list):
-		settingsEntry[0] = text
-		self._emitVisualUpdateOnSettingsEntryChange(settingsEntry)
+	# def _settingsChangedLineEdit(self, text, settingsEntry: list):
+	# 	settingsEntry[0] = text
+	# 	self._emitVisualUpdateOnSettingsEntryChange(settingsEntry)
 	
-	def _emitVisualUpdateOnSettingsEntryChange(self, settingsEntry: list):
-		isTileUpdateRequired: bool = settingsEntry[3]
-		isTableUpdateRequired: bool = settingsEntry[4]
-		if isTileUpdateRequired:
-			self.tilesUpdateRequired.emit()
-		if isTableUpdateRequired:
-			self.tablesUpdateRequired.emit()
+	# def _emitVisualUpdateOnSettingsEntryChange(self, settingsEntry: list):
+	# 	isTileUpdateRequired: bool = settingsEntry[3]
+	# 	isTableUpdateRequired: bool = settingsEntry[4]
+	# 	if isTileUpdateRequired:
+	# 		self.tilesUpdateRequired.emit()
+	# 	if isTableUpdateRequired:
+	# 		self.tablesUpdateRequired.emit()
 
 class ExampleContextMenu(BaseContextMenu):
 	def CreateMenu(self, desc: ExampleDescriptor) -> QMenu:
@@ -311,7 +259,7 @@ class ExampleContextMenu(BaseContextMenu):
 class ExampleCustomView(BaseCustomView):
 	def __init__(self, parent: QWidget | None = None):
 		super().__init__(parent)
-		self.setWindowTitle('Example Custom View')
+
 		self.setMinimumSize(300, 200)
 
 		layout = QVBoxLayout(self)

@@ -1,4 +1,6 @@
 from pathlib import Path
+from typing import Any
+import json
 
 from PyQt6.QtCore import pyqtSignal, QObject, Qt
 from PyQt6.QtWidgets import QWidget, QLabel, QTableWidgetItem, QMenu, QStyledItemDelegate
@@ -6,23 +8,134 @@ from PyQt6.QtWidgets import QWidget, QLabel, QTableWidgetItem, QMenu, QStyledIte
 from qavm.qavmapi import utils
 from qavm.qavmapi.gui import GetThemeData
 
+# import qavm.logs as logs
+# logger = logs.logger
+
 ##############################################################################
 #############################  ##############################
 ##############################################################################
 
+class BaseSettingsContainer(object):
+	def __init__(self, settingsEntries: dict[str, Any] = dict()):
+		self.settingsEntries: dict[str, Any] = settingsEntries
+
+	def DumpToString(self) -> str:
+		return json.dumps(self.settingsEntries)
+
+	def InitializeFromString(self, dataStr: str) -> bool:
+		try:
+			data: dict = json.loads(dataStr)
+			for key in self.settingsEntries.keys():
+				if key not in data:
+					return False
+				self.settingsEntries[key] = data[key]
+			return True
+		except Exception as e:
+			print(f'ERROR: Failed to parse settings data: {e}')  # TODO: use logger instead
+			return False
+		
+	def Contains(self, key: str) -> bool:
+		return key in self.settingsEntries
+		
+	def Get(self, key: str) -> Any:
+		if key in self.settingsEntries:
+			return self.settingsEntries[key]
+		
+		print(f'ERROR: Settings entry "{key}" not found in settingsEntries.')
+
+	def Set(self, key: str, value: Any):
+		if key in self.settingsEntries:
+			self.settingsEntries[key] = value
+			return
+		
+		print(f'ERROR: Settings entry "{key}" not found in settingsEntries. Adding it.')
+		self.settingsEntries[key] = value
+		
+class BaseSettingsEntry(object):
+	def __init__(self, defaultValue: Any, title: str, toolTip: str = '', isTileUpdateRequired: bool = False, isTableUpdateRequired: bool = False):
+		self.defaultValue: Any = defaultValue
+		self.title: str = title
+		self.toolTip: str = toolTip
+		self.isTileUpdateRequired: bool = isTileUpdateRequired
+		self.isTableUpdateRequired: bool = isTableUpdateRequired
+
+		self.value: Any = None
+		self.isDirty: bool = False  # is set to True when the value is changed, but not saved yet
+
 class BaseSettings(QObject):
+	CONTAINER_DEFAULTS: dict[str, Any] = dict()
+	# SETTINGS_ENTRIES: dict[str, BaseSettingsEntry] = dict()
+	
 	tilesUpdateRequired = pyqtSignal()  # is emitted when settings are changing something that requires tiles to be updated
 	tablesUpdateRequired = pyqtSignal()  # same as tilesUpdateRequired, but for tables
 
+	def __init__(self, prefName: str):
+		super().__init__()
+
+		self.container = self.InitializeContainer()
+		self.prefFilePath: Path = utils.GetPrefsFolderPath() / f'{prefName}.json'
+
+	def InitializeContainer(self) -> BaseSettingsContainer:
+		return BaseSettingsContainer(self.CONTAINER_DEFAULTS)
+
 	def Load(self):
-		pass
+		if not self.prefFilePath.exists():
+			print(f"Preferences file doesn't exist. Creating: {self.prefFilePath}")  # TODO: use logger instead
+			self.Save()
+		
+		with open(self.prefFilePath, 'r') as f:
+			if self.container is None:
+				self.container = self.InitializeContainer()
+			self.container.InitializeFromString(f.read())
+		# self._syncSettingsEntriesFromContainer()
+
 	def Save(self):
-		pass
+		# self._syncContainerFromSettingsEntries(onlyDirty=False)
+		if not self.prefFilePath.parent.exists():
+			print(f"Preferences folder doesn't exist. Creating: {self.prefFilePath.parent}")  # TODO: use logger instead
+			self.prefFilePath.parent.mkdir(parents=True, exist_ok=True)
+		with open(self.prefFilePath, 'w') as f:
+			f.write(json.dumps(self.container.DumpToString()))
+
 	def CreateWidget(self, parent):
 		pass
 
 	def GetName(self) -> str:  # TODO: should use the one from connected software handler?
 		return 'BaseSettings'
+	
+	def GetSetting(self, key: str) -> Any:
+		if self.container.Contains(key):
+			return self.container.Get(key)
+		print(f'ERROR: Settings entry "{key}" not found in settingsEntries.')  # TODO: use logger instead
+
+	def SetSetting(self, key: str, value: Any):
+		if self.container.Contains(key):
+			self.container.Set(key, value)
+			return
+		print(f'ERROR: Unknown settings entry "{key}". Cannot set value.')  # TODO: use logger instead
+		
+	
+	# def _syncSettingsEntriesFromContainer(self):
+	# 	""" Syncs the settings entries from the container to the settings entries. """
+	# 	for key, value in self.container.settingsEntries.items():
+	# 		if key not in BaseSettings.SETTINGS_ENTRIES:
+	# 			print(f'Settings entry "{key}" not found in BaseSettings.SETTINGS_ENTRIES. Adding it.')  # TODO: use logger instead
+	# 			entry: BaseSettingsEntry = BaseSettingsEntry(value, key)
+	# 			entry.value = value
+	# 			BaseSettings.SETTINGS_ENTRIES[key] = entry
+	# 		else:
+	# 			BaseSettings.SETTINGS_ENTRIES[key].value = value
+
+	# def _syncContainerFromSettingsEntries(self, onlyDirty: bool = False):
+	# 	""" Syncs the container from the settings entries. If onlyDirty is True, only dirty entries are synced. """
+	# 	for key, entry in BaseSettings.SETTINGS_ENTRIES.items():
+	# 		if not onlyDirty or entry.isDirty:
+	# 			if self.container.settingsEntries.get(key, None) is None:
+	# 				print(f'Settings entry "{key}" not found in container. Adding it.')  # TODO: use logger instead
+	# 				self.container.settingsEntries[key] = entry.value
+	# 			self.container.settingsEntries[key] = entry.value
+	# 			entry.isDirty = False
+
 
 ##############################################################################
 ########################### QAVM Plugin: Software ############################
