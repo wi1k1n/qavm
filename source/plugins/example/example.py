@@ -12,7 +12,7 @@ from functools import partial
 from typing import Any, Iterator
 
 from qavm.qavmapi import (
-	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu
+	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu, QualifierIdentificationConfig
 )
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem, RunningBorderWidget
 from qavm.qavmapi.utils import (
@@ -59,10 +59,18 @@ class ExampleQualifier(BaseQualifier):
 		# For example, you can add some default paths to search for the software.
 		return searchPaths
 	
-	def GetIdentificationConfig(self) -> dict:
+	def GetIdentificationConfig(self) -> QualifierIdentificationConfig:
 		return super().GetIdentificationConfig()
 	
 	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> bool:
+		if not currentPath.is_dir():
+			return False
+		
+		# Should contain at least one .exe file
+		exeFiles: list[Path] = list(currentPath.glob('*.exe'))
+		if not exeFiles:
+			return False
+
 		return True
 
 class ExampleDescriptor(BaseDescriptor):
@@ -76,15 +84,27 @@ class ExampleDescriptor(BaseDescriptor):
 
 		# This class is a representation of a single piece of software, which connects
 		# together different parts of the plugin (e.g. TileBuilder, ContextMenu, etc.)
+		self.execPaths: list[Path] = []
+
+		if self.dirPath.is_dir():
+			if not PlatformWindows():
+				raise NotImplementedError('ExampleDescriptor is currently implemented only for Windows platform.')
+			
+			# Find the executable file in the directory
+			self.execPaths = list(self.dirPath.glob('*.exe'))
+			if self.execPaths:
+				# Sort out with the following rules and take the first one:
+				# being an .exe file
+				# starting with capital ending with small letter
+				# not having capital letters other than the first one
+				# having space(s) in the middle
+				# being the largest file
+				self.execPaths.sort(key=lambda p: (p.name[0].isupper(), p.name[-1].islower(), p.name.islower(), ' ' in p.name, p.stat().st_size), reverse=True)
+			else:
+				logger.warning(f'No executable files found in {self.dirPath}')
 	
 	def GetExecutablePath(self) -> Path:
-		# if PlatformWindows():
-		# 	return self.dirPath/'Cinema 4D.exe'
-		# elif PlatformMacOS():
-		# 	return self.dirPath/'Cinema 4D.app'
-		# elif PlatformLinux():
-		# 	raise NotImplementedError('Linux is not supported yet')
-		return super().GetExecutablePath()
+		return self.execPaths[0] if self.execPaths else Path()
 	
 	def __str__(self):
 		return f'ExampleDescriptor: {os.path.basename(self.dirPath)}'
@@ -120,13 +140,15 @@ class ExampleTileBuilder(BaseTileBuilder):
 		descLayout.setContentsMargins(margins, margins, margins, margins)
 		descLayout.setSpacing(5)  # space between labels inside tile
 
-
 		label = QLabel(str(desc.dirPath), parent)
 		label.setFont(QFont('SblHebrew'))
 		label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 		descLayout.addWidget(label)
 
-		toolTip: str = str(desc.dirPath)
+		toolTip: str = 'No executables found'
+		if desc.execPaths:
+			toolTip = 'Executables:\n'
+			toolTip += '\n'.join([f'  {exePath.name}' for exePath in desc.execPaths])
 		descWidget.setToolTip(toolTip)
 
 		return descWidget
@@ -274,15 +296,16 @@ class ExampleContextMenu(BaseContextMenu):
 		titleAction.setDefaultWidget(titleLabel)
 
 		menu.addAction(titleAction)
-		menu.addAction('Example action', partial(self._run, desc))
-
-		menu.addSeparator()
+		if path := desc.GetExecutablePath():
+			menu.addAction(f'Run "{path.name}"', partial(self._run, desc))
+			menu.addSeparator()
 		menu.addAction('Open folder', partial(OpenFolderInExplorer, desc.dirPath))
 
 		return menu
 
-	def _run(self, desc: ExampleDescriptor):
-		QMessageBox.information(None, "Example action", f'The example action was triggered for {desc.dirPath.name}')
+	def _run(self, desc: ExampleDescriptor, arguments: list[str] = []):
+		StartProcess(desc.UID, desc.GetExecutablePath(), arguments)
+		desc.updated.emit()
 
 def RegisterModuleSoftware():
 	return [
