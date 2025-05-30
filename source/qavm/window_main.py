@@ -262,11 +262,12 @@ class MainWindow(QMainWindow):
 
 		# TODO: handle case when softwareHandler is None
 		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
-		contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
-		tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
 
-		self.freeMoveWidget = self._createFreeMoveWidget(self.app.GetSoftwareDescriptions(), tileBuilder, self)
-		self.tabsWidget.insertTab(2, self.freeMoveWidget, "Free Move")
+		# TODO: FreeMove view is currently not implemented
+		# contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
+		# tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
+		# self.freeMoveWidget = self._createFreeMoveWidget(self.app.GetSoftwareDescriptions(), tileBuilder, self)
+		# self.tabsWidget.insertTab(2, self.freeMoveWidget, "Free Move")
 
 		for customView, name in softwareHandler.GetCustomViews():
 			if customView is None:
@@ -285,8 +286,8 @@ class MainWindow(QMainWindow):
 		self.qavmSettings.SetLastOpenedTab(index)
 		self.qavmSettings.Save()  # TODO: should save now or later once per all changes?
 	
-	def _createFreeMoveWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
-		return QLabel("Freemove", parent)
+	# def _createFreeMoveWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
+	# 	return QLabel("Freemove", parent)
 	
 	def UpdateTableWidget(self):
 		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
