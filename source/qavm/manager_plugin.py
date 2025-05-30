@@ -2,7 +2,8 @@ import importlib.util, os, re
 from pathlib import Path
 
 from qavm.qavmapi import (
-	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu
+	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu,
+	BaseCustomView, 
 )
 import qavm.qavmapi.utils as utils
 
@@ -81,6 +82,19 @@ class SoftwareHandler(QAVMModuleNamed):
 				self.tableContextMenuClass = BaseContextMenu
 			if not issubclass(self.tableContextMenuClass, BaseContextMenu):
 				raise Exception(f'Invalid context menu for software: {self.id}')
+			
+		self.customViews: list[tuple[BaseCustomView.__class__, str]] = []
+		customViewsData: list[dict] = regData.get('custom_views', [])
+		if customViewsData:
+			if not isinstance(customViewsData, list):
+				raise Exception(f'Invalid custom views data for software: {self.id}')
+			for customViewData in customViewsData:
+				customViewName = customViewData.get('name', None)
+				customViewClass = customViewData.get('view_class', None)
+				if not customViewName or not isinstance(customViewName, str) \
+				or not customViewClass or not issubclass(customViewClass, BaseCustomView):
+					raise Exception(f'Invalid custom view class for software: {self.id}')
+				self.customViews.append((customViewClass, customViewName))
 
 	
 	def GetDescriptorClass(self) -> BaseDescriptor.__class__:
@@ -97,6 +111,8 @@ class SoftwareHandler(QAVMModuleNamed):
 		return self.qualifierInstance
 	def GetSettings(self) -> BaseSettings:
 		return self.settingsInstance
+	def GetCustomViews(self) -> list[tuple[BaseCustomView.__class__, str]]:
+		return self.customViews
 
 class SettingsHandler(QAVMModuleNamed):
 	def __init__(self, plugin, regData) -> None:

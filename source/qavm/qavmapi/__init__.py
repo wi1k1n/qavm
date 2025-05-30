@@ -191,3 +191,6 @@ class BaseTableBuilder(BaseBuilder):
 	# TODO: change key from int to enum. Currently 0 - LMB, 1 - RMB, 2 - MMB
 	def HandleClick(self, desc: BaseDescriptor, row: int, col: int, isDouble: bool, key: int, modifiers: Qt.KeyboardModifier):
 		pass
+
+class BaseCustomView(QWidget):
+	pass

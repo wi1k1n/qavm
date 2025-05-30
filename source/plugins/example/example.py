@@ -12,7 +12,8 @@ from functools import partial
 from typing import Any, Iterator
 
 from qavm.qavmapi import (
-	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu, QualifierIdentificationConfig
+	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu,
+	BaseCustomView,	QualifierIdentificationConfig
 )
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem, RunningBorderWidget
 from qavm.qavmapi.utils import (
@@ -307,6 +308,19 @@ class ExampleContextMenu(BaseContextMenu):
 		StartProcess(desc.UID, desc.GetExecutablePath(), arguments)
 		desc.updated.emit()
 
+class ExampleCustomView(BaseCustomView):
+	def __init__(self, parent: QWidget | None = None):
+		super().__init__(parent)
+		self.setWindowTitle('Example Custom View')
+		self.setMinimumSize(300, 200)
+
+		layout = QVBoxLayout(self)
+		label = QLabel('This is an example custom view widget.', self)
+		label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		layout.addWidget(label)
+
+		self.setLayout(layout)
+
 def RegisterModuleSoftware():
 	return [
 		{
@@ -327,6 +341,18 @@ def RegisterModuleSoftware():
 				'table_builder': ExampleTableBuilder,
 				'context_menu': ExampleContextMenu,
 			},
+			'custom_views': [
+				{
+					'name': 'My Custom View',
+					'view_class': ExampleCustomView,  # This should be a BaseCustomView subclass
+					# 'icon': 'example_icon.png',  # Path to the icon file relative to the plugin folder
+				},
+				{
+					'name': 'Another Custom View',
+					'view_class': ExampleCustomView,  # This can be the same or different widget
+					# 'icon': 'another_icon.png',  # Path to the icon file relative to the plugin folder
+				}
+			]
 		},
 	]
 

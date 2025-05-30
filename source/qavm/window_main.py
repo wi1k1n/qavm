@@ -13,7 +13,8 @@ from qavm.manager_plugin import PluginManager, SoftwareHandler
 from qavm.manager_settings import SettingsManager, QAVMSettings
 
 from qavm.qavmapi import (
-	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu
+	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu,
+	BaseCustomView, 
 )
 from qavm.utils_gui import FlowLayout
 from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion
@@ -266,6 +267,12 @@ class MainWindow(QMainWindow):
 
 		self.freeMoveWidget = self._createFreeMoveWidget(self.app.GetSoftwareDescriptions(), tileBuilder, self)
 		self.tabsWidget.insertTab(2, self.freeMoveWidget, "Free Move")
+
+		for customView, name in softwareHandler.GetCustomViews():
+			if customView is None:
+				continue
+			customTab: BaseCustomView = customView(self)
+			self.tabsWidget.addTab(customTab, name)
 
 		self.setCentralWidget(self.tabsWidget)
 
