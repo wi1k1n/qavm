@@ -136,6 +136,12 @@ class BaseSettings(QObject):
 	# 			self.container.settingsEntries[key] = entry.value
 	# 			entry.isDirty = False
 
+class SoftwareBaseSettings(BaseSettings):
+	CONTAINER_DEFAULTS: dict[str, Any] = {
+		'search_paths': [],  # list of paths to search for software
+	}
+	def GetName(self) -> str:  # TODO: should use the one from connected software handler?
+		return 'SoftwareBaseSettings'
 
 ##############################################################################
 ########################### QAVM Plugin: Software ############################
@@ -247,12 +253,12 @@ class BaseQualifier(object):
 class BaseDescriptor(QObject):
 	updated = pyqtSignal()
 
-	def __init__(self, dirPath: Path, settings: BaseSettings, fileContents: dict[str, str | bytes]):
+	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
 		super().__init__()
 		self.UID: str = utils.GetHashString(str(dirPath))
 		self.dirPath: Path = dirPath
 		self.dirType: str = self._retrieveDirType()  # '' - normal dir, 's' - symlink, 'j' - junction
-		self.settings: BaseSettings = settings
+		self.settings: SoftwareBaseSettings = settings
 	
 	def GetExecutablePath(self) -> Path:
 		return Path()
@@ -275,15 +281,15 @@ class BaseDescriptor(QObject):
 		return dirType
 
 class BaseContextMenu(QObject):
-	def __init__(self, settings: BaseSettings):
-		self.settings: BaseSettings = settings
+	def __init__(self, settings: SoftwareBaseSettings):
+		self.settings: SoftwareBaseSettings = settings
 	
 	def CreateMenu(self, desc: BaseDescriptor) -> QMenu:
 		return QMenu()
 
 class BaseBuilder(QObject):
-	def __init__(self, settings: BaseSettings, contextMenu: BaseContextMenu):
-		self.settings: BaseSettings = settings
+	def __init__(self, settings: SoftwareBaseSettings, contextMenu: BaseContextMenu):
+		self.settings: SoftwareBaseSettings = settings
 		self.contextMenu: BaseContextMenu = contextMenu
 		self.themeData: dict[str, str | None] | None = GetThemeData()
 

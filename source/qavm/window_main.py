@@ -10,11 +10,11 @@ from PyQt6.QtWidgets import (
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
-from qavm.manager_settings import SettingsManager, QAVMSettings
+from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu,
-	BaseCustomView, 
+	BaseCustomView, SoftwareBaseSettings
 )
 from qavm.utils_gui import FlowLayout
 from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion
@@ -125,8 +125,8 @@ class MainWindow(QMainWindow):
 		self.dialogsManager = self.app.GetDialogsManager()
 		self.pluginManager: PluginManager = self.app.GetPluginManager()
 		self.settingsManager: SettingsManager = self.app.GetSettingsManager()
-		self.qavmSettings: QAVMSettings = self.settingsManager.GetQAVMSettings()
-		self.softwareSettings: BaseSettings = self.settingsManager.GetSoftwareSettings()
+		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
+		self.softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
 		self.softwareSettings.tilesUpdateRequired.connect(self.UpdateTilesWidget)
 		self.softwareSettings.tablesUpdateRequired.connect(self.UpdateTableWidget)
 
@@ -278,12 +278,12 @@ class MainWindow(QMainWindow):
 		self.setCentralWidget(self.tabsWidget)
 
 		self.tabsWidget.currentChanged.connect(self._onTabChanged)
-		lastOpenedTab: int = self.qavmSettings.GetLastOpenedTab()
+		lastOpenedTab: int = self.qavmSettings.GetSetting('last_opened_tab')
 		if lastOpenedTab >= 0 and lastOpenedTab < self.tabsWidget.count():
 			self.tabsWidget.setCurrentIndex(lastOpenedTab)
 
 	def _onTabChanged(self, index: int):
-		self.qavmSettings.SetLastOpenedTab(index)
+		self.qavmSettings.SetSetting('last_opened_tab', index)
 		self.qavmSettings.Save()  # TODO: should save now or later once per all changes?
 	
 	# def _createFreeMoveWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):

@@ -11,8 +11,8 @@ from PyQt6.QtWidgets import (
 
 import qavm.qavmapi.utils as utils
 
-from qavm.qavmapi import BaseSettings, BaseSettingsContainer, BaseSettingsEntry
-from qavm.manager_plugin import PluginManager, SoftwareHandler, SettingsHandler
+from qavm.qavmapi import BaseSettings, BaseSettingsContainer, BaseSettingsEntry, SoftwareBaseSettings
+from qavm.manager_plugin import PluginManager, SoftwareHandler
 
 import qavm.logs as logs
 logger = logs.logger
@@ -176,9 +176,10 @@ class DeletableListWidget(QListWidget):
 # 	def SetLastOpenedTab(self, tabIndex: int) -> None:
 # 		self.container.lastOpenedTab = tabIndex
 
-class QAVMSettings(BaseSettings):
+class QAVMGlobalSettings(BaseSettings):
 	CONTAINER_DEFAULTS: dict[str, Any] = {
 		'selected_software_uid': '',  # str, the software UID in form PLUGIN_ID#SoftwareID
+		'last_opened_tab': 0,  # int, the last opened tab index
 	}
 	
 	def GetSelectedSoftwareUID(self) -> str:
@@ -196,36 +197,36 @@ class SettingsManager:
 		self.app = app
 		self.prefsFolderPath: Path = prefsFolderPath
 
-		self.qavmSettings: QAVMSettings = QAVMSettings('qavm')
-		self.softwareSettings: BaseSettings = None
+		self.qavmGlobalSettings: QAVMGlobalSettings = QAVMGlobalSettings('qavm-global')
+		self.softwareSettings: SoftwareBaseSettings = None
 
-		self.moduleSettings: dict[str, BaseSettings] = dict()
+		# self.moduleSettings: dict[str, BaseSettings] = dict()
 
 	def LoadQAVMSettings(self):
 		self.prefsFolderPath.mkdir(parents=True, exist_ok=True)
-		self.qavmSettings.Load()
+		self.qavmGlobalSettings.Load()
 	
 	def LoadSoftwareSettings(self):
-		if not self.qavmSettings.GetSelectedSoftwareUID():
+		if not self.qavmGlobalSettings.GetSelectedSoftwareUID():
 			raise Exception('No software selected')
 		softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetCurrentSoftwareHandler()
 		self.softwareSettings = softwareHandler.GetSettings()
 		self.softwareSettings.Load()
 	
-	def LoadModuleSettings(self):
-		pluginManager: PluginManager = self.app.GetPluginManager()
-		settingsModules: list[tuple[str, str, SettingsHandler]] = pluginManager.GetSettingsHandlers()  # [pluginID, moduleID, SettingsHandler]
-		for pluginID, settingsID, settingsHandler in settingsModules:
-			moduleSettings: BaseSettings = settingsHandler.GetSettings()
-			moduleSettings.Load()
-			self.moduleSettings[f'{pluginID}#{settingsID}'] = moduleSettings
+	# def LoadModuleSettings(self):
+	# 	pluginManager: PluginManager = self.app.GetPluginManager()
+	# 	settingsModules: list[tuple[str, str, SettingsHandler]] = pluginManager.GetSettingsHandlers()  # [pluginID, moduleID, SettingsHandler]
+	# 	for pluginID, settingsID, settingsHandler in settingsModules:
+	# 		moduleSettings: BaseSettings = settingsHandler.GetSettings()
+	# 		moduleSettings.Load()
+	# 		self.moduleSettings[f'{pluginID}#{settingsID}'] = moduleSettings
 
-	def GetQAVMSettings(self) -> QAVMSettings:
-		return self.qavmSettings
+	def GetQAVMSettings(self) -> QAVMGlobalSettings:
+		return self.qavmGlobalSettings
 	
-	def GetSoftwareSettings(self) -> BaseSettings:
+	def GetSoftwareSettings(self) -> SoftwareBaseSettings:
 		return self.softwareSettings
 	
-	""" Returns dict of settings modules that are implemented in currently selected plugin: {moduleUID: BaseSettings}. The moduleUID is in form PLUGIN_ID#SettingsModuleID """
-	def GetModuleSettings(self) -> dict[str, BaseSettings]:
-		return self.moduleSettings
+	# """ Returns dict of settings modules that are implemented in currently selected plugin: {moduleUID: BaseSettings}. The moduleUID is in form PLUGIN_ID#SettingsModuleID """
+	# def GetModuleSettings(self) -> dict[str, BaseSettings]:
+	# 	return self.moduleSettings

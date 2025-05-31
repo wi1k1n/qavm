@@ -5,7 +5,7 @@ import qavm.logs as logs
 logger = logs.logger
 
 from qavm.manager_plugin import PluginManager, QAVMPlugin, SoftwareHandler
-from qavm.manager_settings import SettingsManager, QAVMSettings
+from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 
 from PyQt6.QtCore import (
 	pyqtSignal
@@ -31,7 +31,7 @@ class PluginSelectionWindow(QMainWindow):
 
 		self.pluginManager: PluginManager = app.GetPluginManager()
 		self.settingsManager: SettingsManager = self.app.GetSettingsManager()
-		self.qavmSettings: QAVMSettings = self.settingsManager.GetQAVMSettings()
+		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
 
 		swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()  # [pluginID, softwareID, SoftwareHandler]
 

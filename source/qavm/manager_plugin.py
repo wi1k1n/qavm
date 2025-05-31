@@ -3,7 +3,7 @@ from pathlib import Path
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu,
-	BaseCustomView, 
+	BaseCustomView, SoftwareBaseSettings
 )
 import qavm.qavmapi.utils as utils
 
@@ -34,8 +34,8 @@ class SoftwareHandler(QAVMHandlerNamed):
 
 		self.settingsClass = regData.get('settings', None)  # optional
 		if not self.settingsClass:
-			self.settingsClass = BaseSettings
-		if not issubclass(self.settingsClass, BaseSettings):
+			self.settingsClass = SoftwareBaseSettings
+		if not issubclass(self.settingsClass, SoftwareBaseSettings):
 			raise Exception(f'Invalid settings for software: {self.id}')
 		self.settingsInstance = self.settingsClass(self.id)
 
@@ -116,23 +116,23 @@ class SoftwareHandler(QAVMHandlerNamed):
 	def GetQualifier(self) -> BaseQualifier:
 		return self.qualifierInstance
 	
-	def GetSettings(self) -> BaseSettings:
+	def GetSettings(self) -> SoftwareBaseSettings:
 		return self.settingsInstance
 	
 	def GetCustomViews(self) -> list[tuple[BaseCustomView.__class__, str]]:
 		return self.customViews
 
-class SettingsHandler(QAVMHandlerNamed):
-	def __init__(self, plugin, regData) -> None:
-		super().__init__(plugin, regData)
+# class SettingsHandler(QAVMHandlerNamed):
+# 	def __init__(self, plugin, regData) -> None:
+# 		super().__init__(plugin, regData)
 
-		self.settingsClass = regData.get('settings', None)
-		if not self.settingsClass or not issubclass(self.settingsClass, BaseSettings):
-			raise Exception(f'Missing or invalid settings for module: {self.id}')
-		self.settingsInstance = self.settingsClass()
+# 		self.settingsClass = regData.get('settings', None)
+# 		if not self.settingsClass or not issubclass(self.settingsClass, BaseSettings):
+# 			raise Exception(f'Missing or invalid settings for module: {self.id}')
+# 		self.settingsInstance = self.settingsClass()
 	
-	def GetSettings(self) -> BaseSettings:
-		return self.settingsInstance
+# 	def GetSettings(self) -> BaseSettings:
+# 		return self.settingsInstance
 
 class QAVMPlugin:
 	"""
@@ -148,7 +148,7 @@ class QAVMPlugin:
 		self.pluginName = self.module.__name__
 
 		self.softwareHandlers: dict[str, SoftwareHandler] = dict()  # softwareID: SoftwareHandler
-		self.settingsHandlers: dict[str, SettingsHandler] = dict()  # moduleID: SettingsHandler
+		# self.settingsHandlers: dict[str, SettingsHandler] = dict()  # moduleID: SettingsHandler
 
 		# First check if plugin contains PLUGIN_ID and PLUGIN_VERSION
 		self.pluginID = getattr(self.module, 'PLUGIN_ID', '')
@@ -207,8 +207,8 @@ class QAVMPlugin:
 	def GetSoftwareHandlers(self) -> dict[str, SoftwareHandler]:
 		return self.softwareHandlers
 	
-	def GetSettingsHandlers(self) -> dict[str, SettingsHandler]:
-		return self.settingsHandlers
+	# def GetSettingsHandlers(self) -> dict[str, SettingsHandler]:
+	# 	return self.settingsHandlers
 			
 	
 	
@@ -316,17 +316,17 @@ class PluginManager:
 		return self.GetSoftwareHandler(qavmSettings.GetSelectedSoftwareUID())
 	
 
-	def GetSettingsHandlers(self) -> list[tuple[str, str, SettingsHandler]]:
-		result: list[tuple[str, str, SettingsHandler]] = []  # [pluginID, moduleID, SettingsHandler]
-		for plugin in self.plugins.values():
-			for moduleID, settingsHandler in plugin.GetSettingsHandlers().items():
-				result.append((plugin.pluginID, moduleID, settingsHandler))
-		return result
-	def GetSettingsHandler(self, settingsUID: str) -> SettingsHandler:
-		if '#' not in settingsUID:
-			return None
-		pluginUID, moduleID = settingsUID.split('#')
-		plugin = self.GetPlugin(pluginUID)
-		if not plugin:
-			return None
-		return plugin.GetSettingsHandlers().get(moduleID, None)
+	# def GetSettingsHandlers(self) -> list[tuple[str, str, SettingsHandler]]:
+	# 	result: list[tuple[str, str, SettingsHandler]] = []  # [pluginID, moduleID, SettingsHandler]
+	# 	for plugin in self.plugins.values():
+	# 		for moduleID, settingsHandler in plugin.GetSettingsHandlers().items():
+	# 			result.append((plugin.pluginID, moduleID, settingsHandler))
+	# 	return result
+	# def GetSettingsHandler(self, settingsUID: str) -> SettingsHandler:
+	# 	if '#' not in settingsUID:
+	# 		return None
+	# 	pluginUID, moduleID = settingsUID.split('#')
+	# 	plugin = self.GetPlugin(pluginUID)
+	# 	if not plugin:
+	# 		return None
+	# 	return plugin.GetSettingsHandlers().get(moduleID, None)

@@ -12,7 +12,7 @@ from functools import partial
 from typing import Any, Iterator
 
 from qavm.qavmapi import (
-	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu,
+	BaseQualifier, BaseDescriptor, BaseTileBuilder, SoftwareBaseSettings, BaseTableBuilder, BaseContextMenu,
 	BaseCustomView,	QualifierIdentificationConfig, BaseSettingsContainer, BaseSettingsEntry
 )
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem, RunningBorderWidget
@@ -75,12 +75,12 @@ class ExampleQualifier(BaseQualifier):
 		return True
 
 class ExampleDescriptor(BaseDescriptor):
-	def __init__(self, dirPath: Path, settings: BaseSettings, fileContents: dict[str, str | bytes]):
+	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
 		super().__init__(dirPath, settings, fileContents)
 		# There's already this info from the BaseDescriptor:
 		# self.UID: str
 		# self.dirPath: Path
-		# self.settings: BaseSettings
+		# self.settings: SoftwareBaseSettings
 		# self.dirType: str  # '' - normal dir, 's' - symlink, 'j' - junction
 
 		# This class is a representation of a single piece of software, which connects
@@ -114,10 +114,10 @@ class ExampleDescriptor(BaseDescriptor):
 		return self.__str__()
 
 class ExampleTileBuilder(BaseTileBuilder):
-	def __init__(self, settings: BaseSettings, contextMenu: BaseContextMenu):
+	def __init__(self, settings: SoftwareBaseSettings, contextMenu: BaseContextMenu):
 		super().__init__(settings, contextMenu)
 		# From BaseTileBuilder:
-		# self.settings: BaseSettings
+		# self.settings: SoftwareBaseSettings
 		# self.contextMenu: BaseContextMenu
 		# self.themeData: dict
 
@@ -195,10 +195,11 @@ class ExampleTableBuilder(BaseTableBuilder):
 			return f'{dirTypePrefix}{str(desc.dirPath)}{dirLinkTarget}'
 		return ''
 
-class ExampleSettings(BaseSettings):
-	CONTAINER_DEFAULTS: dict[str, Any] = {
-		'search_paths': []
-	}
+class ExampleSettings(SoftwareBaseSettings):
+	CONTAINER_DEFAULTS: dict[str, Any] = {**SoftwareBaseSettings.CONTAINER_DEFAULTS, **{
+		
+	}}
+
 	# SETTINGS_ENTRIES: dict[str, BaseSettingsEntry] = {
 	# 	'searchPaths': BaseSettingsEntry([], 'Search paths', 'Paths to search for software', False, True),
 	# }
