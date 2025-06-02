@@ -3,7 +3,11 @@ from typing import Any
 import json
 
 from PyQt6.QtCore import pyqtSignal, QObject, Qt
-from PyQt6.QtWidgets import QWidget, QLabel, QTableWidgetItem, QMenu, QStyledItemDelegate
+from PyQt6.QtWidgets import (
+	QWidget, QLabel, QTableWidgetItem, QMenu, QStyledItemDelegate, QVBoxLayout, QListWidget, QSizePolicy,
+	QListWidgetItem, QPushButton, QFileDialog, 
+)
+from PyQt6.QtGui import QKeyEvent
 
 from qavm.qavmapi import utils
 from qavm.qavmapi.gui import GetThemeData
@@ -63,7 +67,9 @@ class BaseSettingsEntry(object):
 		self.isDirty: bool = False  # is set to True when the value is changed, but not saved yet
 
 class BaseSettings(QObject):
-	CONTAINER_DEFAULTS: dict[str, Any] = dict()
+	CONTAINER_QAVM_DEFAULTS: dict[str, Any] = dict()
+	CONTAINER_DEFAULTS: dict[str, Any] = dict()  # should be overridden by subclasses
+
 	# SETTINGS_ENTRIES: dict[str, BaseSettingsEntry] = dict()
 	
 	tilesUpdateRequired = pyqtSignal()  # is emitted when settings are changing something that requires tiles to be updated
@@ -76,7 +82,7 @@ class BaseSettings(QObject):
 		self.prefFilePath: Path = utils.GetPrefsFolderPath() / f'{prefName}.json'
 
 	def InitializeContainer(self) -> BaseSettingsContainer:
-		return BaseSettingsContainer(self.CONTAINER_DEFAULTS)
+		return BaseSettingsContainer({**self.CONTAINER_QAVM_DEFAULTS, **self.CONTAINER_DEFAULTS})
 
 	def Load(self):
 		if not self.prefFilePath.exists():
@@ -95,10 +101,10 @@ class BaseSettings(QObject):
 			print(f"Preferences folder doesn't exist. Creating: {self.prefFilePath.parent}")  # TODO: use logger instead
 			self.prefFilePath.parent.mkdir(parents=True, exist_ok=True)
 		with open(self.prefFilePath, 'w') as f:
-			f.write(json.dumps(self.container.DumpToString()))
+			f.write(self.container.DumpToString())
 
-	def CreateWidget(self, parent):
-		pass
+	def CreateWidget(self, parent) -> QWidget:
+		return QWidget(parent)  # BaseSettings does not provide a widget by default, subclasses should override this method
 
 	def GetName(self) -> str:  # TODO: should use the one from connected software handler?
 		return 'BaseSettings'
@@ -137,11 +143,70 @@ class BaseSettings(QObject):
 	# 			entry.isDirty = False
 
 class SoftwareBaseSettings(BaseSettings):
-	CONTAINER_DEFAULTS: dict[str, Any] = {
+	CONTAINER_QAVM_DEFAULTS: dict[str, Any] = {
 		'search_paths': [],  # list of paths to search for software
 	}
+	
 	def GetName(self) -> str:  # TODO: should use the one from connected software handler?
 		return 'SoftwareBaseSettings'
+	
+	def CreateWidget(self, parent) -> QWidget:
+		# Create a widget with QVBoxLayout and a QListWidget for search paths
+		widget = QWidget(parent)
+		layout = QVBoxLayout(widget)
+		layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+		layout.addWidget(QLabel('Search paths:', widget))
+
+		self.searchPathsWidget = QListWidget(widget)
+		self.searchPathsWidget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+		self.searchPathsWidget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+		self.searchPathsWidget.setEditTriggers(QListWidget.EditTrigger.DoubleClicked)
+		for path in self.GetSetting('search_paths'):
+			self._addSearchPathToList(path)
+
+		self.searchPathsWidget.installEventFilter(self)
+		self.searchPathsWidget.itemChanged.connect(lambda x: self._updateSearchPathsSetting())
+
+		layout.addWidget(self.searchPathsWidget)
+
+		addButton = QPushButton('Add Search Path', widget)
+		addButton.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+		addButton.clicked.connect(self._selectAndAddSearchPath)
+		layout.addWidget(addButton)
+
+		return widget
+	
+	def eventFilter(self, obj, event):
+		if obj is self.searchPathsWidget and event.type() == QKeyEvent.Type.KeyPress:
+			if event.key() == Qt.Key.Key_Delete:
+				selected_items = self.searchPathsWidget.selectedItems()
+				for item in selected_items:
+					self.searchPathsWidget.takeItem(self.searchPathsWidget.row(item))
+				self._updateSearchPathsSetting()
+				return True
+		return super().eventFilter(obj, event)
+	
+	def _selectAndAddSearchPath(self):
+		""" Opens a file dialog to select a directory and adds it to the search paths. """
+		dirPath = QFileDialog.getExistingDirectory(self.searchPathsWidget, 'Select Search Path')
+		if dirPath:
+			self._addSearchPathToList(dirPath)
+			self._updateSearchPathsSetting()
+
+	def _addSearchPathToList(self, path: str):
+		""" Adds a new search path to the QListWidget if it doesn't already exist. """
+		if not path:
+			return
+		path = str(Path(path).resolve())
+		if not any(self.searchPathsWidget.item(i).text() == path for i in range(self.searchPathsWidget.count())):
+			item = QListWidgetItem(path)
+			item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
+			self.searchPathsWidget.addItem(item)
+
+	def _updateSearchPathsSetting(self):
+		""" Updates the search paths setting based on the current items in the QListWidget. """
+		self.SetSetting('search_paths', [self.searchPathsWidget.item(i).text() for i in range(self.searchPathsWidget.count())])
+
 
 ##############################################################################
 ########################### QAVM Plugin: Software ############################

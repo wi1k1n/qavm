@@ -180,6 +180,7 @@ class QAVMGlobalSettings(BaseSettings):
 	CONTAINER_DEFAULTS: dict[str, Any] = {
 		'selected_software_uid': '',  # str, the software UID in form PLUGIN_ID#SoftwareID
 		'last_opened_tab': 0,  # int, the last opened tab index
+		'app_theme': 'light_pink',  # str, the app theme name
 	}
 	
 	def GetSelectedSoftwareUID(self) -> str:
@@ -191,6 +192,21 @@ class QAVMGlobalSettings(BaseSettings):
 	def SetSelectedSoftwareUID(self, softwareUID: str) -> None:
 		""" The softwareUID is in the format: PLUGIN_ID#SoftwareID """
 		self.SetSetting('selected_software_uid', softwareUID)
+	
+	def CreateWidget(self, parent) -> QWidget:
+		settingsWidget: QWidget = QWidget(parent)
+		layout: QFormLayout = QFormLayout(settingsWidget)
+
+		self.appThemeEdit: QLineEdit = QLineEdit(self.GetSetting('app_theme'), settingsWidget)
+		self.appThemeEdit.setPlaceholderText('Enter app theme name')
+		self.appThemeEdit.textChanged.connect(lambda text: self.SetSetting('app_theme', text))
+		layout.addRow('App Theme', self.appThemeEdit)
+
+		self.lastOpenedTabEdit: QLineEdit = QLineEdit(str(self.GetSetting('last_opened_tab')), settingsWidget)
+		self.lastOpenedTabEdit.textChanged.connect(lambda text: self.SetSetting('last_opened_tab', int(text) if text.isdigit() else 0))
+		layout.addRow('Last Opened Tab', self.lastOpenedTabEdit)
+
+		return settingsWidget
 
 class SettingsManager:
 	def __init__(self, app, prefsFolderPath: Path):
@@ -202,9 +218,19 @@ class SettingsManager:
 
 		# self.moduleSettings: dict[str, BaseSettings] = dict()
 
+	def GetQAVMSettings(self) -> QAVMGlobalSettings:
+		return self.qavmGlobalSettings
+	
 	def LoadQAVMSettings(self):
 		self.prefsFolderPath.mkdir(parents=True, exist_ok=True)
 		self.qavmGlobalSettings.Load()
+
+	def SaveQAVMSettings(self):
+		self.qavmGlobalSettings.Save()
+	
+	
+	def GetSoftwareSettings(self) -> SoftwareBaseSettings:
+		return self.softwareSettings
 	
 	def LoadSoftwareSettings(self):
 		if not self.qavmGlobalSettings.GetSelectedSoftwareUID():
@@ -212,6 +238,11 @@ class SettingsManager:
 		softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetCurrentSoftwareHandler()
 		self.softwareSettings = softwareHandler.GetSettings()
 		self.softwareSettings.Load()
+
+	def SaveSoftwareSettings(self):
+		if not self.softwareSettings:
+			raise Exception('No software settings loaded')
+		self.softwareSettings.Save()
 	
 	# def LoadModuleSettings(self):
 	# 	pluginManager: PluginManager = self.app.GetPluginManager()
@@ -220,12 +251,6 @@ class SettingsManager:
 	# 		moduleSettings: BaseSettings = settingsHandler.GetSettings()
 	# 		moduleSettings.Load()
 	# 		self.moduleSettings[f'{pluginID}#{settingsID}'] = moduleSettings
-
-	def GetQAVMSettings(self) -> QAVMGlobalSettings:
-		return self.qavmGlobalSettings
-	
-	def GetSoftwareSettings(self) -> SoftwareBaseSettings:
-		return self.softwareSettings
 	
 	# """ Returns dict of settings modules that are implemented in currently selected plugin: {moduleUID: BaseSettings}. The moduleUID is in form PLUGIN_ID#SettingsModuleID """
 	# def GetModuleSettings(self) -> dict[str, BaseSettings]:

@@ -36,7 +36,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox, QTableWidgetItem,
 	QMenu, QWidgetAction, QLayout, QStyledItemDelegate, QStyleOptionViewItem, QApplication, QTableWidget,
-	QScrollBar, QInputDialog
+	QScrollBar, QInputDialog, QTabWidget
 )
 
 """
@@ -196,9 +196,9 @@ class ExampleTableBuilder(BaseTableBuilder):
 		return ''
 
 class ExampleSettings(SoftwareBaseSettings):
-	CONTAINER_DEFAULTS: dict[str, Any] = {**SoftwareBaseSettings.CONTAINER_DEFAULTS, **{
-		
-	}}
+	CONTAINER_DEFAULTS: dict[str, Any] = {
+		'myExampleSetting': 'default value',  # Example setting
+	}
 
 	# SETTINGS_ENTRIES: dict[str, BaseSettingsEntry] = {
 	# 	'searchPaths': BaseSettingsEntry([], 'Search paths', 'Paths to search for software', False, True),
@@ -208,16 +208,13 @@ class ExampleSettings(SoftwareBaseSettings):
 		return 'Example'
 
 	def CreateWidget(self, parent: QWidget) -> QWidget:
-		settingsWidget: QWidget = QWidget(parent)
-		formLayout: QFormLayout = QFormLayout(settingsWidget)
-
-		# add temporary placeholder qlabel
-		placeholderLabel = QLabel('This is a placeholder for settings widget.', settingsWidget)
-		placeholderLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-		placeholderLabel.setStyleSheet("color: gray; font-style: italic;")
-		formLayout.addRow(placeholderLabel)
-
-		return settingsWidget
+		commonSettingsWidget: QWidget = super().CreateWidget(parent)
+		tabsWidget: QTabWidget = QTabWidget(parent)
+		tabsWidget.addTab(commonSettingsWidget, 'Common')
+		# Add more tabs if needed
+		exampleSettingsWidget: QWidget = QLabel('This is an example settings tab.', parent)
+		tabsWidget.addTab(exampleSettingsWidget, 'Example Settings')
+		return tabsWidget
 
 	# def _settingChangedCheckbox(self, state, settingsEntry: list):
 	# 	settingsEntry[0] = state == Qt.CheckState.Checked

@@ -26,12 +26,12 @@ class PreferencesWindowExample(QWidget):
 		self.contentWidget: QStackedWidget = QStackedWidget(self)
 
 		self.menuWidget = QListWidget()
-		# self.menuWidget.itemSelectionChanged.connect(self._onMenuSelectionChanged)
-		# self.AddSettingsEntry("General", self.settingsManager.GetQAVMSettings())
+		self.menuWidget.itemSelectionChanged.connect(self._onMenuSelectionChanged)
+		self.AddSettingsEntry("Application", self.settingsManager.GetQAVMSettings())
 		
-		# swSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
-		# if type(swSettings) is not SoftwareBaseSettings:
-		# 	self.AddSettingsEntry(swSettings.GetName(), swSettings)
+		swSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
+		if type(swSettings) is not SoftwareBaseSettings:
+			self.AddSettingsEntry(swSettings.GetName(), swSettings)
 		
 		# for mSettings in self.settingsManager.GetModuleSettings().values():
 		# 	self.AddSettingsEntry(mSettings.GetName(), mSettings)
@@ -44,17 +44,22 @@ class PreferencesWindowExample(QWidget):
 		mainLayout.addWidget(self.contentWidget, 3)
 		self.setLayout(mainLayout)
 	
-	# def AddSettingsEntry(self, title: str, settings: BaseSettings):
-	# 	def createMenuItem(text: str) -> QListWidgetItem:
-	# 		item: QListWidgetItem = QListWidgetItem(text)
-	# 		item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-	# 		item.setData(Qt.ItemDataRole.UserRole, settings)
-	# 		return item
-	# 	if w := settings.CreateWidget(self):
-	# 		self.menuWidget.addItem(createMenuItem(title))
-	# 		self.contentWidget.addWidget(w)
+	def AddSettingsEntry(self, title: str, settings: BaseSettings):
+		def createMenuItem(text: str) -> QListWidgetItem:
+			item: QListWidgetItem = QListWidgetItem(text)
+			item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+			item.setData(Qt.ItemDataRole.UserRole, settings)
+			return item
+		if w := settings.CreateWidget(self):
+			self.menuWidget.addItem(createMenuItem(title))
+			self.contentWidget.addWidget(w)
 	
-	# def _onMenuSelectionChanged(self):
-	# 	# selectedItem: QListWidgetItem = self.menuWidget.currentItem()
-	# 	# logger.info(f'Selected menu item: {selectedItem.text()}')
-	# 	self.contentWidget.setCurrentIndex(self.menuWidget.currentRow())
+	def _onMenuSelectionChanged(self):
+		# selectedItem: QListWidgetItem = self.menuWidget.currentItem()
+		# logger.info(f'Selected menu item: {selectedItem.text()}')
+		self.contentWidget.setCurrentIndex(self.menuWidget.currentRow())
+
+	def closeEvent(self, event):
+		logger.info('Saving settings on close')
+		self.settingsManager.SaveQAVMSettings()
+		self.settingsManager.SaveSoftwareSettings()
