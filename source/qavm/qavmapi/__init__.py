@@ -67,7 +67,7 @@ class BaseSettingsEntry(object):
 		self.isDirty: bool = False  # is set to True when the value is changed, but not saved yet
 
 class BaseSettings(QObject):
-	CONTAINER_QAVM_DEFAULTS: dict[str, Any] = dict()
+	CONTAINER_QAVM_DEFAULTS: dict[str, Any] = dict()  # contains common per-software settings (e.g. search paths, etc.)
 	CONTAINER_DEFAULTS: dict[str, Any] = dict()  # should be overridden by subclasses
 
 	# SETTINGS_ENTRIES: dict[str, BaseSettingsEntry] = dict()
@@ -82,6 +82,7 @@ class BaseSettings(QObject):
 		self.prefFilePath: Path = utils.GetPrefsFolderPath() / f'{prefName}.json'
 
 	def InitializeContainer(self) -> BaseSettingsContainer:
+		""" Initializes the settings container with default values. """
 		return BaseSettingsContainer({**self.CONTAINER_QAVM_DEFAULTS, **self.CONTAINER_DEFAULTS})
 
 	def Load(self):
@@ -93,7 +94,6 @@ class BaseSettings(QObject):
 			if self.container is None:
 				self.container = self.InitializeContainer()
 			self.container.InitializeFromString(f.read())
-		# self._syncSettingsEntriesFromContainer()
 
 	def Save(self):
 		# self._syncContainerFromSettingsEntries(onlyDirty=False)
@@ -104,10 +104,8 @@ class BaseSettings(QObject):
 			f.write(self.container.DumpToString())
 
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
+		""" Creates settings widgets (one per settings category). Returns a list of tuples, where each tuple contains the category name and the widget. """
 		return [('BaseSettings', QWidget(parent))]  # BaseSettings does not provide a widget by default, subclasses should override this method
-
-	# def GetName(self) -> str:  # TODO: should use the one from connected software handler?
-	# 	return 'BaseSettings'
 	
 	def GetSetting(self, key: str) -> Any:
 		if self.container.Contains(key):
@@ -119,36 +117,12 @@ class BaseSettings(QObject):
 			self.container.Set(key, value)
 			return
 		print(f'ERROR: Unknown settings entry "{key}". Cannot set value.')  # TODO: use logger instead
-		
-	
-	# def _syncSettingsEntriesFromContainer(self):
-	# 	""" Syncs the settings entries from the container to the settings entries. """
-	# 	for key, value in self.container.settingsEntries.items():
-	# 		if key not in BaseSettings.SETTINGS_ENTRIES:
-	# 			print(f'Settings entry "{key}" not found in BaseSettings.SETTINGS_ENTRIES. Adding it.')  # TODO: use logger instead
-	# 			entry: BaseSettingsEntry = BaseSettingsEntry(value, key)
-	# 			entry.value = value
-	# 			BaseSettings.SETTINGS_ENTRIES[key] = entry
-	# 		else:
-	# 			BaseSettings.SETTINGS_ENTRIES[key].value = value
-
-	# def _syncContainerFromSettingsEntries(self, onlyDirty: bool = False):
-	# 	""" Syncs the container from the settings entries. If onlyDirty is True, only dirty entries are synced. """
-	# 	for key, entry in BaseSettings.SETTINGS_ENTRIES.items():
-	# 		if not onlyDirty or entry.isDirty:
-	# 			if self.container.settingsEntries.get(key, None) is None:
-	# 				print(f'Settings entry "{key}" not found in container. Adding it.')  # TODO: use logger instead
-	# 				self.container.settingsEntries[key] = entry.value
-	# 			self.container.settingsEntries[key] = entry.value
-	# 			entry.isDirty = False
 
 class SoftwareBaseSettings(BaseSettings):
+	""" Base class for software settings. Contains basic implementation for settings that are common for all software. """
 	CONTAINER_QAVM_DEFAULTS: dict[str, Any] = {
 		'search_paths': [],  # list of paths to search for software
 	}
-	
-	# def GetName(self) -> str:  # TODO: should use the one from connected software handler?
-	# 	return 'SoftwareBaseSettings'
 	
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
 		# Create a widget with QVBoxLayout and a QListWidget for search paths
@@ -298,8 +272,8 @@ class QualifierIdentificationConfig(object):
 				pass
 		return fileContents
 
-# TODO: rename this and others to BaseSoftwareQualifier?
 class BaseQualifier(object):
+	""" Base class for software qualifiers. Qualifier is used to identify the software (e.g. based on the directory contents) """
 	def __init__(self):
 		pass
 
@@ -316,6 +290,7 @@ class BaseQualifier(object):
 		return True
 
 class BaseDescriptor(QObject):
+	""" Base class for software descriptors. Descriptor is used to represent the software among other plugin parts, such as TileBuilder, TableBuilder, ContextMenu, etc. """
 	updated = pyqtSignal()
 
 	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):

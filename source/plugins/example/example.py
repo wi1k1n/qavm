@@ -200,13 +200,6 @@ class ExampleSettings(SoftwareBaseSettings):
 		'myExampleSetting': 'default value',  # Example setting
 	}
 
-	# SETTINGS_ENTRIES: dict[str, BaseSettingsEntry] = {
-	# 	'searchPaths': BaseSettingsEntry([], 'Search paths', 'Paths to search for software', False, True),
-	# }
-	
-	# def GetName(self) -> str:
-	# 	return 'Example'
-
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
 		commonSettingsWidgets: list[tuple[str, QWidget]] = super().CreateWidgets(parent)
 

@@ -83,10 +83,6 @@ class QAVMGlobalSettings(BaseSettings):
 		selectThemeWidget = self._createThemeSelectorWidget()
 		layout.addRow('App Theme', selectThemeWidget)
 
-		self.lastOpenedTabEdit: QLineEdit = QLineEdit(str(self.GetSetting('last_opened_tab')), settingsWidget)
-		self.lastOpenedTabEdit.textChanged.connect(lambda text: self.SetSetting('last_opened_tab', int(text) if text.isdigit() else 0))
-		layout.addRow('Last Opened Tab', self.lastOpenedTabEdit)
-
 		return [('Application', settingsWidget)]
 
 	def _createThemeSelectorWidget(self) -> QWidget:
