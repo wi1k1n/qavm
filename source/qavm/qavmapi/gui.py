@@ -96,14 +96,22 @@ class ClickableLabel(QLabel):
 		super().mousePressEvent(evt)
 
 
-CURRENT_THEME = 'light_purple.xml'
+DEFAULT_THEME_MODE = 'light'  # Default theme mode, can be 'light' or 'dark'
+DEFAULT_THEME_COLOR = 'purple'  # Default theme color, can be 'purple', 'pink', 'green', etc.
+
+def GetDefaultTheme() -> str:
+	return f'{DEFAULT_THEME_MODE}_{DEFAULT_THEME_COLOR}.xml'
+
+g_CurrentTheme: str = GetDefaultTheme()
 def GetThemeName() -> str:
-	return CURRENT_THEME
+	return g_CurrentTheme
 
 def SetTheme(theme: str) -> None:
+	global g_CurrentTheme
 	app: QApplication = QApplication.instance()
 	
-	apply_stylesheet(app, theme=GetThemeName(), extra={'density_scale': '-1'})
+	apply_stylesheet(app, theme=theme, extra={'density_scale': '-1'})
+	g_CurrentTheme = theme
 	
 	# Append custom style to override scrollbar thickness
 	# TODO: use secondColor as a background color for the scrollbar

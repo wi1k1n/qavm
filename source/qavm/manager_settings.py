@@ -1,62 +1,23 @@
 import json
 from pathlib import Path
 from typing import Any
+from functools import partial
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtGui import QKeyEvent, QColor, QPainter, QBrush
 from PyQt6.QtWidgets import (
 	QWidget, QFormLayout, QCheckBox, QLineEdit, QApplication, QListWidget, QListWidgetItem,
-	QVBoxLayout, QPushButton, QLabel, QFileDialog
+	QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QTabWidget, QSizePolicy, 
 )
 
 import qavm.qavmapi.utils as utils
+import qavm.qavmapi.gui as gui_utils
 
 from qavm.qavmapi import BaseSettings, BaseSettingsContainer, BaseSettingsEntry, SoftwareBaseSettings
 from qavm.manager_plugin import PluginManager, SoftwareHandler
 
 import qavm.logs as logs
 logger = logs.logger
-
-# # TODO: should this be part of qavmapi?
-# class QAVMSettingsContainer:
-# 	SETTINGS_ENTRIES: dict[str, Any] = {  # key: default value
-# 		'selectedSoftwareUID': 						'', 			# str
-# 		'searchPaths': 								[], 			# list[str]
-# 		'searchSubfoldersDepth': 					2, 				# int
-# 		'hideOnClose': 								False, 			# bool
-# 		'lastOpenedTab': 							0, 				# enum  # TODO: use enum, currently 0 - tiles, 1 - table, 2 - freemove
-# 	}
-
-# 	def __init__(self):
-# 		super().__init__()
-# 		for key, default in self.SETTINGS_ENTRIES.items():
-# 			setattr(self, key, default)
-		
-# 		if utils.PlatformWindows():
-# 			self.searchPaths: list[str] = [
-# 				'C:\\Program Files'
-# 			]
-# 		elif utils.PlatformMacOS():
-# 			self.searchPaths: list[str] = [
-# 				'/Applications'
-# 			]
-	
-# 	def DumpToString(self) -> str:
-# 		data: dict = dict()
-# 		for key in self.SETTINGS_ENTRIES.keys():
-# 			data[key] = getattr(self, key)
-# 		return json.dumps(data)
-	
-# 	def InitializeFromString(self, dataStr: str) -> bool:
-# 		try:
-# 			data: dict = json.loads(dataStr)
-# 			for key in self.SETTINGS_ENTRIES.keys():
-# 				if key not in data: return False
-# 				setattr(self, key, data[key])
-# 			return True
-# 		except Exception as e:
-# 			logger.exception(f'Failed to parse settings data: {e}')
-# 			return False
 
 class DeletableListWidget(QListWidget):
 	def keyPressEvent(self, event: QKeyEvent) -> None:
@@ -66,147 +27,124 @@ class DeletableListWidget(QListWidget):
 		else:
 			super().keyPressEvent(event)
 
-# class QAVMSettings(BaseSettings):
-# 	""" Global settings that are related to the QAVM app itself """
-# 	def __init__(self) -> None:
-# 		super().__init__()
-# 		self.container = QAVMSettingsContainer()
-
-# 		self.prefFilePath: Path = utils.GetPrefsFolderPath()/'qavm-preferences.json'
-# 		if not self.prefFilePath.exists():
-# 			logger.info(f'QAVM settings file not found, creating a new one. Path: {self.prefFilePath}')
-# 			self.Save()
-
-# 	def Load(self):
-# 		with open(self.prefFilePath, 'r') as f:
-# 			if not self.container.InitializeFromString(f.read()):
-# 				logger.error('Failed to load QAVM settings')
-
-# 	def Save(self):
-# 		if not self.prefFilePath.parent.exists():
-# 			logger.info(f"QAVM preferences folder doesn't exist. Creating: {self.prefFilePath.parent}")
-# 			self.prefFilePath.parent.mkdir(parents=True, exist_ok=True)
-# 		with open(self.prefFilePath, 'w') as f:
-# 			f.write(self.container.DumpToString())
-
-# 	def CreateWidget(self, parent: QWidget) -> QWidget:
-# 		settingsWidget: QWidget = QWidget(parent)
-
-# 		vboxLayout: QVBoxLayout = QVBoxLayout(settingsWidget)
-# 		vboxLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-# 		vboxLayout.addWidget(QLabel('Search paths', settingsWidget))
-# 		vboxLayout.addWidget(self._createSearchPathsWidget(settingsWidget))
-
-# 		# vboxLayout.addWidget(QLabel('Search subfolders depth', self._createSearchSubfoldersDepthSliderWidget(settingsWidget)))
-# 		# formLayout.addRow('Hide on close', QCheckBox())
-
-# 		return settingsWidget
-	
-# 	def _spListWidgetAddSearchPathItem(self, path: str) -> None:
-# 		item: QListWidgetItem = QListWidgetItem(path)
-# 		item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-# 		self.spListWidget.addItem(item)
-
-# 	def _createSearchPathsWidget(self, parent: QWidget) -> QWidget:
-# 		spWidget: QWidget = QWidget(parent)
-# 		vboxLayout: QVBoxLayout = QVBoxLayout(spWidget)
-# 		vboxLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-# 		self.spListWidget: DeletableListWidget = DeletableListWidget(spWidget)
-# 		self.spListWidget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-
-# 		for path in self.container.searchPaths:
-# 			self._spListWidgetAddSearchPathItem(path)
+# TODO: move this to gui utils
+class CircleButton(QPushButton):
+	def __init__(self, color: QColor, isBordered: bool = False, parent: QWidget | None = None):
+		super().__init__(parent)
+		self.setFixedSize(32, 32)
+		self.color = color
+		self.setCursor(Qt.CursorShape.PointingHandCursor)
+		# self.setBordered(isBordered) # TODO: this doesn't work
 		
-# 		btnBrowse: QPushButton = QPushButton('Browse', spWidget)
-# 		btnBrowse.clicked.connect(self._browseSearchPath)
-		
-# 		vboxLayout.addWidget(self.spListWidget)
-# 		vboxLayout.addWidget(btnBrowse)
+	def paintEvent(self, event):
+		painter = QPainter(self)
+		painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+		brush = QBrush(self.color)
+		painter.setBrush(brush)
+		painter.setPen(Qt.PenStyle.NoPen)
+		diameter = min(self.width(), self.height())
+		painter.drawEllipse(0, 0, diameter, diameter)
 
-# 		return spWidget
-	
-# 	def _browseSearchPath(self) -> None:
-# 		if folder := QFileDialog.getExistingDirectory(None, "Select a folder", None, QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks):
-# 			path: Path = Path(folder)
-# 			if path not in self.container.searchPaths:
-# 				pathStr: str = str(path)
-# 				self.container.searchPaths.append(pathStr)
-# 				self._spListWidgetAddSearchPathItem(pathStr)
-		
-
-	
-# 	# def _createSearchSubfoldersDepthSliderWidget(self, parent: QWidget) -> QWidget:
-# 	# 	sliderWidget: QWidget = QWidget(parent)
-
-# 	# 	formLayout: QFormLayout = QFormLayout(sliderWidget)
-# 	# 	formLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-# 	# 	slider: QLineEdit = QLineEdit(str(self.container.searchSubfoldersDepth), sliderWidget)
-# 	# 	# slider.setValidator(utils.IntValidator(0, 10, slider))
-# 	# 	slider.setMaximumWidth(50)
-# 	# 	slider.editingFinished.connect(lambda: print('Slider value changed'))
-
-# 	# 	formLayout.addRow('Search subfolders depth', slider)
-
-# 	# 	return sliderWidget
-	
-# 	def GetSelectedSoftwarePluginID(self) -> str:
-# 		return self.GetSelectedSoftwareUID().split('#')[0]
-	
-# 	def GetSelectedSoftwareUID(self) -> str:
-# 		app = QApplication.instance()  # QAVMApp
-# 		if app.selectedSoftwareUID:  # selectedSoftwareUID override coming from CL argument
-# 			return app.selectedSoftwareUID
-# 		return self.container.selectedSoftwareUID
-	
-# 	""" The softwareUID is in the format: PLUGIN_ID#SoftwareID """
-# 	def SetSelectedSoftwareUID(self, softwareUID: str) -> None:
-# 		self.container.selectedSoftwareUID = softwareUID
-
-# 	def GetSearchPaths(self) -> list[str]:
-# 		return self.container.searchPaths
-	
-# 	def GetSearchSubfoldersDepth(self) -> int:
-# 		return self.container.searchSubfoldersDepth
-	
-# 	def GetLastOpenedTab(self) -> int:
-# 		return self.container.lastOpenedTab
-# 	def SetLastOpenedTab(self, tabIndex: int) -> None:
-# 		self.container.lastOpenedTab = tabIndex
+	# def setBordered(self, bordered: bool):
+	# 	if bordered:
+	# 		self.setStyleSheet(f"border: 2px solid {self.color.name()}; border-radius: 16px;")
+	# 	else:
+	# 		self.setStyleSheet("border: none;")
 
 class QAVMGlobalSettings(BaseSettings):
 	CONTAINER_DEFAULTS: dict[str, Any] = {
-		'selected_software_uid': '',  # str, the software UID in form PLUGIN_ID#SoftwareID
-		'last_opened_tab': 0,  # int, the last opened tab index
-		'app_theme': 'light_pink',  # str, the app theme name
+		'selected_software_uid': '',
+		'last_opened_tab': 0,
+		'app_theme': gui_utils.GetDefaultTheme(),
+		# searchSubfoldersDepth
+		# hideOnClose
 	}
-	
+
 	def GetSelectedSoftwareUID(self) -> str:
-		app = QApplication.instance()  # QAVMApp
-		if app.selectedSoftwareUID:  # that's where the override coming from CL argument is stored
+		app = QApplication.instance()
+		if app.selectedSoftwareUID:
 			return app.selectedSoftwareUID
 		return self.GetSetting('selected_software_uid')
-	
+
 	def SetSelectedSoftwareUID(self, softwareUID: str) -> None:
-		""" The softwareUID is in the format: PLUGIN_ID#SoftwareID """
 		self.SetSetting('selected_software_uid', softwareUID)
+
+	def GetAppTheme(self) -> str:
+		return self.GetSetting('app_theme')
 	
+	def SetAppTheme(self, theme: str) -> None:
+		gui_utils.SetTheme(theme)
+		self.SetSetting('app_theme', theme)
+
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
 		settingsWidget: QWidget = QWidget(parent)
 		layout: QFormLayout = QFormLayout(settingsWidget)
 
-		self.appThemeEdit: QLineEdit = QLineEdit(self.GetSetting('app_theme'), settingsWidget)
-		self.appThemeEdit.setPlaceholderText('Enter app theme name')
-		self.appThemeEdit.textChanged.connect(lambda text: self.SetSetting('app_theme', text))
-		layout.addRow('App Theme', self.appThemeEdit)
+		selectThemeWidget = self._createThemeSelectorWidget()
+		layout.addRow('App Theme', selectThemeWidget)
 
 		self.lastOpenedTabEdit: QLineEdit = QLineEdit(str(self.GetSetting('last_opened_tab')), settingsWidget)
 		self.lastOpenedTabEdit.textChanged.connect(lambda text: self.SetSetting('last_opened_tab', int(text) if text.isdigit() else 0))
 		layout.addRow('Last Opened Tab', self.lastOpenedTabEdit)
 
 		return [('Application', settingsWidget)]
+
+	def _createThemeSelectorWidget(self) -> QWidget:
+		self.tabWidget = QTabWidget()
+		self.tabWidget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
+		lightTab = QWidget()
+		self.lightSwatchesLayout = QHBoxLayout()
+		self.lightSwatchesLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+		lightTab.setLayout(self.lightSwatchesLayout)
+
+		darkTab = QWidget()
+		self.darkSwatchesLayout = QHBoxLayout()
+		self.darkSwatchesLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+		darkTab.setLayout(self.darkSwatchesLayout)
+
+		self._initSwatches()  # Fill swatches once
+
+		self.tabWidget.addTab(lightTab, "Light")
+		self.tabWidget.addTab(darkTab, "Dark")
+
+		# Set active tab based on current theme
+		isDarkMode, _ = self._parseThemeName(gui_utils.GetThemeName())
+		self.tabWidget.setCurrentIndex(1 if isDarkMode else 0)
+
+		themeSelectorWidget: QWidget = QWidget()
+		layout = QVBoxLayout(themeSelectorWidget)
+		layout.addWidget(self.tabWidget)
+		return themeSelectorWidget
+
+	def _initSwatches(self):
+		themes: list[str] = gui_utils.GetThemesList()
+		colorsByMode: dict[str, set[str]] = {'light': set(), 'dark': set()}
+
+		for themeName in themes:
+			isDark, color = self._parseThemeName(themeName)
+			if QColor(color).isValid():
+				mode = 'dark' if isDark else 'light'
+				colorsByMode[mode].add(color)
+
+		for mode, layout in [('light', self.lightSwatchesLayout), ('dark', self.darkSwatchesLayout)]:
+			for colorName in sorted(colorsByMode[mode]):
+				btn = CircleButton(QColor(colorName))
+				btn.clicked.connect(partial(self.SetAppTheme, f"{mode}_{colorName}.xml"))
+				btn.setToolTip(f'{colorName}')
+				layout.addWidget(btn)
+
+	def _parseThemeName(self, themeName: str) -> tuple[bool, str]:
+		tokens = themeName.split('_', 1)
+		if len(tokens) < 2:
+			return (gui_utils.DEFAULT_THEME_MODE == 'dark', gui_utils.DEFAULT_THEME_COLOR)
+
+		isDarkMode = tokens[0].lower() == 'dark'
+		colorName = tokens[1].replace('.xml', '')
+		if not QColor(colorName).isValid():
+			return (isDarkMode, gui_utils.DEFAULT_THEME_COLOR)
+		return (isDarkMode, colorName)
+
 
 class SettingsManager:
 	def __init__(self, app, prefsFolderPath: Path):

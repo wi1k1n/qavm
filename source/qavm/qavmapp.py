@@ -9,6 +9,7 @@ from qavm.manager_plugin import PluginManager, SoftwareHandler
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.manager_dialogs import DialogsManager
 import qavm.qavmapi.utils as utils
+import qavm.qavmapi.gui as gui_utils
 import qavm.qavmapi_utils as qavmapi_utils
 from qavm.qavmapi import BaseDescriptor, QualifierIdentificationConfig
 
@@ -54,6 +55,7 @@ class QAVMApp(QApplication):
 
 		# self.settingsManager.LoadModuleSettings()
 
+		gui_utils.SetTheme(self.settingsManager.GetQAVMSettings().GetAppTheme())
 		self.dialogsManager.GetPluginSelectionWindow().show()
 
 	def GetPluginManager(self) -> PluginManager:

@@ -17,7 +17,7 @@ class PreferencesWindowExample(QWidget):
 		self.app = app
 
 		self.setWindowTitle("QAVM - Settings")
-		self.resize(600, 600)
+		self.resize(800, 600)
 		self.setMinimumHeight(300)
 		self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
 
@@ -62,6 +62,6 @@ class PreferencesWindowExample(QWidget):
 		self.contentWidget.setCurrentIndex(self.menuWidget.currentRow())
 
 	def closeEvent(self, event):
-		logger.info('Saving settings on close')
+		# TODO: check if dirty settings and ask for confirmation
 		self.settingsManager.SaveQAVMSettings()
 		self.settingsManager.SaveSoftwareSettings()

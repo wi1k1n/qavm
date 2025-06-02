@@ -52,8 +52,6 @@ def main():
 
 	try:
 		app: QAVMApp = QAVMApp(sys.argv, args)
-		SetTheme(GetThemeName())
-		# sys.exit(app.exec())
 		app.exec()
 	except Exception as e:
 		logger.exception("QAVM application crashed")
