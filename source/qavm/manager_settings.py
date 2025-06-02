@@ -62,8 +62,11 @@ class QAVMGlobalSettings(BaseSettings):
 
 	def GetSelectedSoftwareUID(self) -> str:
 		app = QApplication.instance()
-		if app.selectedSoftwareUID:
+		if app.selectedSoftwareUID is None:  # That's the way to force no selected software UID
+			return ''
+		if app.selectedSoftwareUID:  # That's the way to force specific software UID
 			return app.selectedSoftwareUID
+		# If it's empty otherwise, get the selected software UID from settings
 		return self.GetSetting('selected_software_uid')
 
 	def SetSelectedSoftwareUID(self, softwareUID: str) -> None:
