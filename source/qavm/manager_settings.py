@@ -193,7 +193,7 @@ class QAVMGlobalSettings(BaseSettings):
 		""" The softwareUID is in the format: PLUGIN_ID#SoftwareID """
 		self.SetSetting('selected_software_uid', softwareUID)
 	
-	def CreateWidget(self, parent) -> QWidget:
+	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
 		settingsWidget: QWidget = QWidget(parent)
 		layout: QFormLayout = QFormLayout(settingsWidget)
 
@@ -206,7 +206,7 @@ class QAVMGlobalSettings(BaseSettings):
 		self.lastOpenedTabEdit.textChanged.connect(lambda text: self.SetSetting('last_opened_tab', int(text) if text.isdigit() else 0))
 		layout.addRow('Last Opened Tab', self.lastOpenedTabEdit)
 
-		return settingsWidget
+		return [('Application', settingsWidget)]
 
 class SettingsManager:
 	def __init__(self, app, prefsFolderPath: Path):
@@ -228,7 +228,7 @@ class SettingsManager:
 	def SaveQAVMSettings(self):
 		self.qavmGlobalSettings.Save()
 	
-	
+
 	def GetSoftwareSettings(self) -> SoftwareBaseSettings:
 		return self.softwareSettings
 	

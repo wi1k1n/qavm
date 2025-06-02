@@ -27,11 +27,13 @@ class PreferencesWindowExample(QWidget):
 
 		self.menuWidget = QListWidget()
 		self.menuWidget.itemSelectionChanged.connect(self._onMenuSelectionChanged)
-		self.AddSettingsEntry("Application", self.settingsManager.GetQAVMSettings())
+
+		for (name, widget) in self.settingsManager.GetQAVMSettings().CreateWidgets(self.contentWidget):
+			self.AddSettingsEntry(name, widget)
 		
 		swSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
-		if type(swSettings) is not SoftwareBaseSettings:
-			self.AddSettingsEntry(swSettings.GetName(), swSettings)
+		for (name, widget) in swSettings.CreateWidgets(self.contentWidget):
+			self.AddSettingsEntry(name, widget)
 		
 		# for mSettings in self.settingsManager.GetModuleSettings().values():
 		# 	self.AddSettingsEntry(mSettings.GetName(), mSettings)
@@ -44,15 +46,15 @@ class PreferencesWindowExample(QWidget):
 		mainLayout.addWidget(self.contentWidget, 3)
 		self.setLayout(mainLayout)
 	
-	def AddSettingsEntry(self, title: str, settings: BaseSettings):
+	def AddSettingsEntry(self, title: str, widget: QWidget):
 		def createMenuItem(text: str) -> QListWidgetItem:
 			item: QListWidgetItem = QListWidgetItem(text)
 			item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-			item.setData(Qt.ItemDataRole.UserRole, settings)
+			# item.setData(Qt.ItemDataRole.UserRole, settings)
 			return item
-		if w := settings.CreateWidget(self):
-			self.menuWidget.addItem(createMenuItem(title))
-			self.contentWidget.addWidget(w)
+		
+		self.menuWidget.addItem(createMenuItem(title))
+		self.contentWidget.addWidget(widget)
 	
 	def _onMenuSelectionChanged(self):
 		# selectedItem: QListWidgetItem = self.menuWidget.currentItem()

@@ -204,17 +204,34 @@ class ExampleSettings(SoftwareBaseSettings):
 	# 	'searchPaths': BaseSettingsEntry([], 'Search paths', 'Paths to search for software', False, True),
 	# }
 	
-	def GetName(self) -> str:
-		return 'Example'
+	# def GetName(self) -> str:
+	# 	return 'Example'
 
-	def CreateWidget(self, parent: QWidget) -> QWidget:
-		commonSettingsWidget: QWidget = super().CreateWidget(parent)
+	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
+		commonSettingsWidgets: list[tuple[str, QWidget]] = super().CreateWidgets(parent)
+
 		tabsWidget: QTabWidget = QTabWidget(parent)
-		tabsWidget.addTab(commonSettingsWidget, 'Common')
+		if commonSettingsWidgets:
+			tabsWidget.addTab(commonSettingsWidgets[0][1], commonSettingsWidgets[0][0])
+
 		# Add more tabs if needed
 		exampleSettingsWidget: QWidget = QLabel('This is an example settings tab.', parent)
 		tabsWidget.addTab(exampleSettingsWidget, 'Example Settings')
-		return tabsWidget
+
+		extraSettingsWidget: QWidget = QWidget(parent)
+		extraSettingsLayout: QVBoxLayout = QVBoxLayout(extraSettingsWidget)
+		extraSettingsLayout.setContentsMargins(10, 10, 10, 10)
+		extraSettingsLayout.setSpacing(10)
+		exampleLabel: QLabel = QLabel('This is an example extra settings tab.', extraSettingsWidget)
+		exampleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		extraSettingsLayout.addWidget(exampleLabel)
+		exampleLabel.setStyleSheet("color: darkblue; font-size: 16px; background-color: white;")
+		exampleLabel.setMinimumHeight(50)
+
+		return [
+			('Example', tabsWidget),
+			('Example Extra', extraSettingsWidget),
+		]
 
 	# def _settingChangedCheckbox(self, state, settingsEntry: list):
 	# 	settingsEntry[0] = state == Qt.CheckState.Checked

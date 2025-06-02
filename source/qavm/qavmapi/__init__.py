@@ -103,11 +103,11 @@ class BaseSettings(QObject):
 		with open(self.prefFilePath, 'w') as f:
 			f.write(self.container.DumpToString())
 
-	def CreateWidget(self, parent) -> QWidget:
-		return QWidget(parent)  # BaseSettings does not provide a widget by default, subclasses should override this method
+	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
+		return [('BaseSettings', QWidget(parent))]  # BaseSettings does not provide a widget by default, subclasses should override this method
 
-	def GetName(self) -> str:  # TODO: should use the one from connected software handler?
-		return 'BaseSettings'
+	# def GetName(self) -> str:  # TODO: should use the one from connected software handler?
+	# 	return 'BaseSettings'
 	
 	def GetSetting(self, key: str) -> Any:
 		if self.container.Contains(key):
@@ -147,10 +147,10 @@ class SoftwareBaseSettings(BaseSettings):
 		'search_paths': [],  # list of paths to search for software
 	}
 	
-	def GetName(self) -> str:  # TODO: should use the one from connected software handler?
-		return 'SoftwareBaseSettings'
+	# def GetName(self) -> str:  # TODO: should use the one from connected software handler?
+	# 	return 'SoftwareBaseSettings'
 	
-	def CreateWidget(self, parent) -> QWidget:
+	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
 		# Create a widget with QVBoxLayout and a QListWidget for search paths
 		widget = QWidget(parent)
 		layout = QVBoxLayout(widget)
@@ -174,7 +174,7 @@ class SoftwareBaseSettings(BaseSettings):
 		addButton.clicked.connect(self._selectAndAddSearchPath)
 		layout.addWidget(addButton)
 
-		return widget
+		return [('Common', widget)]
 	
 	def eventFilter(self, obj, event):
 		if obj is self.searchPathsWidget and event.type() == QKeyEvent.Type.KeyPress:
