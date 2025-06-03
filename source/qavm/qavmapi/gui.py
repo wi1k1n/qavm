@@ -113,9 +113,8 @@ def SetTheme(theme: str) -> None:
 	apply_stylesheet(app, theme=theme, extra={'density_scale': '-1'})
 	g_CurrentTheme = theme
 	
-	# Append custom style to override scrollbar thickness
 	# TODO: use secondColor as a background color for the scrollbar
-	app.setStyleSheet(app.styleSheet() + """
+	styleExtraScrollBar = """
 		QScrollBar:vertical {
 			width: 14px;
 			margin: 0px;
@@ -148,7 +147,24 @@ def SetTheme(theme: str) -> None:
 		QScrollBar::sub-page {
 			background: none;
 		}
-	""")
+	"""
+
+	styleExtraLineEdit = ""
+	if "dark" in g_CurrentTheme:
+		styleExtraLineEdit = """
+		QLineEdit, QComboBox {
+				color: white;
+		}
+		"""
+	else:
+		styleExtraLineEdit = """
+		QLineEdit, QComboBox {
+				color: black;
+		}
+		"""
+		
+	# Append custom style to override scrollbar thickness
+	app.setStyleSheet(app.styleSheet() + styleExtraScrollBar + styleExtraLineEdit)
 
 def GetThemesList() -> list[str]:
 	return list_themes()
