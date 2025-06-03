@@ -6,6 +6,11 @@ This is a rethought version of the [C4D Version Manager](https://github.com/wi1k
 
 ## Improvements & bugs
 
+* Don't throw away calculated results (such that switching back-n-forth between software is fast)
+	* have a setting to show software in the menubar directly (instead of switch->software)
+
+* Show in status bar the time it was synced last time
+
 * Add theme selection: light/dark + color
 	* for light/dark the switch should be between yoda and darth vader ;)
 
