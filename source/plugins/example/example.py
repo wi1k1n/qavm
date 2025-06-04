@@ -292,6 +292,7 @@ class ExampleContextMenu(BaseContextMenu):
 
 		titleLabel: QLabel = QLabel(f'{desc.dirPath.name}')
 		titleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		titleLabel.setStyleSheet("font-style: italic;")
 		titleLabel.setContentsMargins(0, 7, 0, 3)
 		titleAction: QWidgetAction = QWidgetAction(menu)
 		titleAction.setDefaultWidget(titleLabel)
