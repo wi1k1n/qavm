@@ -453,6 +453,7 @@ class MainWindow(QMainWindow):
 		self.app.selectedSoftwareUID = swUID
 		# TODO: storing the setting without being sure that the plugin runs leads to a deadlock (start and crash)
 		self.qavmSettings.Save()
+		self.dialogsManager.ResetPreferencesWindow()
 		self.dialogsManager.GetPluginSelectionWindow().show()
 		self.close()
 	

@@ -1,8 +1,16 @@
 import datetime as dt
 
-from PyQt6.QtCore import Qt, pyqtSignal, QPropertyAnimation, pyqtProperty
-from PyQt6.QtWidgets import QApplication, QFrame, QVBoxLayout, QLabel, QTableWidgetItem
-from PyQt6.QtGui import QColor
+
+from PyQt6.QtCore import (
+	Qt, pyqtSignal, QPropertyAnimation, pyqtProperty, 
+)
+from PyQt6.QtWidgets import (
+	QApplication, QFrame, QVBoxLayout, QLabel, QTableWidgetItem, QListWidget, QScrollBar,
+	QListWidgetItem, QLineEdit, QComboBox, QSizePolicy,
+)
+from PyQt6.QtGui import (
+	QColor, QKeyEvent, QMouseEvent, QCursor,
+)
 
 from qt_material import apply_stylesheet, get_theme, list_themes
 
@@ -94,6 +102,18 @@ class ClickableLabel(QLabel):
 		elif evt.button() == Qt.MouseButton.MiddleButton:
 			self.clickedMiddle.emit(ctrl, alt, shift)
 		super().mousePressEvent(evt)
+
+
+class DeletableListWidget(QListWidget):
+	itemDeleted = pyqtSignal(QListWidgetItem)
+
+	def keyPressEvent(self, event: QKeyEvent) -> None:
+		if event.key() == Qt.Key.Key_Delete:
+			for item in self.selectedItems():
+				self.takeItem(self.row(item))
+				self.itemDeleted.emit(item)
+		else:
+			super().keyPressEvent(event)
 
 
 DEFAULT_THEME_MODE = 'light'  # Default theme mode, can be 'light' or 'dark'

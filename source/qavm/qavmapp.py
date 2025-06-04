@@ -94,7 +94,7 @@ class QAVMApp(QApplication):
 		descriptorClass = softwareHandler.GetDescriptorClass()
 		softwareSettings = softwareHandler.GetSettings()
 
-		searchPaths = softwareSettings.GetSetting('search_paths')
+		searchPaths = softwareSettings.GetEvaluatedSearchPaths()
 		if not searchPaths:
 			searchPaths = []
 		searchPaths = qualifier.ProcessSearchPaths(searchPaths)

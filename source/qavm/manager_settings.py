@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 from functools import partial
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeyEvent, QColor, QPainter, QBrush
 from PyQt6.QtWidgets import (
 	QWidget, QFormLayout, QCheckBox, QLineEdit, QApplication, QListWidget, QListWidgetItem,
@@ -18,14 +18,6 @@ from qavm.manager_plugin import PluginManager, SoftwareHandler
 
 import qavm.logs as logs
 logger = logs.logger
-
-class DeletableListWidget(QListWidget):
-	def keyPressEvent(self, event: QKeyEvent) -> None:
-		if event.key() == Qt.Key.Key_Delete:
-			for item in self.selectedItems():
-				self.takeItem(self.row(item))
-		else:
-			super().keyPressEvent(event)
 
 # TODO: move this to gui utils
 class CircleButton(QPushButton):
@@ -56,6 +48,7 @@ class QAVMGlobalSettings(BaseSettings):
 		'selected_software_uid': '',
 		'last_opened_tab': 0,
 		'app_theme': gui_utils.GetDefaultTheme(),
+		'search_paths_global': [],
 		# searchSubfoldersDepth
 		# hideOnClose
 	}
@@ -79,17 +72,74 @@ class QAVMGlobalSettings(BaseSettings):
 		gui_utils.SetTheme(theme)
 		self.SetSetting('app_theme', theme)
 
+	def GetGlobalSearchPaths(self) -> list[str]:
+		return self.GetSetting('search_paths_global')
+	
+	def SetGlobalSearchPaths(self, paths: list[str]) -> None:
+		if not isinstance(paths, list):
+			logger.error(f'Search paths must be a list, got {type(paths)}')
+			return
+		self.SetSetting('search_paths_global', paths)
+
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
 		settingsWidget: QWidget = QWidget(parent)
 		layout: QFormLayout = QFormLayout(settingsWidget)
 
-		selectThemeWidget = self._createThemeSelectorWidget()
+		selectThemeWidget = self._createThemeSelectorWidget(parent)
 		layout.addRow('App Theme', selectThemeWidget)
 
-		return [('Application', settingsWidget)]
+		searchPathsWidget = self._createSearchPathsWidget(parent)
+		layout.addRow('Search Paths (Global)', searchPathsWidget)
 
-	def _createThemeSelectorWidget(self) -> QWidget:
-		self.tabWidget = QTabWidget()
+		return [('Application', settingsWidget)]
+	
+	# TODO: This is very similar to the one in SoftwareBaseSettings, consider refactoring
+	def _createSearchPathsWidget(self, parent: QWidget | None = None) -> QWidget:
+		widget = QWidget(parent)
+		layout = QVBoxLayout(widget)
+
+		self.searchPathsWidget = gui_utils.DeletableListWidget()
+		self.searchPathsWidget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+		self.searchPathsWidget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+		self.searchPathsWidget.setEditTriggers(QListWidget.EditTrigger.DoubleClicked)
+		self.searchPathsWidget.itemChanged.connect(lambda _: self._updateSearchPathsSetting())
+		self.searchPathsWidget.itemDeleted.connect(lambda _: self._updateSearchPathsSetting())
+
+		for path in self.GetSetting('search_paths_global'):
+			self._addSearchPathToList(path)
+
+		layout.addWidget(self.searchPathsWidget)
+
+		addButton = QPushButton('Add Search Path', widget)
+		addButton.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+		addButton.clicked.connect(self._selectAndAddSearchPath)
+		layout.addWidget(addButton)
+
+		return widget
+
+	def _selectAndAddSearchPath(self):
+		""" Opens a file dialog to select a directory and adds it to the search paths. """
+		dirPath = QFileDialog.getExistingDirectory(self.searchPathsWidget, 'Select Search Path')
+		if dirPath:
+			self._addSearchPathToList(dirPath)
+			self._updateSearchPathsSetting()
+
+	def _addSearchPathToList(self, path: str):
+		""" Adds a new search path to the QListWidget if it doesn't already exist. """
+		if not path:
+			return
+		path = str(Path(path).resolve())
+		if not any(self.searchPathsWidget.item(i).text() == path for i in range(self.searchPathsWidget.count())):
+			item = QListWidgetItem(path)
+			item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
+			self.searchPathsWidget.addItem(item)
+
+	def _updateSearchPathsSetting(self):
+		""" Updates the search paths setting based on the current items in the QListWidget. """
+		self.SetSetting('search_paths_global', [self.searchPathsWidget.item(i).text() for i in range(self.searchPathsWidget.count())])
+
+	def _createThemeSelectorWidget(self, parent: QWidget | None = None) -> QWidget:
+		self.tabWidget = QTabWidget(parent)
 		self.tabWidget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
 		lightTab = QWidget()

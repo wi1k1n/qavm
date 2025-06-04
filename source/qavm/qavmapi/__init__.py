@@ -1,16 +1,22 @@
 from pathlib import Path
 from typing import Any
+from functools import partial
 import json
 
-from PyQt6.QtCore import pyqtSignal, QObject, Qt
+from PyQt6.QtCore import (
+	pyqtSignal, QObject, Qt, 
+)
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QTableWidgetItem, QMenu, QStyledItemDelegate, QVBoxLayout, QListWidget, QSizePolicy,
-	QListWidgetItem, QPushButton, QFileDialog, 
+	QListWidgetItem, QPushButton, QFileDialog, QTextEdit, QHBoxLayout, QStackedWidget, QTableWidgetItem, 
+	QLineEdit, QComboBox, QApplication, 
 )
-from PyQt6.QtGui import QKeyEvent, QAction
+from PyQt6.QtGui import (
+	QKeyEvent, QAction, 
+)
 
 from qavm.qavmapi import utils
-from qavm.qavmapi.gui import GetThemeData
+from qavm.qavmapi.gui import GetThemeData, DeletableListWidget
 
 # import qavm.logs as logs
 # logger = logs.logger
@@ -72,6 +78,9 @@ class BaseSettings(QObject):
 
 	# SETTINGS_ENTRIES: dict[str, BaseSettingsEntry] = dict()
 	
+	settingChanged = pyqtSignal(str, object)  # (settingName, newValue)
+
+	# TODO: these need to be refactored
 	tilesUpdateRequired = pyqtSignal()  # is emitted when settings are changing something that requires tiles to be updated
 	tablesUpdateRequired = pyqtSignal()  # same as tilesUpdateRequired, but for tables
 
@@ -115,6 +124,7 @@ class BaseSettings(QObject):
 	def SetSetting(self, key: str, value: Any):
 		if self.container.Contains(key):
 			self.container.Set(key, value)
+			self.settingChanged.emit(key, value)
 			return
 		print(f'ERROR: Unknown settings entry "{key}". Cannot set value.')  # TODO: use logger instead
 
@@ -131,15 +141,21 @@ class SoftwareBaseSettings(BaseSettings):
 		layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 		layout.addWidget(QLabel('Search paths:', widget))
 
-		self.searchPathsWidget = QListWidget(widget)
+		self.searchPathsWidget = DeletableListWidget(widget)
 		self.searchPathsWidget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 		self.searchPathsWidget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
 		self.searchPathsWidget.setEditTriggers(QListWidget.EditTrigger.DoubleClicked)
 		for path in self.GetSetting('search_paths'):
 			self._addSearchPathToList(path)
-
-		self.searchPathsWidget.installEventFilter(self)
 		self.searchPathsWidget.itemChanged.connect(lambda x: self._updateSearchPathsSetting())
+		self.searchPathsWidget.itemDeleted.connect(lambda _: self._updateSearchPathsSetting())
+		
+		# This is a little dangerous, because the change may come from outside (even when the window is closed),
+		qavmSettings: QAVMSettings = QApplication.instance().GetSettingsManager().GetQAVMSettings()
+		qavmSettings.settingChanged.connect(self._updateSearchPathsEvaluatedWidget)
+		# Hence, need to ensure it's disconnected when the widget is destroyed
+		# qavmSettings.settingChanged.disconnect(self._updateSearchPathsEvaluatedWidget)
+		self.searchPathsWidget.destroyed.connect(partial(qavmSettings.settingChanged.disconnect, self._updateSearchPathsEvaluatedWidget))
 
 		layout.addWidget(self.searchPathsWidget)
 
@@ -147,18 +163,19 @@ class SoftwareBaseSettings(BaseSettings):
 		addButton.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 		addButton.clicked.connect(self._selectAndAddSearchPath)
 		layout.addWidget(addButton)
+		
+		layout.addWidget(QLabel('Search paths evaluated:', widget))
+		self.searchPathsEvaluated = QTextEdit(widget)
+		self.searchPathsEvaluated.setReadOnly(True)
+		self.searchPathsEvaluated.setMinimumHeight(64)
+		self.searchPathsEvaluated.setFixedHeight(64)
+		self.searchPathsEvaluated.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+		self.searchPathsEvaluated.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+		layout.addWidget(self.searchPathsEvaluated)
+		
+		self._updateSearchPathsEvaluatedWidget()
 
 		return [('Common', widget)]
-	
-	def eventFilter(self, obj, event):
-		if obj is self.searchPathsWidget and event.type() == QKeyEvent.Type.KeyPress:
-			if event.key() == Qt.Key.Key_Delete:
-				selected_items = self.searchPathsWidget.selectedItems()
-				for item in selected_items:
-					self.searchPathsWidget.takeItem(self.searchPathsWidget.row(item))
-				self._updateSearchPathsSetting()
-				return True
-		return super().eventFilter(obj, event)
 	
 	def _selectAndAddSearchPath(self):
 		""" Opens a file dialog to select a directory and adds it to the search paths. """
@@ -180,6 +197,16 @@ class SoftwareBaseSettings(BaseSettings):
 	def _updateSearchPathsSetting(self):
 		""" Updates the search paths setting based on the current items in the QListWidget. """
 		self.SetSetting('search_paths', [self.searchPathsWidget.item(i).text() for i in range(self.searchPathsWidget.count())])
+		self._updateSearchPathsEvaluatedWidget()
+
+	def _updateSearchPathsEvaluatedWidget(self):
+		evaluatedPaths: list[str] = [str(p) for p in self.GetEvaluatedSearchPaths()]
+		self.searchPathsEvaluated.setPlainText('\n'.join(evaluatedPaths))
+
+	def GetEvaluatedSearchPaths(self) -> list[Path]:
+		""" Returns the evaluated search paths, which are a combination of global and software-specific search paths. """
+		searchPathsGlobal = QApplication.instance().GetSettingsManager().GetQAVMSettings().GetGlobalSearchPaths()
+		return [Path(p).resolve().absolute() for p in set(searchPathsGlobal + self.GetSetting('search_paths'))]
 
 
 ##############################################################################
