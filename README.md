@@ -6,14 +6,14 @@ This is a rethought version of the [C4D Version Manager](https://github.com/wi1k
 
 ## Improvements & bugs
 
-* Add theme selection: light/dark + color
+* ~~Add theme selection: light/dark + color~~
 	* for light/dark the switch should be between yoda and darth vader ;)
 
 * Add shortcut/contextMenuEntry to show the running application
 
 * PluginUID and SoftwareID are used all over the place separately or concatenated, and this creates kind of a mess. Should be a centralized place of hanlding such IDs
 
-* (Bug) Somehow avoid the deadlock, when switching to another software is saved in preferences, but the plugin crashes
+* ~~(Bug) Somehow avoid the deadlock, when switching to another software is saved in preferences, but the plugin crashes~~
 
 * Improve performance of creating tiles
 	* More caching
@@ -23,15 +23,16 @@ This is a rethought version of the [C4D Version Manager](https://github.com/wi1k
 
 * (Bug) Add timer, which scans processes and detects if they were stopped from outside of the QAVM app
 
-* Add currently selected software to the window title
+* ~~Add currently selected software to the window title~~
 
-* Per-software QAVM-preferences
+* ~~Per-software QAVM-preferences~~
 
 * Start/Stop/IsRunning processes API should include checking the already running processes, being able to "attach" to them (i.e. control them even if not executed from QAVM)
 
 * Add API for having "context", which ties together different software aspects (i.e. having access e.g.. to Settings from within the Tile/TableBuilder or ContextMenu)
 
-* Keep in mind that the app can technically list everything, hence the executables can be more than one
+* (?) Keep in mind that the app can technically list everything, hence the executables can be more than one
+	* this is likely important for extra plugins, like e.g. extra-arguments
 
 * Add API versioning (such that the plugins can declare the minimal supported API and report it instead of crashing)
 
@@ -45,13 +46,13 @@ This is a rethought version of the [C4D Version Manager](https://github.com/wi1k
 
 * Save table widget sorting settings for next run
 
-* Hide/Show table widget columns
+* ~~Hide/Show table widget columns~~
 	* and save this setting for next runs
 
 * Support multiselection on table widget (e.g. for the context menu)
 
-* Improve preferences API (for easier usage by plugins)
-	* (Bug) and make it actually work ;)
+* ~~Improve preferences API (for easier usage by plugins)~~
+	* ~~(Bug) and make it actually work ;)~~
 
 * Reorder plugins in the "Switch" list
 	* have "favorites" system
@@ -68,7 +69,7 @@ This is a rethought version of the [C4D Version Manager](https://github.com/wi1k
 
 * Multiple software at the same time (including placing them on the same layout)
 
-* The API for the plugin to add their own tabs
+* ~~The API for the plugin to add their own tabs~~
 
 * Free Move tab
 
