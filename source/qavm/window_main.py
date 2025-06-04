@@ -208,6 +208,18 @@ class MainWindow(QMainWindow):
 
 		helpMenu = menuBar.addMenu("&Help")
 		helpMenu.addAction(self.actionAbout)
+
+		##################################################################
+		########################## Right Corner ##########################
+		##################################################################
+		rightCornerMenu = QMenuBar(menuBar)
+		for pluginID, softwareID, softwareHandler in self.pluginManager.GetSoftwareHandlers():
+			swUID: str = f'{pluginID}#{softwareID}'
+			title: str = softwareHandler.GetName()
+			action = QAction(title, self, triggered=partial(self._switchToPluginSelection, swUID))
+			rightCornerMenu.addAction(action)
+
+		menuBar.setCornerWidget(rightCornerMenu)
 	
 	def _setupStatusBar(self):
 		self.statusBar = QStatusBar()
