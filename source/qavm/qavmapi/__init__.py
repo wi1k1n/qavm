@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 	QWidget, QLabel, QTableWidgetItem, QMenu, QStyledItemDelegate, QVBoxLayout, QListWidget, QSizePolicy,
 	QListWidgetItem, QPushButton, QFileDialog, 
 )
-from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtGui import QKeyEvent, QAction
 
 from qavm.qavmapi import utils
 from qavm.qavmapi.gui import GetThemeData
@@ -355,6 +355,6 @@ class BaseCustomView(QWidget):
 	pass
 
 class BaseMenuItems(QObject):
-	def GetMenus(self) -> list[QMenu]:
+	def GetMenus(self, parent=None) -> list[QMenu | QAction]:
 		""" Returns a list of QMenu objects to be added to the main menu. """
 		return []

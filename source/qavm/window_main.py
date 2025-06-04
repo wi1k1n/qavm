@@ -177,7 +177,7 @@ class MainWindow(QMainWindow):
 		
 		viewMenu = menuBar.addMenu("&View")
 		
-		switchMenu = menuBar.addMenu("&Switch")
+		switchMenu = menuBar.addMenu("&Software")
 		def populate_switch_menu():
 			switchMenu.clear()
 			swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()  # [pluginID, softwareID, SoftwareHandler]
@@ -188,17 +188,23 @@ class MainWindow(QMainWindow):
 				action = QAction(title, self)
 				action.triggered.connect(partial(self._switchToPluginSelection, swUID))
 				switchMenu.addAction(action)
-		switchMenu.aboutToShow.connect(populate_switch_menu)
+		switchMenu.aboutToShow.connect(populate_switch_menu)  # TODO: does this need dynamic update?
 
 		# TODO: handle case when softwareHandler is None
 		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
 		menuItems: BaseMenuItems = softwareHandler.GetMenuItems()
 		self.pluginMenuItems = menuItems.GetMenus()
 		for menuItemsMenu in self.pluginMenuItems:
-			if menuItemsMenu is None or not isinstance(menuItemsMenu, QMenu):
-				logger.warning(f"Menu item {menuItemsMenu} is not a valid QMenu, skipping.")
+			if menuItemsMenu is None:
 				continue
-			menuBar.addMenu(menuItemsMenu)
+			if isinstance(menuItemsMenu, QMenu):
+				menuBar.addMenu(menuItemsMenu)
+				continue
+			elif isinstance(menuItemsMenu, QAction):
+				menuBar.addAction(menuItemsMenu)
+				continue
+
+			logger.warning(f"Menu item {menuItemsMenu} is not a valid QMenu or QAction. Skipping.")
 
 		helpMenu = menuBar.addMenu("&Help")
 		helpMenu.addAction(self.actionAbout)

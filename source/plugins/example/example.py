@@ -266,23 +266,19 @@ class ExampleContextMenu(BaseContextMenu):
 		desc.updated.emit()
 
 class ExampleMenuItems(BaseMenuItems):
-	def GetMenus(self) -> list[QMenu]:
+	def GetMenus(self, parent=None) -> list[QMenu | QAction]:
 		# This method can be used to create custom menus that can be added to the main QAVM window.
 		# For example, you can create a menu with some actions related to the plugin.
-		menu = QMenu('Example Plugin')
-		menu.addAction('Example Action 1', self._exampleAction1)
-		menu.addAction('Example Action 2', self._exampleAction2)
+		menu = QMenu('Example Plugin', parent)
+		menu.addAction('Example Action 1', partial(self._exampleAction, 1))
+		menu.addAction('Example Action 2', partial(self._exampleAction, 2))
 
-		menu2 = QMenu('Another Example Menu')
-		menu2.addAction('Example Action 3', self._exampleAction1)
+		action = QAction('Example Action 3', parent, triggered=partial(self._exampleAction, 3))
 		
-		return [menu, menu2]
+		return [menu, action]
 	
-	def _exampleAction1(self):
-		QMessageBox.information(None, 'Example Action 1', 'This is an example action 1 from the Example Plugin.')
-
-	def _exampleAction2(self):
-		QMessageBox.information(None, 'Example Action 2', 'This is an example action 2 from the Example Plugin.')
+	def _exampleAction(self, id):
+		QMessageBox.information(None, f'Example Action {id}', f'This is an example action {id} from the Example Plugin.')
 
 class ExampleCustomView(BaseCustomView):
 	def __init__(self, parent: QWidget | None = None):
