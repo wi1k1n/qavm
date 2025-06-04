@@ -3,10 +3,10 @@ from PyQt6.QtWidgets import (
 	QWidget, QVBoxLayout, QLabel, QListWidgetItem, QListWidget, QHBoxLayout, QStackedWidget
 )
 
-from qavm.manager_plugin import PluginManager, SettingsHandler
+from qavm.manager_plugin import PluginManager
 from qavm.manager_settings import SettingsManager
 
-from qavm.qavmapi import BaseSettings
+from qavm.qavmapi import BaseSettings, SoftwareBaseSettings
 
 import qavm.logs as logs
 logger = logs.logger
@@ -17,7 +17,7 @@ class PreferencesWindowExample(QWidget):
 		self.app = app
 
 		self.setWindowTitle("QAVM - Settings")
-		self.resize(600, 600)
+		self.resize(800, 600)
 		self.setMinimumHeight(300)
 		self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
 
@@ -27,14 +27,16 @@ class PreferencesWindowExample(QWidget):
 
 		self.menuWidget = QListWidget()
 		self.menuWidget.itemSelectionChanged.connect(self._onMenuSelectionChanged)
-		self.AddSettingsEntry("General", self.settingsManager.GetQAVMSettings())
+
+		for (name, widget) in self.settingsManager.GetQAVMSettings().CreateWidgets(self.contentWidget):
+			self.AddSettingsEntry(name, widget)
 		
-		swSettings: BaseSettings = self.settingsManager.GetSoftwareSettings()
-		if type(swSettings) is not BaseSettings:
-			self.AddSettingsEntry(swSettings.GetName(), swSettings)
+		swSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
+		for (name, widget) in swSettings.CreateWidgets(self.contentWidget):
+			self.AddSettingsEntry(name, widget)
 		
-		for mSettings in self.settingsManager.GetModuleSettings().values():
-			self.AddSettingsEntry(mSettings.GetName(), mSettings)
+		# for mSettings in self.settingsManager.GetModuleSettings().values():
+		# 	self.AddSettingsEntry(mSettings.GetName(), mSettings)
 
 		self.menuWidget.setMinimumWidth(self.menuWidget.minimumSizeHint().width() + 20)
 		self.menuWidget.setMaximumWidth(200)
@@ -44,17 +46,22 @@ class PreferencesWindowExample(QWidget):
 		mainLayout.addWidget(self.contentWidget, 3)
 		self.setLayout(mainLayout)
 	
-	def AddSettingsEntry(self, title: str, settings: BaseSettings):
+	def AddSettingsEntry(self, title: str, widget: QWidget):
 		def createMenuItem(text: str) -> QListWidgetItem:
 			item: QListWidgetItem = QListWidgetItem(text)
 			item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-			item.setData(Qt.ItemDataRole.UserRole, settings)
+			# item.setData(Qt.ItemDataRole.UserRole, settings)
 			return item
-		if w := settings.CreateWidget(self):
-			self.menuWidget.addItem(createMenuItem(title))
-			self.contentWidget.addWidget(w)
+		
+		self.menuWidget.addItem(createMenuItem(title))
+		self.contentWidget.addWidget(widget)
 	
 	def _onMenuSelectionChanged(self):
 		# selectedItem: QListWidgetItem = self.menuWidget.currentItem()
 		# logger.info(f'Selected menu item: {selectedItem.text()}')
 		self.contentWidget.setCurrentIndex(self.menuWidget.currentRow())
+
+	def closeEvent(self, event):
+		# TODO: check if dirty settings and ask for confirmation
+		self.settingsManager.SaveQAVMSettings()
+		self.settingsManager.SaveSoftwareSettings()

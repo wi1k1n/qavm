@@ -1,28 +1,186 @@
 from pathlib import Path
+from typing import Any
+import json
 
 from PyQt6.QtCore import pyqtSignal, QObject, Qt
-from PyQt6.QtWidgets import QWidget, QLabel, QTableWidgetItem, QMenu, QStyledItemDelegate
+from PyQt6.QtWidgets import (
+	QWidget, QLabel, QTableWidgetItem, QMenu, QStyledItemDelegate, QVBoxLayout, QListWidget, QSizePolicy,
+	QListWidgetItem, QPushButton, QFileDialog, 
+)
+from PyQt6.QtGui import QKeyEvent, QAction
 
 from qavm.qavmapi import utils
 from qavm.qavmapi.gui import GetThemeData
+
+# import qavm.logs as logs
+# logger = logs.logger
 
 ##############################################################################
 #############################  ##############################
 ##############################################################################
 
+class BaseSettingsContainer(object):
+	def __init__(self, settingsEntries: dict[str, Any] = dict()):
+		self.settingsEntries: dict[str, Any] = settingsEntries
+
+	def DumpToString(self) -> str:
+		return json.dumps(self.settingsEntries)
+
+	def InitializeFromString(self, dataStr: str) -> bool:
+		try:
+			data: dict = json.loads(dataStr)
+			for key in self.settingsEntries.keys():
+				if key not in data:
+					return False
+				self.settingsEntries[key] = data[key]
+			return True
+		except Exception as e:
+			print(f'ERROR: Failed to parse settings data: {e}')  # TODO: use logger instead
+			return False
+		
+	def Contains(self, key: str) -> bool:
+		return key in self.settingsEntries
+		
+	def Get(self, key: str) -> Any:
+		if key in self.settingsEntries:
+			return self.settingsEntries[key]
+		
+		print(f'ERROR: Settings entry "{key}" not found in settingsEntries.')
+
+	def Set(self, key: str, value: Any):
+		if key in self.settingsEntries:
+			self.settingsEntries[key] = value
+			return
+		
+		print(f'ERROR: Settings entry "{key}" not found in settingsEntries. Adding it.')
+		self.settingsEntries[key] = value
+		
+class BaseSettingsEntry(object):
+	def __init__(self, defaultValue: Any, title: str, toolTip: str = '', isTileUpdateRequired: bool = False, isTableUpdateRequired: bool = False):
+		self.defaultValue: Any = defaultValue
+		self.title: str = title
+		self.toolTip: str = toolTip
+		self.isTileUpdateRequired: bool = isTileUpdateRequired
+		self.isTableUpdateRequired: bool = isTableUpdateRequired
+
+		self.value: Any = None
+		self.isDirty: bool = False  # is set to True when the value is changed, but not saved yet
+
 class BaseSettings(QObject):
+	CONTAINER_QAVM_DEFAULTS: dict[str, Any] = dict()  # contains common per-software settings (e.g. search paths, etc.)
+	CONTAINER_DEFAULTS: dict[str, Any] = dict()  # should be overridden by subclasses
+
+	# SETTINGS_ENTRIES: dict[str, BaseSettingsEntry] = dict()
+	
 	tilesUpdateRequired = pyqtSignal()  # is emitted when settings are changing something that requires tiles to be updated
 	tablesUpdateRequired = pyqtSignal()  # same as tilesUpdateRequired, but for tables
 
-	def Load(self):
-		pass
-	def Save(self):
-		pass
-	def CreateWidget(self, parent):
-		pass
+	def __init__(self, prefName: str):
+		super().__init__()
 
-	def GetName(self) -> str:  # TODO: should use the one from connected software handler?
-		return 'BaseSettings'
+		self.container = self.InitializeContainer()
+		self.prefFilePath: Path = utils.GetPrefsFolderPath() / f'{prefName}.json'
+
+	def InitializeContainer(self) -> BaseSettingsContainer:
+		""" Initializes the settings container with default values. """
+		return BaseSettingsContainer({**self.CONTAINER_QAVM_DEFAULTS, **self.CONTAINER_DEFAULTS})
+
+	def Load(self):
+		if not self.prefFilePath.exists():
+			print(f"Preferences file doesn't exist. Creating: {self.prefFilePath}")  # TODO: use logger instead
+			self.Save()
+		
+		with open(self.prefFilePath, 'r') as f:
+			if self.container is None:
+				self.container = self.InitializeContainer()
+			self.container.InitializeFromString(f.read())
+
+	def Save(self):
+		# self._syncContainerFromSettingsEntries(onlyDirty=False)
+		if not self.prefFilePath.parent.exists():
+			print(f"Preferences folder doesn't exist. Creating: {self.prefFilePath.parent}")  # TODO: use logger instead
+			self.prefFilePath.parent.mkdir(parents=True, exist_ok=True)
+		with open(self.prefFilePath, 'w') as f:
+			f.write(self.container.DumpToString())
+
+	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
+		""" Creates settings widgets (one per settings category). Returns a list of tuples, where each tuple contains the category name and the widget. """
+		return [('BaseSettings', QWidget(parent))]  # BaseSettings does not provide a widget by default, subclasses should override this method
+	
+	def GetSetting(self, key: str) -> Any:
+		if self.container.Contains(key):
+			return self.container.Get(key)
+		print(f'ERROR: Settings entry "{key}" not found in settingsEntries.')  # TODO: use logger instead
+
+	def SetSetting(self, key: str, value: Any):
+		if self.container.Contains(key):
+			self.container.Set(key, value)
+			return
+		print(f'ERROR: Unknown settings entry "{key}". Cannot set value.')  # TODO: use logger instead
+
+class SoftwareBaseSettings(BaseSettings):
+	""" Base class for software settings. Contains basic implementation for settings that are common for all software. """
+	CONTAINER_QAVM_DEFAULTS: dict[str, Any] = {
+		'search_paths': [],  # list of paths to search for software
+	}
+	
+	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
+		# Create a widget with QVBoxLayout and a QListWidget for search paths
+		widget = QWidget(parent)
+		layout = QVBoxLayout(widget)
+		layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+		layout.addWidget(QLabel('Search paths:', widget))
+
+		self.searchPathsWidget = QListWidget(widget)
+		self.searchPathsWidget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+		self.searchPathsWidget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+		self.searchPathsWidget.setEditTriggers(QListWidget.EditTrigger.DoubleClicked)
+		for path in self.GetSetting('search_paths'):
+			self._addSearchPathToList(path)
+
+		self.searchPathsWidget.installEventFilter(self)
+		self.searchPathsWidget.itemChanged.connect(lambda x: self._updateSearchPathsSetting())
+
+		layout.addWidget(self.searchPathsWidget)
+
+		addButton = QPushButton('Add Search Path', widget)
+		addButton.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+		addButton.clicked.connect(self._selectAndAddSearchPath)
+		layout.addWidget(addButton)
+
+		return [('Common', widget)]
+	
+	def eventFilter(self, obj, event):
+		if obj is self.searchPathsWidget and event.type() == QKeyEvent.Type.KeyPress:
+			if event.key() == Qt.Key.Key_Delete:
+				selected_items = self.searchPathsWidget.selectedItems()
+				for item in selected_items:
+					self.searchPathsWidget.takeItem(self.searchPathsWidget.row(item))
+				self._updateSearchPathsSetting()
+				return True
+		return super().eventFilter(obj, event)
+	
+	def _selectAndAddSearchPath(self):
+		""" Opens a file dialog to select a directory and adds it to the search paths. """
+		dirPath = QFileDialog.getExistingDirectory(self.searchPathsWidget, 'Select Search Path')
+		if dirPath:
+			self._addSearchPathToList(dirPath)
+			self._updateSearchPathsSetting()
+
+	def _addSearchPathToList(self, path: str):
+		""" Adds a new search path to the QListWidget if it doesn't already exist. """
+		if not path:
+			return
+		path = str(Path(path).resolve())
+		if not any(self.searchPathsWidget.item(i).text() == path for i in range(self.searchPathsWidget.count())):
+			item = QListWidgetItem(path)
+			item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
+			self.searchPathsWidget.addItem(item)
+
+	def _updateSearchPathsSetting(self):
+		""" Updates the search paths setting based on the current items in the QListWidget. """
+		self.SetSetting('search_paths', [self.searchPathsWidget.item(i).text() for i in range(self.searchPathsWidget.count())])
+
 
 ##############################################################################
 ########################### QAVM Plugin: Software ############################
@@ -114,8 +272,8 @@ class QualifierIdentificationConfig(object):
 				pass
 		return fileContents
 
-# TODO: rename this and others to BaseSoftwareQualifier?
 class BaseQualifier(object):
+	""" Base class for software qualifiers. Qualifier is used to identify the software (e.g. based on the directory contents) """
 	def __init__(self):
 		pass
 
@@ -132,14 +290,15 @@ class BaseQualifier(object):
 		return True
 
 class BaseDescriptor(QObject):
+	""" Base class for software descriptors. Descriptor is used to represent the software among other plugin parts, such as TileBuilder, TableBuilder, ContextMenu, etc. """
 	updated = pyqtSignal()
 
-	def __init__(self, dirPath: Path, settings: BaseSettings, fileContents: dict[str, str | bytes]):
+	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
 		super().__init__()
 		self.UID: str = utils.GetHashString(str(dirPath))
 		self.dirPath: Path = dirPath
 		self.dirType: str = self._retrieveDirType()  # '' - normal dir, 's' - symlink, 'j' - junction
-		self.settings: BaseSettings = settings
+		self.settings: SoftwareBaseSettings = settings
 	
 	def GetExecutablePath(self) -> Path:
 		return Path()
@@ -162,15 +321,15 @@ class BaseDescriptor(QObject):
 		return dirType
 
 class BaseContextMenu(QObject):
-	def __init__(self, settings: BaseSettings):
-		self.settings: BaseSettings = settings
+	def __init__(self, settings: SoftwareBaseSettings):
+		self.settings: SoftwareBaseSettings = settings
 	
 	def CreateMenu(self, desc: BaseDescriptor) -> QMenu:
 		return QMenu()
 
 class BaseBuilder(QObject):
-	def __init__(self, settings: BaseSettings, contextMenu: BaseContextMenu):
-		self.settings: BaseSettings = settings
+	def __init__(self, settings: SoftwareBaseSettings, contextMenu: BaseContextMenu):
+		self.settings: SoftwareBaseSettings = settings
 		self.contextMenu: BaseContextMenu = contextMenu
 		self.themeData: dict[str, str | None] | None = GetThemeData()
 
@@ -194,3 +353,8 @@ class BaseTableBuilder(BaseBuilder):
 
 class BaseCustomView(QWidget):
 	pass
+
+class BaseMenuItems(QObject):
+	def GetMenus(self, parent=None) -> list[QMenu | QAction]:
+		""" Returns a list of QMenu objects to be added to the main menu. """
+		return []

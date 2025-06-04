@@ -10,6 +10,8 @@ from qavm.qavmapp import QAVMApp
 import qavm.qavmapi.utils as utils
 from qavm.qavmapi.gui import GetThemeName, SetTheme
 
+from PyQt6.QtWidgets import QMessageBox
+
 def WindowsSetupCustomIcon():
 	# Tweak Windows app group for the custom icon to be used instead of Python one
 	try:
@@ -52,11 +54,20 @@ def main():
 
 	try:
 		app: QAVMApp = QAVMApp(sys.argv, args)
-		SetTheme(GetThemeName())
-		# sys.exit(app.exec())
 		app.exec()
-	except Exception as e:
-		logger.exception("QAVM application crashed")
+	except:
+		errorStr = "QAVM application crashed! Removed saved software UID to avoid issues on next run."
+		logger.exception(errorStr)
+
+		# Reset the selected software UID to None to avoid issues with the plugin selection window
+		args.selectedSoftwareUID = None
+		app = QAVMApp(sys.argv, args)
+		qavmSettings = app.GetSettingsManager().GetQAVMSettings()
+		qavmSettings.SetSelectedSoftwareUID('')
+		qavmSettings.Save()
+		app.closeAllWindows()
+		
+		QMessageBox.critical(None, "QAVM Error", errorStr, QMessageBox.StandardButton.Ok)
 		
 	# profiler.disable()
 	# profiler.dump_stats("app_profile.prof")

@@ -10,11 +10,11 @@ from PyQt6.QtWidgets import (
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
-from qavm.manager_settings import SettingsManager, QAVMSettings
+from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu,
-	BaseCustomView, 
+	BaseCustomView, SoftwareBaseSettings, BaseMenuItems, 
 )
 from qavm.utils_gui import FlowLayout
 from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion
@@ -125,8 +125,8 @@ class MainWindow(QMainWindow):
 		self.dialogsManager = self.app.GetDialogsManager()
 		self.pluginManager: PluginManager = self.app.GetPluginManager()
 		self.settingsManager: SettingsManager = self.app.GetSettingsManager()
-		self.qavmSettings: QAVMSettings = self.settingsManager.GetQAVMSettings()
-		self.softwareSettings: BaseSettings = self.settingsManager.GetSoftwareSettings()
+		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
+		self.softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
 		self.softwareSettings.tilesUpdateRequired.connect(self.UpdateTilesWidget)
 		self.softwareSettings.tablesUpdateRequired.connect(self.UpdateTableWidget)
 
@@ -143,9 +143,6 @@ class MainWindow(QMainWindow):
 		self._setupCentralWidget()
 
 	def _setupActions(self):
-		# self.actionSave = QAction("&Save tags and tiles", self)
-		# self.actionSave.setShortcut(QKeySequence.StandardKey.Save)
-
 		self.actionPrefs = QAction(QIcon(":preferences.svg"), "&Preferences", self)
 		self.actionPrefs.setShortcut("Ctrl+E")
 		self.actionPrefs.triggered.connect(self._showPreferences)
@@ -162,53 +159,13 @@ class MainWindow(QMainWindow):
 		self.actionRescan.triggered.connect(self._rescanSoftware)
 
 		self.actionAbout = QAction("&About", self)
-		# self.actionShortcuts = QAction("&Shortcuts", self)
-		# self.actionShortcuts.setShortcut("F1")
-		# self.actionReportBug = QAction("&Report a bug", self)
-		# self.actionReportBug.setShortcut("Ctrl+Shift+B")
-		# self.actionCheckUpdates = QAction("&Check for updates", self)
-		
-		# self.actionRefresh = QAction("&Refresh", self)
-		# self.actionRefresh.setShortcut(QKeySequence.StandardKey.Refresh)
-		# self.actionRescan = QAction("Re&scan", self)
-		# self.actionRescan.setShortcut("Ctrl+F5")
-
-		# self.actionTags = QAction("&Tags", self)
-		# self.actionTags.setShortcut("Ctrl+T")
-
-		# self.actionFiltersort = QAction("Filte&r/Sort", self)
-		# self.actionFiltersort.setShortcut("Ctrl+F")
-
-		# self.actionFoldAll = QAction("Toggle &fold all", self)
-		# self.actionFoldAll.setShortcut("Ctrl+A")
-
-		# self._createGroupActions()
-		
-		# self.actionSave.triggered.connect(self._storeData)
-		# self.actionPrefs.triggered.connect(self.openPreferences)
-		# self.actionExit.triggered.connect(sys.exit)
 		self.actionAbout.triggered.connect(self._showAboutDialog)
-		# self.actionCheckUpdates.triggered.connect(CheckForUpdates)
-		# self.actionShortcuts.triggered.connect(self.help)
-		# self.actionReportBug.triggered.connect(lambda: self._showActivateDialog('trackbugs'))
-		# self.actionRefresh.triggered.connect(lambda: self.updateTilesWidget())
-		# self.actionRescan.triggered.connect(self.rescan)
-		# self.actionTags.triggered.connect(self.toggleOpenTagsWindow)
-		# self.actionFiltersort.triggered.connect(self.toggleOpenFilterSortWindow)
-		# self.actionFoldAll.triggered.connect(self._toggleFoldAllC4DGroups)
-		
-		# # Adding help tips
-		# newTip = "Create a new file"
-		# self.newAction.setStatusTip(newTip)
-		# self.newAction.setToolTip(newTip)
 
 	def _setupMenuBar(self):
 		menuBar: QMenuBar = self.menuBar()
 		menuBar.setNativeMenuBar(True)
 		
 		fileMenu = menuBar.addMenu('&File')
-		# fileMenu.addAction(self.actionSave)
-		# fileMenu.addSeparator()
 		fileMenu.addAction(self.actionRescan)
 		fileMenu.addSeparator()
 		fileMenu.addAction(self.actionPluginSelection)
@@ -216,21 +173,11 @@ class MainWindow(QMainWindow):
 		fileMenu.addAction(self.actionExit)
 		
 		editMenu = menuBar.addMenu("&Edit")
-		# editMenu.addAction(self.actionRefresh)
-		# editMenu.addAction(self.actionRescan)
-		# editMenu.addSeparator()
-		# editMenu.addAction(self.actionTags)
-		# editMenu.addAction(self.actionFiltersort)
-		# fileMenu.addSeparator()
 		editMenu.addAction(self.actionPrefs)
 		
 		viewMenu = menuBar.addMenu("&View")
-		# viewMenu.addAction(self.actionFoldAll)
-		# viewMenu.addSeparator()
-		# # for k, action in self.actionsGrouping.items():
-		# # 	viewMenu.addAction(action)
 		
-		switchMenu = menuBar.addMenu("&Switch")
+		switchMenu = menuBar.addMenu("&Software")
 		def populate_switch_menu():
 			switchMenu.clear()
 			swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()  # [pluginID, softwareID, SoftwareHandler]
@@ -241,13 +188,38 @@ class MainWindow(QMainWindow):
 				action = QAction(title, self)
 				action.triggered.connect(partial(self._switchToPluginSelection, swUID))
 				switchMenu.addAction(action)
-		switchMenu.aboutToShow.connect(populate_switch_menu)
+		switchMenu.aboutToShow.connect(populate_switch_menu)  # TODO: does this need dynamic update?
+
+		# TODO: handle case when softwareHandler is None
+		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
+		menuItems: BaseMenuItems = softwareHandler.GetMenuItems()
+		self.pluginMenuItems = menuItems.GetMenus()
+		for menuItemsMenu in self.pluginMenuItems:
+			if menuItemsMenu is None:
+				continue
+			if isinstance(menuItemsMenu, QMenu):
+				menuBar.addMenu(menuItemsMenu)
+				continue
+			elif isinstance(menuItemsMenu, QAction):
+				menuBar.addAction(menuItemsMenu)
+				continue
+
+			logger.warning(f"Menu item {menuItemsMenu} is not a valid QMenu or QAction. Skipping.")
 
 		helpMenu = menuBar.addMenu("&Help")
 		helpMenu.addAction(self.actionAbout)
-		# helpMenu.addAction(self.actionReportBug)
-		# helpMenu.addAction(self.actionCheckUpdates)
-		# helpMenu.addAction(self.actionAbout)
+
+		##################################################################
+		########################## Right Corner ##########################
+		##################################################################
+		rightCornerMenu = QMenuBar(menuBar)
+		for pluginID, softwareID, softwareHandler in self.pluginManager.GetSoftwareHandlers():
+			swUID: str = f'{pluginID}#{softwareID}'
+			title: str = softwareHandler.GetName()
+			action = QAction(title, self, triggered=partial(self._switchToPluginSelection, swUID))
+			rightCornerMenu.addAction(action)
+
+		menuBar.setCornerWidget(rightCornerMenu)
 	
 	def _setupStatusBar(self):
 		self.statusBar = QStatusBar()
@@ -278,12 +250,12 @@ class MainWindow(QMainWindow):
 		self.setCentralWidget(self.tabsWidget)
 
 		self.tabsWidget.currentChanged.connect(self._onTabChanged)
-		lastOpenedTab: int = self.qavmSettings.GetLastOpenedTab()
+		lastOpenedTab: int = self.qavmSettings.GetSetting('last_opened_tab')
 		if lastOpenedTab >= 0 and lastOpenedTab < self.tabsWidget.count():
 			self.tabsWidget.setCurrentIndex(lastOpenedTab)
 
 	def _onTabChanged(self, index: int):
-		self.qavmSettings.SetLastOpenedTab(index)
+		self.qavmSettings.SetSetting('last_opened_tab', index)
 		self.qavmSettings.Save()  # TODO: should save now or later once per all changes?
 	
 	# def _createFreeMoveWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):

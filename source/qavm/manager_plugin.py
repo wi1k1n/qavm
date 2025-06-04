@@ -3,18 +3,19 @@ from pathlib import Path
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu,
-	BaseCustomView, 
+	BaseCustomView, SoftwareBaseSettings, BaseMenuItems, 
 )
 import qavm.qavmapi.utils as utils
 
 import qavm.logs as logs
 logger = logs.logger
 
-class QAVMModule:
+class QAVMHandler:
+	""" Base class for QAVM handlers, e.g. is used as base for software handler, settings handler, etc. """
 	def __init__(self, plugin, regData):
 		self.id = regData.get('id', None)
 
-class QAVMModuleNamed(QAVMModule):
+class QAVMHandlerNamed(QAVMHandler):
 	def __init__(self, plugin, regData) -> None:
 		super().__init__(plugin, regData)
 		self.name = regData.get('name', self.id)
@@ -22,7 +23,7 @@ class QAVMModuleNamed(QAVMModule):
 	def GetName(self) -> str:
 		return self.name
 
-class SoftwareHandler(QAVMModuleNamed):
+class SoftwareHandler(QAVMHandlerNamed):
 	def __init__(self, plugin, regData) -> None:
 		super().__init__(plugin, regData)
 		
@@ -31,22 +32,34 @@ class SoftwareHandler(QAVMModuleNamed):
 		
 		# TODO: lots of repeated code here, refactor
 
+		##################################################################
+		############################ Settings ############################
+		##################################################################
 		self.settingsClass = regData.get('settings', None)  # optional
 		if not self.settingsClass:
-			self.settingsClass = BaseSettings
-		if not issubclass(self.settingsClass, BaseSettings):
+			self.settingsClass = SoftwareBaseSettings
+		if not issubclass(self.settingsClass, SoftwareBaseSettings):
 			raise Exception(f'Invalid settings for software: {self.id}')
-		self.settingsInstance = self.settingsClass()
+		self.settingsInstance = self.settingsClass(self.id)
 
+		##################################################################
+		############################ Qualifier ###########################
+		##################################################################
 		self.qualifierClass = regData.get('qualifier', None)
 		if not self.qualifierClass or not issubclass(self.qualifierClass, BaseQualifier):  # required
 			raise Exception(f'Missing or invalid qualifier for software: {self.id}')
 		self.qualifierInstance = self.qualifierClass()
 
+		##################################################################
+		########################### Descriptor ###########################
+		##################################################################
 		self.descriptorClass = regData.get('descriptor', None)
 		if not self.descriptorClass or not issubclass(self.descriptorClass, BaseDescriptor):  # required
 			raise Exception(f'Missing or invalid descriptor for software: {self.id}')
 		
+		##################################################################
+		########################### TileBuilder ##########################
+		##################################################################
 		self.tileBuilderClass: BaseTileBuilder = BaseTileBuilder
 		self.tileContextMenuClass: BaseContextMenu = BaseContextMenu
 		tileViewData: dict = regData.get('tile_view', {})
@@ -65,7 +78,10 @@ class SoftwareHandler(QAVMModuleNamed):
 			if not issubclass(self.tileContextMenuClass, BaseContextMenu):
 				raise Exception(f'Invalid context menu for software: {self.id}')
 		
-		self.tableBuilderClass: BaseTableBuilder = BaseTableBuilder
+		##################################################################
+		########################## TableBuilder ##########################
+		##################################################################
+		self.tableBuilderClass: BaseTableBuilder.__class__ = BaseTableBuilder
 		self.tableContextMenuClass: BaseContextMenu = BaseContextMenu
 		tableViewData: dict = regData.get('table_view', {})
 		if tableViewData:
@@ -83,6 +99,9 @@ class SoftwareHandler(QAVMModuleNamed):
 			if not issubclass(self.tableContextMenuClass, BaseContextMenu):
 				raise Exception(f'Invalid context menu for software: {self.id}')
 			
+		##################################################################
+		########################### CustomViews ##########################
+		##################################################################
 		self.customViews: list[tuple[BaseCustomView.__class__, str]] = []
 		customViewsData: list[dict] = regData.get('custom_views', [])
 		if customViewsData:
@@ -96,37 +115,61 @@ class SoftwareHandler(QAVMModuleNamed):
 					raise Exception(f'Invalid custom view class for software: {self.id}')
 				self.customViews.append((customViewClass, customViewName))
 
+		##################################################################
+		############################ MenuItems ###########################
+		##################################################################
+		self.menuItemsClass: BaseMenuItems.__class__ = regData.get('menuitems', None)
+		if self.menuItemsClass is None or not issubclass(self.menuItemsClass, BaseMenuItems):
+			if self.menuItemsClass is not None:
+				logger.warning(f'Invalid menuitems entry for software: {self.id}')
+			self.menuItemsClass = BaseMenuItems
+		self.menuItemsInstance: BaseMenuItems = self.menuItemsClass()
 	
 	def GetDescriptorClass(self) -> BaseDescriptor.__class__:
 		return self.descriptorClass
+	
 	def GetTileBuilderClass(self) -> BaseTileBuilder.__class__:
 		return self.tileBuilderClass
+	
 	def GetTileBuilderContextMenuClass(self) -> BaseContextMenu.__class__:
 		return self.tileContextMenuClass
+	
 	def GetTableBuilderClass(self) -> BaseTableBuilder.__class__:
 		return self.tableBuilderClass
+	
 	def GetTableBuilderContextMenuClass(self) -> BaseContextMenu.__class__:
 		return self.tableContextMenuClass
+	
 	def GetQualifier(self) -> BaseQualifier:
 		return self.qualifierInstance
-	def GetSettings(self) -> BaseSettings:
+	
+	def GetSettings(self) -> SoftwareBaseSettings:
 		return self.settingsInstance
+	
 	def GetCustomViews(self) -> list[tuple[BaseCustomView.__class__, str]]:
 		return self.customViews
-
-class SettingsHandler(QAVMModuleNamed):
-	def __init__(self, plugin, regData) -> None:
-		super().__init__(plugin, regData)
-
-		self.settingsClass = regData.get('settings', None)
-		if not self.settingsClass or not issubclass(self.settingsClass, BaseSettings):
-			raise Exception(f'Missing or invalid settings for module: {self.id}')
-		self.settingsInstance = self.settingsClass()
 	
-	def GetSettings(self) -> BaseSettings:
-		return self.settingsInstance
+	def GetMenuItems(self) -> BaseMenuItems:
+		return self.menuItemsInstance
+
+# class SettingsHandler(QAVMHandlerNamed):
+# 	def __init__(self, plugin, regData) -> None:
+# 		super().__init__(plugin, regData)
+
+# 		self.settingsClass = regData.get('settings', None)
+# 		if not self.settingsClass or not issubclass(self.settingsClass, BaseSettings):
+# 			raise Exception(f'Missing or invalid settings for module: {self.id}')
+# 		self.settingsInstance = self.settingsClass()
+	
+# 	def GetSettings(self) -> BaseSettings:
+# 		return self.settingsInstance
 
 class QAVMPlugin:
+	"""
+	Represents a QAVM plugin.
+	QAVM plugins are used to implement functionality that solves specific tasks.
+	For example, software handlers handle specific software and automate related tasks.
+	"""
 	def __init__(self, pluginModule: object) -> None:
 		self.module = pluginModule
 
@@ -135,7 +178,7 @@ class QAVMPlugin:
 		self.pluginName = self.module.__name__
 
 		self.softwareHandlers: dict[str, SoftwareHandler] = dict()  # softwareID: SoftwareHandler
-		self.settingsHandlers: dict[str, SettingsHandler] = dict()  # moduleID: SettingsHandler
+		# self.settingsHandlers: dict[str, SettingsHandler] = dict()  # moduleID: SettingsHandler
 
 		# First check if plugin contains PLUGIN_ID and PLUGIN_VERSION
 		self.pluginID = getattr(self.module, 'PLUGIN_ID', '')
@@ -147,7 +190,7 @@ class QAVMPlugin:
 			raise Exception(f'Invalid or missing PLUGIN_VERSION for: {self.module.__name__}')
 
 		self.LoadModuleSoftware()
-		self.LoadModuleSettings()
+		# self.LoadModuleSettings()
 	
 	def LoadModuleSoftware(self) -> None:
 		pluginSoftwareRegisterFunc = getattr(self.module, 'RegisterModuleSoftware', None)
@@ -164,20 +207,20 @@ class QAVMPlugin:
 			
 			self.softwareHandlers[softwareHandler.id] = softwareHandler
 	
-	def LoadModuleSettings(self) -> None:
-		pluginSettingsRegisterFunc = getattr(self.module, 'RegisterModuleSettings', None)
-		if pluginSettingsRegisterFunc is None or not callable(pluginSettingsRegisterFunc):
-			return
+	# def LoadModuleSettings(self) -> None:
+	# 	pluginSettingsRegisterFunc = getattr(self.module, 'RegisterModuleSettings', None)
+	# 	if pluginSettingsRegisterFunc is None or not callable(pluginSettingsRegisterFunc):
+	# 		return
 		
-		moduleSettingsRegDataList = pluginSettingsRegisterFunc()
+	# 	moduleSettingsRegDataList = pluginSettingsRegisterFunc()
 
-		for moduleSettingsRegData in moduleSettingsRegDataList:
-			moduleSettings = SettingsHandler(self, moduleSettingsRegData)
+	# 	for moduleSettingsRegData in moduleSettingsRegDataList:
+	# 		moduleSettings = SettingsHandler(self, moduleSettingsRegData)
 			
-			if moduleSettings.id in self.softwareHandlers:
-				raise Exception(f'Duplicate module ID found: {self.id}')
+	# 		if moduleSettings.id in self.softwareHandlers:
+	# 			raise Exception(f'Duplicate module ID found: {self.id}')
 			
-			self.settingsHandlers[moduleSettings.id] = moduleSettings
+	# 		self.settingsHandlers[moduleSettings.id] = moduleSettings
 
 	def GetUID(self) -> str:
 		return self.pluginID
@@ -194,8 +237,8 @@ class QAVMPlugin:
 	def GetSoftwareHandlers(self) -> dict[str, SoftwareHandler]:
 		return self.softwareHandlers
 	
-	def GetSettingsHandlers(self) -> dict[str, SettingsHandler]:
-		return self.settingsHandlers
+	# def GetSettingsHandlers(self) -> dict[str, SettingsHandler]:
+	# 	return self.settingsHandlers
 			
 	
 	
@@ -241,6 +284,7 @@ class PluginManager:
 			for pluginPath in pluginsFolderPath.iterdir():
 				if not pluginPath.is_dir():
 					continue
+				logger.info(f'Loading plugin from path: {pluginPath.resolve().absolute()}')
 				if not self.LoadPluginFromPath(pluginPath):
 					logger.error(f'Failed to load plugin from path: {pluginPath}')
 					continue
@@ -302,17 +346,17 @@ class PluginManager:
 		return self.GetSoftwareHandler(qavmSettings.GetSelectedSoftwareUID())
 	
 
-	def GetSettingsHandlers(self) -> list[tuple[str, str, SettingsHandler]]:
-		result: list[tuple[str, str, SettingsHandler]] = []  # [pluginID, moduleID, SettingsHandler]
-		for plugin in self.plugins.values():
-			for moduleID, settingsHandler in plugin.GetSettingsHandlers().items():
-				result.append((plugin.pluginID, moduleID, settingsHandler))
-		return result
-	def GetSettingsHandler(self, settingsUID: str) -> SettingsHandler:
-		if '#' not in settingsUID:
-			return None
-		pluginUID, moduleID = settingsUID.split('#')
-		plugin = self.GetPlugin(pluginUID)
-		if not plugin:
-			return None
-		return plugin.GetSettingsHandlers().get(moduleID, None)
+	# def GetSettingsHandlers(self) -> list[tuple[str, str, SettingsHandler]]:
+	# 	result: list[tuple[str, str, SettingsHandler]] = []  # [pluginID, moduleID, SettingsHandler]
+	# 	for plugin in self.plugins.values():
+	# 		for moduleID, settingsHandler in plugin.GetSettingsHandlers().items():
+	# 			result.append((plugin.pluginID, moduleID, settingsHandler))
+	# 	return result
+	# def GetSettingsHandler(self, settingsUID: str) -> SettingsHandler:
+	# 	if '#' not in settingsUID:
+	# 		return None
+	# 	pluginUID, moduleID = settingsUID.split('#')
+	# 	plugin = self.GetPlugin(pluginUID)
+	# 	if not plugin:
+	# 		return None
+	# 	return plugin.GetSettingsHandlers().get(moduleID, None)

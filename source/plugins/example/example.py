@@ -12,8 +12,9 @@ from functools import partial
 from typing import Any, Iterator
 
 from qavm.qavmapi import (
-	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu,
-	BaseCustomView,	QualifierIdentificationConfig
+	BaseQualifier, BaseDescriptor, BaseTileBuilder, SoftwareBaseSettings, BaseTableBuilder, BaseContextMenu,
+	BaseCustomView,	QualifierIdentificationConfig, BaseSettingsContainer, BaseSettingsEntry,
+	BaseMenuItems, 
 )
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem, RunningBorderWidget
 from qavm.qavmapi.utils import (
@@ -36,7 +37,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QVBoxLayout, QMessageBox, QFormLayout, QLineEdit, QCheckBox, QTableWidgetItem,
 	QMenu, QWidgetAction, QLayout, QStyledItemDelegate, QStyleOptionViewItem, QApplication, QTableWidget,
-	QScrollBar, QInputDialog
+	QScrollBar, QInputDialog, QTabWidget
 )
 
 """
@@ -75,12 +76,12 @@ class ExampleQualifier(BaseQualifier):
 		return True
 
 class ExampleDescriptor(BaseDescriptor):
-	def __init__(self, dirPath: Path, settings: BaseSettings, fileContents: dict[str, str | bytes]):
+	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
 		super().__init__(dirPath, settings, fileContents)
 		# There's already this info from the BaseDescriptor:
 		# self.UID: str
 		# self.dirPath: Path
-		# self.settings: BaseSettings
+		# self.settings: SoftwareBaseSettings
 		# self.dirType: str  # '' - normal dir, 's' - symlink, 'j' - junction
 
 		# This class is a representation of a single piece of software, which connects
@@ -114,10 +115,10 @@ class ExampleDescriptor(BaseDescriptor):
 		return self.__str__()
 
 class ExampleTileBuilder(BaseTileBuilder):
-	def __init__(self, settings: BaseSettings, contextMenu: BaseContextMenu):
+	def __init__(self, settings: SoftwareBaseSettings, contextMenu: BaseContextMenu):
 		super().__init__(settings, contextMenu)
 		# From BaseTileBuilder:
-		# self.settings: BaseSettings
+		# self.settings: SoftwareBaseSettings
 		# self.contextMenu: BaseContextMenu
 		# self.themeData: dict
 
@@ -195,96 +196,52 @@ class ExampleTableBuilder(BaseTableBuilder):
 			return f'{dirTypePrefix}{str(desc.dirPath)}{dirLinkTarget}'
 		return ''
 
-class ExampleSettings(BaseSettings):
-	def __init__(self) -> None:
-		super().__init__()
+class ExampleSettings(SoftwareBaseSettings):
+	CONTAINER_DEFAULTS: dict[str, Any] = {
+		'myExampleSetting': 'default value',  # Example setting
+	}
 
-		self.settings: dict[str, list] = {  # key: (defaultValue, text, tooltip, isTileUpdateRequired, isTableUpdateRequired)
-			'exampleCheckbox': 	[True, 'Example checkbox', 'This is an example checkbox setting', False, False],
-		}
+	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
+		commonSettingsWidgets: list[tuple[str, QWidget]] = super().CreateWidgets(parent)
 
-		self.prefFilePath: Path = GetPrefsFolderPath()/'example-preferences.json'
-		if not self.prefFilePath.exists():
-			logger.info(f'Example settings file not found, creating a new one. Path: {self.prefFilePath}')
-			self.Save()
+		tabsWidget: QTabWidget = QTabWidget(parent)
+		if commonSettingsWidgets:
+			tabsWidget.addTab(commonSettingsWidgets[0][1], commonSettingsWidgets[0][0])
+
+		# Add more tabs if needed
+		exampleSettingsWidget: QWidget = QLabel('This is an example settings tab.', parent)
+		tabsWidget.addTab(exampleSettingsWidget, 'Example Settings')
+
+		extraSettingsWidget: QWidget = QWidget(parent)
+		extraSettingsLayout: QVBoxLayout = QVBoxLayout(extraSettingsWidget)
+		extraSettingsLayout.setContentsMargins(10, 10, 10, 10)
+		extraSettingsLayout.setSpacing(10)
+		exampleLabel: QLabel = QLabel('This is an example extra settings tab.', extraSettingsWidget)
+		exampleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		extraSettingsLayout.addWidget(exampleLabel)
+		exampleLabel.setStyleSheet("color: darkblue; font-size: 16px; background-color: white;")
+		exampleLabel.setMinimumHeight(50)
+
+		return [
+			('Example', tabsWidget),
+			('Example Extra', extraSettingsWidget),
+		]
+
+	# def _settingChangedCheckbox(self, state, settingsEntry: list):
+	# 	settingsEntry[0] = state == Qt.CheckState.Checked
+	# 	self._emitVisualUpdateOnSettingsEntryChange(settingsEntry)
+
+	# def _settingsChangedLineEdit(self, text, settingsEntry: list):
+	# 	settingsEntry[0] = text
+	# 	self._emitVisualUpdateOnSettingsEntryChange(settingsEntry)
 	
-	def __getitem__(self, key: str) -> Any:
-		return self.settings.get(key, None)
-	
-	def GetName(self) -> str:
-		return 'Example'
-
-	def Load(self):
-		with open(self.prefFilePath, 'r') as f:
-			try:
-				data: dict = json.loads(f.read())
-				for key in self.settings.keys():
-					if key not in data:
-						return logger.error(f'Missing key in preferences data: {key}')
-					if type(data[key]) != type(self.settings[key][0]):
-						logger.error(f'Incompatible preferences data type for #{key}!')
-						return False
-					self.settings[key][0] = data[key]
-			except Exception as e:
-				logger.exception(f'Failed to parse settings data: {e}')
-
-	def Save(self):
-		if not self.prefFilePath.parent.exists():
-			logger.info(f"Example preferences folder doesn't exist. Creating: {self.prefFilePath.parent}")
-			self.prefFilePath.parent.mkdir(parents=True, exist_ok=True)
-		with open(self.prefFilePath, 'w') as f:
-			data: dict[str, Any] = {key: val[0] for key, val in self.settings.items()}
-			f.write(json.dumps(data))
-
-	def CreateWidget(self, parent: QWidget) -> QWidget:
-		settingsWidget: QWidget = QWidget(parent)
-		formLayout: QFormLayout = QFormLayout(settingsWidget)
-
-		# TODO: refactor this
-		def addRowTyped(key: str):
-			settingsEntry: list = self.settings[key]
-			text: str = settingsEntry[1]
-			value: Any = settingsEntry[0]
-			tooltip: str = settingsEntry[2]
-
-			textLabel = QLabel(text)
-			textLabel.setToolTip(tooltip)
-			if isinstance(value, bool):
-				checkbox = QCheckBox()
-				checkbox.setChecked(value)
-				checkbox.checkStateChanged.connect(partial(self._settingChangedCheckbox, settingsEntry=settingsEntry))
-				formLayout.addRow(textLabel, checkbox)
-				return checkbox
-			if isinstance(value, str):
-				lineEdit = QLineEdit(value)
-				lineEdit.textChanged.connect(partial(self._settingsChangedLineEdit, settingsEntry=settingsEntry))
-				formLayout.addRow(textLabel, lineEdit)
-				return lineEdit
-			return None
-
-		for key in self.settings.keys():
-			if addRowTyped(key) is None:
-				logger.info(f'Unknown value type for key: {key}')
-
-		# formLayout.addRow('Adjust folder name', QCheckBox())
-
-		return settingsWidget
-
-	def _settingChangedCheckbox(self, state, settingsEntry: list):
-		settingsEntry[0] = state == Qt.CheckState.Checked
-		self._emitVisualUpdateOnSettingsEntryChange(settingsEntry)
-
-	def _settingsChangedLineEdit(self, text, settingsEntry: list):
-		settingsEntry[0] = text
-		self._emitVisualUpdateOnSettingsEntryChange(settingsEntry)
-	
-	def _emitVisualUpdateOnSettingsEntryChange(self, settingsEntry: list):
-		isTileUpdateRequired: bool = settingsEntry[3]
-		isTableUpdateRequired: bool = settingsEntry[4]
-		if isTileUpdateRequired:
-			self.tilesUpdateRequired.emit()
-		if isTableUpdateRequired:
-			self.tablesUpdateRequired.emit()
+	# def _emitVisualUpdateOnSettingsEntryChange(self, settingsEntry: list):
+	# 	isTileUpdateRequired: bool = settingsEntry[3]
+	# 	isTableUpdateRequired: bool = settingsEntry[4]
+	# 	if isTileUpdateRequired:
+	# 		self.tilesUpdateRequired.emit()
+	# 	if isTableUpdateRequired:
+	# 		self.tablesUpdateRequired.emit()
 
 class ExampleContextMenu(BaseContextMenu):
 	def CreateMenu(self, desc: ExampleDescriptor) -> QMenu:
@@ -309,10 +266,25 @@ class ExampleContextMenu(BaseContextMenu):
 		StartProcess(desc.UID, desc.GetExecutablePath(), arguments)
 		desc.updated.emit()
 
+class ExampleMenuItems(BaseMenuItems):
+	def GetMenus(self, parent=None) -> list[QMenu | QAction]:
+		# This method can be used to create custom menus that can be added to the main QAVM window.
+		# For example, you can create a menu with some actions related to the plugin.
+		menu = QMenu('Example Plugin', parent)
+		menu.addAction('Example Action 1', partial(self._exampleAction, 1))
+		menu.addAction('Example Action 2', partial(self._exampleAction, 2))
+
+		action = QAction('Example Action 3', parent, triggered=partial(self._exampleAction, 3))
+		
+		return [menu, action]
+	
+	def _exampleAction(self, id):
+		QMessageBox.information(None, f'Example Action {id}', f'This is an example action {id} from the Example Plugin.')
+
 class ExampleCustomView(BaseCustomView):
 	def __init__(self, parent: QWidget | None = None):
 		super().__init__(parent)
-		self.setWindowTitle('Example Custom View')
+
 		self.setMinimumSize(300, 200)
 
 		layout = QVBoxLayout(self)
@@ -334,6 +306,7 @@ def RegisterModuleSoftware():
 			'qualifier': ExampleQualifier,
 			'descriptor': ExampleDescriptor,
 			'settings': ExampleSettings,
+			'menuitems': ExampleMenuItems,
 			'tile_view': {
 				'tile_builder': ExampleTileBuilder,
 				'context_menu': ExampleContextMenu,
