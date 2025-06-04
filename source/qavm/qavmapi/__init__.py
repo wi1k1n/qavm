@@ -16,7 +16,7 @@ from PyQt6.QtGui import (
 )
 
 from qavm.qavmapi import utils
-from qavm.qavmapi.gui import GetThemeData, DeletableListWidget
+from qavm.qavmapi.gui import GetThemeData, SearchPathsListWidget
 
 # import qavm.logs as logs
 # logger = logs.logger
@@ -142,14 +142,13 @@ class SoftwareBaseSettings(BaseSettings):
 		layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 		layout.addWidget(QLabel('Search paths:', widget))
 
-		self.searchPathsWidget = DeletableListWidget(widget)
-		self.searchPathsWidget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-		self.searchPathsWidget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-		self.searchPathsWidget.setEditTriggers(QListWidget.EditTrigger.DoubleClicked)
+		self.searchPathsWidget = SearchPathsListWidget()
+		self.searchPathsWidget.itemChanged.connect(lambda _: self._updateSearchPathsSetting())
+		self.searchPathsWidget.itemDeleted.connect(lambda _: self._updateSearchPathsSetting())
+		self.searchPathsWidget.folderDropped.connect(self._searchPathFolderDropped)
+
 		for path in self.GetSetting('search_paths'):
 			self._addSearchPathToList(path)
-		self.searchPathsWidget.itemChanged.connect(lambda x: self._updateSearchPathsSetting())
-		self.searchPathsWidget.itemDeleted.connect(lambda _: self._updateSearchPathsSetting())
 		
 		# This is a little dangerous, because the change may come from outside (even when the window is closed),
 		qavmSettings: QAVMSettings = QApplication.instance().GetSettingsManager().GetQAVMSettings()
@@ -194,6 +193,12 @@ class SoftwareBaseSettings(BaseSettings):
 		if dirPath:
 			self._addSearchPathToList(dirPath)
 			self._updateSearchPathsSetting()
+
+	def _searchPathFolderDropped(self, path: str):
+		if not Path(path).is_dir():
+			return
+		self._addSearchPathToList(path)
+		self._updateSearchPathsSetting()
 
 	def _addSearchPathToList(self, path: str):
 		""" Adds a new search path to the QListWidget if it doesn't already exist. """

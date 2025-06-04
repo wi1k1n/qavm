@@ -136,12 +136,10 @@ class QAVMGlobalSettings(BaseSettings):
 		widget = QWidget(parent)
 		layout = QVBoxLayout(widget)
 
-		self.searchPathsWidget = gui_utils.DeletableListWidget()
-		self.searchPathsWidget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-		self.searchPathsWidget.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-		self.searchPathsWidget.setEditTriggers(QListWidget.EditTrigger.DoubleClicked)
+		self.searchPathsWidget = gui_utils.SearchPathsListWidget()
 		self.searchPathsWidget.itemChanged.connect(lambda _: self._updateSearchPathsSetting())
 		self.searchPathsWidget.itemDeleted.connect(lambda _: self._updateSearchPathsSetting())
+		self.searchPathsWidget.folderDropped.connect(self._searchPathFolderDropped)
 
 		for path in self.GetSetting('search_paths_global'):
 			self._addSearchPathToList(path)
@@ -166,6 +164,12 @@ class QAVMGlobalSettings(BaseSettings):
 			self._addSearchPathToList(dirPath)
 			self._updateSearchPathsSetting()
 
+	def _searchPathFolderDropped(self, path: str):
+		if not Path(path).is_dir():
+			return
+		self._addSearchPathToList(path)
+		self._updateSearchPathsSetting()
+		
 	def _addSearchPathToList(self, path: str):
 		""" Adds a new search path to the QListWidget if it doesn't already exist. """
 		if not path:

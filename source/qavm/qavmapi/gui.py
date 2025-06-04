@@ -1,5 +1,5 @@
 import datetime as dt
-
+from pathlib import Path
 
 from PyQt6.QtCore import (
 	Qt, pyqtSignal, QPropertyAnimation, pyqtProperty, 
@@ -114,6 +114,46 @@ class DeletableListWidget(QListWidget):
 				self.itemDeleted.emit(item)
 		else:
 			super().keyPressEvent(event)
+
+class EmptySpaceDoubleClickableListWidget(DeletableListWidget):
+	def mouseDoubleClickEvent(self, event):
+		item = self.itemAt(event.pos())
+
+		if item is None:
+			# Clicked on empty space -> Add new editable item
+			new_item = QListWidgetItem("Enter path")
+			new_item.setFlags(new_item.flags() | Qt.ItemFlag.ItemIsEditable)
+			self.addItem(new_item)
+			self.editItem(new_item)
+		else:
+			# Default behavior (optional: start editing existing item)
+			super().mouseDoubleClickEvent(event)
+
+class SearchPathsListWidget(EmptySpaceDoubleClickableListWidget):
+	folderDropped = pyqtSignal(str)  # Signal emitted when a folder is dropped
+
+	def __init__(self, parent=None):
+		super().__init__(parent)
+		
+		self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+		self.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+		self.setEditTriggers(QListWidget.EditTrigger.DoubleClicked)
+		self.setAcceptDrops(True)
+		
+	def dragEnterEvent(self, event):
+		if event.mimeData().hasUrls():
+			event.acceptProposedAction()
+
+	def dragMoveEvent(self, event):
+		event.acceptProposedAction()
+
+	def dropEvent(self, event):
+		if event.mimeData().hasUrls():
+			for url in event.mimeData().urls():
+				localPathStr: str = url.toLocalFile()
+				if Path(localPathStr).is_dir():
+					self.folderDropped.emit(localPathStr)
+		event.acceptProposedAction()
 
 
 DEFAULT_THEME_MODE = 'light'  # Default theme mode, can be 'light' or 'dark'
