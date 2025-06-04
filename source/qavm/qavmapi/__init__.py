@@ -9,7 +9,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QTableWidgetItem, QMenu, QStyledItemDelegate, QVBoxLayout, QListWidget, QSizePolicy,
 	QListWidgetItem, QPushButton, QFileDialog, QTextEdit, QHBoxLayout, QStackedWidget, QTableWidgetItem, 
-	QLineEdit, QComboBox, QApplication, 
+	QLineEdit, QComboBox, QApplication, QCheckBox, 
 )
 from PyQt6.QtGui import (
 	QKeyEvent, QAction, 
@@ -132,6 +132,7 @@ class SoftwareBaseSettings(BaseSettings):
 	""" Base class for software settings. Contains basic implementation for settings that are common for all software. """
 	CONTAINER_QAVM_DEFAULTS: dict[str, Any] = {
 		'search_paths': [],  # list of paths to search for software
+		'include_global_search_paths': True,  # whether to include global search paths from QAVM settings
 	}
 	
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
@@ -159,10 +160,20 @@ class SoftwareBaseSettings(BaseSettings):
 
 		layout.addWidget(self.searchPathsWidget)
 
-		addButton = QPushButton('Add Search Path', widget)
+		addButton = QPushButton('Browse', widget)
 		addButton.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 		addButton.clicked.connect(self._selectAndAddSearchPath)
-		layout.addWidget(addButton)
+		
+		includeGlobalCheckbox = QCheckBox('Include global search paths', widget)
+		includeGlobalCheckbox.setToolTip('Include global search paths from QAVM settings')
+		includeGlobalCheckbox.setChecked(self.GetSetting('include_global_search_paths'))
+		includeGlobalCheckbox.stateChanged.connect(self._includeGlobalSearchPathsChanged)
+		
+		buttonLayout = QHBoxLayout()
+		buttonLayout.addWidget(includeGlobalCheckbox)
+		buttonLayout.addStretch()  # Pushes the button to the right
+		buttonLayout.addWidget(addButton)
+		layout.addLayout(buttonLayout)
 		
 		layout.addWidget(QLabel('Search paths evaluated:', widget))
 		self.searchPathsEvaluated = QTextEdit(widget)
@@ -203,9 +214,16 @@ class SoftwareBaseSettings(BaseSettings):
 		evaluatedPaths: list[str] = [str(p) for p in self.GetEvaluatedSearchPaths()]
 		self.searchPathsEvaluated.setPlainText('\n'.join(evaluatedPaths))
 
+	def _includeGlobalSearchPathsChanged(self, state: Qt.CheckState):
+		""" Updates the search paths setting when the include global checkbox is changed. """
+		self.SetSetting('include_global_search_paths', state == Qt.CheckState.Checked.value)
+		self._updateSearchPathsEvaluatedWidget()
+
 	def GetEvaluatedSearchPaths(self) -> list[Path]:
 		""" Returns the evaluated search paths, which are a combination of global and software-specific search paths. """
-		searchPathsGlobal = QApplication.instance().GetSettingsManager().GetQAVMSettings().GetGlobalSearchPaths()
+		searchPathsGlobal = []
+		if self.GetSetting('include_global_search_paths'):
+			searchPathsGlobal = QApplication.instance().GetSettingsManager().GetQAVMSettings().GetGlobalSearchPaths()
 		return [Path(p).resolve().absolute() for p in set(searchPathsGlobal + self.GetSetting('search_paths'))]
 
 

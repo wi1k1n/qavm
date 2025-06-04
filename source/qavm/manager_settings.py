@@ -110,10 +110,14 @@ class QAVMGlobalSettings(BaseSettings):
 
 		layout.addWidget(self.searchPathsWidget)
 
-		addButton = QPushButton('Add Search Path', widget)
+		addButton = QPushButton('Browse', widget)
 		addButton.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 		addButton.clicked.connect(self._selectAndAddSearchPath)
-		layout.addWidget(addButton)
+		
+		buttonLayout = QHBoxLayout()
+		buttonLayout.addStretch()  # Pushes the button to the right
+		buttonLayout.addWidget(addButton)
+		layout.addLayout(buttonLayout)
 
 		return widget
 
