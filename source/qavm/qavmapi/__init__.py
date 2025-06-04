@@ -353,3 +353,8 @@ class BaseTableBuilder(BaseBuilder):
 
 class BaseCustomView(QWidget):
 	pass
+
+class BaseMenuItems(QObject):
+	def GetMenus(self) -> list[QMenu]:
+		""" Returns a list of QMenu objects to be added to the main menu. """
+		return []

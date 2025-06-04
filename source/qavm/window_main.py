@@ -14,7 +14,7 @@ from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu,
-	BaseCustomView, SoftwareBaseSettings
+	BaseCustomView, SoftwareBaseSettings, BaseMenuItems, 
 )
 from qavm.utils_gui import FlowLayout
 from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion
@@ -143,9 +143,6 @@ class MainWindow(QMainWindow):
 		self._setupCentralWidget()
 
 	def _setupActions(self):
-		# self.actionSave = QAction("&Save tags and tiles", self)
-		# self.actionSave.setShortcut(QKeySequence.StandardKey.Save)
-
 		self.actionPrefs = QAction(QIcon(":preferences.svg"), "&Preferences", self)
 		self.actionPrefs.setShortcut("Ctrl+E")
 		self.actionPrefs.triggered.connect(self._showPreferences)
@@ -162,53 +159,13 @@ class MainWindow(QMainWindow):
 		self.actionRescan.triggered.connect(self._rescanSoftware)
 
 		self.actionAbout = QAction("&About", self)
-		# self.actionShortcuts = QAction("&Shortcuts", self)
-		# self.actionShortcuts.setShortcut("F1")
-		# self.actionReportBug = QAction("&Report a bug", self)
-		# self.actionReportBug.setShortcut("Ctrl+Shift+B")
-		# self.actionCheckUpdates = QAction("&Check for updates", self)
-		
-		# self.actionRefresh = QAction("&Refresh", self)
-		# self.actionRefresh.setShortcut(QKeySequence.StandardKey.Refresh)
-		# self.actionRescan = QAction("Re&scan", self)
-		# self.actionRescan.setShortcut("Ctrl+F5")
-
-		# self.actionTags = QAction("&Tags", self)
-		# self.actionTags.setShortcut("Ctrl+T")
-
-		# self.actionFiltersort = QAction("Filte&r/Sort", self)
-		# self.actionFiltersort.setShortcut("Ctrl+F")
-
-		# self.actionFoldAll = QAction("Toggle &fold all", self)
-		# self.actionFoldAll.setShortcut("Ctrl+A")
-
-		# self._createGroupActions()
-		
-		# self.actionSave.triggered.connect(self._storeData)
-		# self.actionPrefs.triggered.connect(self.openPreferences)
-		# self.actionExit.triggered.connect(sys.exit)
 		self.actionAbout.triggered.connect(self._showAboutDialog)
-		# self.actionCheckUpdates.triggered.connect(CheckForUpdates)
-		# self.actionShortcuts.triggered.connect(self.help)
-		# self.actionReportBug.triggered.connect(lambda: self._showActivateDialog('trackbugs'))
-		# self.actionRefresh.triggered.connect(lambda: self.updateTilesWidget())
-		# self.actionRescan.triggered.connect(self.rescan)
-		# self.actionTags.triggered.connect(self.toggleOpenTagsWindow)
-		# self.actionFiltersort.triggered.connect(self.toggleOpenFilterSortWindow)
-		# self.actionFoldAll.triggered.connect(self._toggleFoldAllC4DGroups)
-		
-		# # Adding help tips
-		# newTip = "Create a new file"
-		# self.newAction.setStatusTip(newTip)
-		# self.newAction.setToolTip(newTip)
 
 	def _setupMenuBar(self):
 		menuBar: QMenuBar = self.menuBar()
 		menuBar.setNativeMenuBar(True)
 		
 		fileMenu = menuBar.addMenu('&File')
-		# fileMenu.addAction(self.actionSave)
-		# fileMenu.addSeparator()
 		fileMenu.addAction(self.actionRescan)
 		fileMenu.addSeparator()
 		fileMenu.addAction(self.actionPluginSelection)
@@ -216,19 +173,9 @@ class MainWindow(QMainWindow):
 		fileMenu.addAction(self.actionExit)
 		
 		editMenu = menuBar.addMenu("&Edit")
-		# editMenu.addAction(self.actionRefresh)
-		# editMenu.addAction(self.actionRescan)
-		# editMenu.addSeparator()
-		# editMenu.addAction(self.actionTags)
-		# editMenu.addAction(self.actionFiltersort)
-		# fileMenu.addSeparator()
 		editMenu.addAction(self.actionPrefs)
 		
 		viewMenu = menuBar.addMenu("&View")
-		# viewMenu.addAction(self.actionFoldAll)
-		# viewMenu.addSeparator()
-		# # for k, action in self.actionsGrouping.items():
-		# # 	viewMenu.addAction(action)
 		
 		switchMenu = menuBar.addMenu("&Switch")
 		def populate_switch_menu():
@@ -243,11 +190,18 @@ class MainWindow(QMainWindow):
 				switchMenu.addAction(action)
 		switchMenu.aboutToShow.connect(populate_switch_menu)
 
+		# TODO: handle case when softwareHandler is None
+		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
+		menuItems: BaseMenuItems = softwareHandler.GetMenuItems()
+		self.pluginMenuItems = menuItems.GetMenus()
+		for menuItemsMenu in self.pluginMenuItems:
+			if menuItemsMenu is None or not isinstance(menuItemsMenu, QMenu):
+				logger.warning(f"Menu item {menuItemsMenu} is not a valid QMenu, skipping.")
+				continue
+			menuBar.addMenu(menuItemsMenu)
+
 		helpMenu = menuBar.addMenu("&Help")
 		helpMenu.addAction(self.actionAbout)
-		# helpMenu.addAction(self.actionReportBug)
-		# helpMenu.addAction(self.actionCheckUpdates)
-		# helpMenu.addAction(self.actionAbout)
 	
 	def _setupStatusBar(self):
 		self.statusBar = QStatusBar()

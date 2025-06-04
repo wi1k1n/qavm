@@ -3,7 +3,7 @@ from pathlib import Path
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu,
-	BaseCustomView, SoftwareBaseSettings
+	BaseCustomView, SoftwareBaseSettings, BaseMenuItems, 
 )
 import qavm.qavmapi.utils as utils
 
@@ -32,6 +32,9 @@ class SoftwareHandler(QAVMHandlerNamed):
 		
 		# TODO: lots of repeated code here, refactor
 
+		##################################################################
+		############################ Settings ############################
+		##################################################################
 		self.settingsClass = regData.get('settings', None)  # optional
 		if not self.settingsClass:
 			self.settingsClass = SoftwareBaseSettings
@@ -39,15 +42,24 @@ class SoftwareHandler(QAVMHandlerNamed):
 			raise Exception(f'Invalid settings for software: {self.id}')
 		self.settingsInstance = self.settingsClass(self.id)
 
+		##################################################################
+		############################ Qualifier ###########################
+		##################################################################
 		self.qualifierClass = regData.get('qualifier', None)
 		if not self.qualifierClass or not issubclass(self.qualifierClass, BaseQualifier):  # required
 			raise Exception(f'Missing or invalid qualifier for software: {self.id}')
 		self.qualifierInstance = self.qualifierClass()
 
+		##################################################################
+		########################### Descriptor ###########################
+		##################################################################
 		self.descriptorClass = regData.get('descriptor', None)
 		if not self.descriptorClass or not issubclass(self.descriptorClass, BaseDescriptor):  # required
 			raise Exception(f'Missing or invalid descriptor for software: {self.id}')
 		
+		##################################################################
+		########################### TileBuilder ##########################
+		##################################################################
 		self.tileBuilderClass: BaseTileBuilder = BaseTileBuilder
 		self.tileContextMenuClass: BaseContextMenu = BaseContextMenu
 		tileViewData: dict = regData.get('tile_view', {})
@@ -66,7 +78,10 @@ class SoftwareHandler(QAVMHandlerNamed):
 			if not issubclass(self.tileContextMenuClass, BaseContextMenu):
 				raise Exception(f'Invalid context menu for software: {self.id}')
 		
-		self.tableBuilderClass: BaseTableBuilder = BaseTableBuilder
+		##################################################################
+		########################## TableBuilder ##########################
+		##################################################################
+		self.tableBuilderClass: BaseTableBuilder.__class__ = BaseTableBuilder
 		self.tableContextMenuClass: BaseContextMenu = BaseContextMenu
 		tableViewData: dict = regData.get('table_view', {})
 		if tableViewData:
@@ -84,6 +99,9 @@ class SoftwareHandler(QAVMHandlerNamed):
 			if not issubclass(self.tableContextMenuClass, BaseContextMenu):
 				raise Exception(f'Invalid context menu for software: {self.id}')
 			
+		##################################################################
+		########################### CustomViews ##########################
+		##################################################################
 		self.customViews: list[tuple[BaseCustomView.__class__, str]] = []
 		customViewsData: list[dict] = regData.get('custom_views', [])
 		if customViewsData:
@@ -97,6 +115,15 @@ class SoftwareHandler(QAVMHandlerNamed):
 					raise Exception(f'Invalid custom view class for software: {self.id}')
 				self.customViews.append((customViewClass, customViewName))
 
+		##################################################################
+		############################ MenuItems ###########################
+		##################################################################
+		self.menuItemsClass: BaseMenuItems.__class__ = regData.get('menuitems', None)
+		if self.menuItemsClass is None or not issubclass(self.menuItemsClass, BaseMenuItems):
+			if self.menuItemsClass is not None:
+				logger.warning(f'Invalid menuitems entry for software: {self.id}')
+			self.menuItemsClass = BaseMenuItems
+		self.menuItemsInstance: BaseMenuItems = self.menuItemsClass()
 	
 	def GetDescriptorClass(self) -> BaseDescriptor.__class__:
 		return self.descriptorClass
@@ -121,6 +148,9 @@ class SoftwareHandler(QAVMHandlerNamed):
 	
 	def GetCustomViews(self) -> list[tuple[BaseCustomView.__class__, str]]:
 		return self.customViews
+	
+	def GetMenuItems(self) -> BaseMenuItems:
+		return self.menuItemsInstance
 
 # class SettingsHandler(QAVMHandlerNamed):
 # 	def __init__(self, plugin, regData) -> None:

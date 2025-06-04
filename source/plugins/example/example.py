@@ -13,7 +13,8 @@ from typing import Any, Iterator
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, SoftwareBaseSettings, BaseTableBuilder, BaseContextMenu,
-	BaseCustomView,	QualifierIdentificationConfig, BaseSettingsContainer, BaseSettingsEntry
+	BaseCustomView,	QualifierIdentificationConfig, BaseSettingsContainer, BaseSettingsEntry,
+	BaseMenuItems, 
 )
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem, RunningBorderWidget
 from qavm.qavmapi.utils import (
@@ -264,6 +265,25 @@ class ExampleContextMenu(BaseContextMenu):
 		StartProcess(desc.UID, desc.GetExecutablePath(), arguments)
 		desc.updated.emit()
 
+class ExampleMenuItems(BaseMenuItems):
+	def GetMenus(self) -> list[QMenu]:
+		# This method can be used to create custom menus that can be added to the main QAVM window.
+		# For example, you can create a menu with some actions related to the plugin.
+		menu = QMenu('Example Plugin')
+		menu.addAction('Example Action 1', self._exampleAction1)
+		menu.addAction('Example Action 2', self._exampleAction2)
+
+		menu2 = QMenu('Another Example Menu')
+		menu2.addAction('Example Action 3', self._exampleAction1)
+		
+		return [menu, menu2]
+	
+	def _exampleAction1(self):
+		QMessageBox.information(None, 'Example Action 1', 'This is an example action 1 from the Example Plugin.')
+
+	def _exampleAction2(self):
+		QMessageBox.information(None, 'Example Action 2', 'This is an example action 2 from the Example Plugin.')
+
 class ExampleCustomView(BaseCustomView):
 	def __init__(self, parent: QWidget | None = None):
 		super().__init__(parent)
@@ -289,6 +309,7 @@ def RegisterModuleSoftware():
 			'qualifier': ExampleQualifier,
 			'descriptor': ExampleDescriptor,
 			'settings': ExampleSettings,
+			'menuitems': ExampleMenuItems,
 			'tile_view': {
 				'tile_builder': ExampleTileBuilder,
 				'context_menu': ExampleContextMenu,
