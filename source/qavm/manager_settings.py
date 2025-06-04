@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 from functools import partial
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QKeyEvent, QColor, QPainter, QBrush
 from PyQt6.QtWidgets import (
 	QWidget, QFormLayout, QCheckBox, QLineEdit, QApplication, QListWidget, QListWidgetItem,
@@ -16,32 +16,70 @@ import qavm.qavmapi.gui as gui_utils
 from qavm.qavmapi import BaseSettings, BaseSettingsContainer, BaseSettingsEntry, SoftwareBaseSettings
 from qavm.manager_plugin import PluginManager, SoftwareHandler
 
+from qt_material import get_theme
+
 import qavm.logs as logs
 logger = logs.logger
 
-# TODO: move this to gui utils
-class CircleButton(QPushButton):
-	def __init__(self, color: QColor, isBordered: bool = False, parent: QWidget | None = None):
-		super().__init__(parent)
-		self.setFixedSize(32, 32)
-		self.color = color
-		self.setCursor(Qt.CursorShape.PointingHandCursor)
-		# self.setBordered(isBordered) # TODO: this doesn't work
+# # TODO: move this to gui utils
+# class CircleButton(QPushButton):
+# 	def __init__(self, color: QColor, isBordered: bool = False, parent: QWidget | None = None):
+# 		super().__init__(parent)
+# 		self.setFixedSize(32, 32)
+# 		self.color = color
+# 		self.setCursor(Qt.CursorShape.PointingHandCursor)
+# 		# self.setBordered(isBordered) # TODO: this doesn't work
 		
-	def paintEvent(self, event):
-		painter = QPainter(self)
-		painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-		brush = QBrush(self.color)
-		painter.setBrush(brush)
-		painter.setPen(Qt.PenStyle.NoPen)
-		diameter = min(self.width(), self.height())
-		painter.drawEllipse(0, 0, diameter, diameter)
+# 	def paintEvent(self, event):
+# 		painter = QPainter(self)
+# 		painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+# 		brush = QBrush(self.color)
+# 		painter.setBrush(brush)
+# 		painter.setPen(Qt.PenStyle.NoPen)
+# 		diameter = min(self.width(), self.height())
+# 		painter.drawEllipse(0, 0, diameter, diameter)
 
-	# def setBordered(self, bordered: bool):
-	# 	if bordered:
-	# 		self.setStyleSheet(f"border: 2px solid {self.color.name()}; border-radius: 16px;")
-	# 	else:
-	# 		self.setStyleSheet("border: none;")
+class ColorButton(QPushButton):
+	def __init__(self, color: QColor, roundRadius: int, size: QSize = QSize(32, 32), parent=None):
+		super().__init__(parent)
+
+		self.color: QColor = color
+		self.roundRadius: int = roundRadius
+
+		self.isBordered: bool = False
+		self.borderThickness: int = 2
+		self.borderColor: str = 'black'
+		
+		self.setFixedSize(size)
+		self.setStyleSheet(self._generateStyleSheet())
+		self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+	def _generateStyleSheet(self) -> str:
+		border = f"{self.borderThickness}px solid {self.borderColor}" if self.isBordered else "none"
+		return f"""
+			QPushButton {{
+				background-color: {self.color.name()};
+				border: {border};
+				border-radius: {self.roundRadius}px;
+			}}
+		"""
+	
+	def SetBordered(self, bordered: bool):
+		self.isBordered = bordered
+		self.setStyleSheet(self._generateStyleSheet())
+
+	def SetBorder(self, borderThickness: int = 2, borderColor: str = 'black'):
+		self.borderThickness = borderThickness
+		self.borderColor = borderColor
+		self.setStyleSheet(self._generateStyleSheet())
+
+	def SetColor(self, color: QColor):
+		self.color = color
+		self.setStyleSheet(self._generateStyleSheet())
+
+	def SetRoundRadius(self, radius: int):
+		self.roundRadius = radius
+		self.setStyleSheet(self._generateStyleSheet())
 
 class QAVMGlobalSettings(BaseSettings):
 	CONTAINER_DEFAULTS: dict[str, Any] = {
@@ -162,8 +200,8 @@ class QAVMGlobalSettings(BaseSettings):
 		self.tabWidget.addTab(darkTab, "Dark")
 
 		# Set active tab based on current theme
-		isDarkMode, _ = self._parseThemeName(gui_utils.GetThemeName())
-		self.tabWidget.setCurrentIndex(1 if isDarkMode else 0)
+		darkMode, _ = self._parseThemeName(gui_utils.GetThemeName())
+		self.tabWidget.setCurrentIndex(1 if darkMode == 'dark' else 0)
 
 		themeSelectorWidget: QWidget = QWidget()
 		layout = QVBoxLayout(themeSelectorWidget)
@@ -171,32 +209,55 @@ class QAVMGlobalSettings(BaseSettings):
 		return themeSelectorWidget
 
 	def _initSwatches(self):
-		themes: list[str] = gui_utils.GetThemesList()
-		colorsByMode: dict[str, set[str]] = {'light': set(), 'dark': set()}
+		# themeName: (darkMode, color)
+		themesParsed: dict[str, tuple[str, QColor]] = {themeName: self._parseThemeName(themeName) for themeName in gui_utils.GetThemesList()}
+		
+		self._swatchButtons: dict[str, ColorButton] = {}
+		curThemeName: str = gui_utils.GetThemeName()
 
-		for themeName in themes:
-			isDark, color = self._parseThemeName(themeName)
-			if QColor(color).isValid():
-				mode = 'dark' if isDark else 'light'
-				colorsByMode[mode].add(color)
+		for themeName, (darkMode, color) in themesParsed.items():
+			if not color.isValid():
+				continue
+			layout = self.darkSwatchesLayout if darkMode == 'dark' else self.lightSwatchesLayout
+			# btn = CircleButton(color)
+			btn = ColorButton(color, roundRadius=5, size=QSize(20, 20))
+			self._setSwatchBorder(btn, themeName == curThemeName)
+			btn.clicked.connect(partial(self._onSwatchClicked, themeName))
+			btn.setToolTip(f'{themeName}')
+			layout.addWidget(btn)
+			self._swatchButtons[themeName] = btn
 
-		for mode, layout in [('light', self.lightSwatchesLayout), ('dark', self.darkSwatchesLayout)]:
-			for colorName in sorted(colorsByMode[mode]):
-				btn = CircleButton(QColor(colorName))
-				btn.clicked.connect(partial(self.SetAppTheme, f"{mode}_{colorName}.xml"))
-				btn.setToolTip(f'{colorName}')
-				layout.addWidget(btn)
+	def _onSwatchClicked(self, themeName: str):
+		self.SetAppTheme(themeName)
+		for theme, btn in self._swatchButtons.items():
+			self._setSwatchBorder(btn, themeName == theme)
+	
+	def _setSwatchBorder(self, button: ColorButton, isBordered: bool = True):
+		if not isBordered:
+			button.SetBordered(False)
+			return
+		
+		curThemeName: str = gui_utils.GetThemeName()
+		darkMode, _ = self._parseThemeName(curThemeName)
+		borderColor = 'white' if darkMode == 'dark' else 'black'
+		button.SetBordered(True)
+		button.SetBorder(borderColor=borderColor)
 
-	def _parseThemeName(self, themeName: str) -> tuple[bool, str]:
+	def _parseThemeName(self, themeName: str) -> tuple[str, QColor]:
 		tokens = themeName.split('_', 1)
 		if len(tokens) < 2:
-			return (gui_utils.DEFAULT_THEME_MODE == 'dark', gui_utils.DEFAULT_THEME_COLOR)
+			return (gui_utils.DEFAULT_THEME_MODE, QColor(gui_utils.DEFAULT_THEME_COLOR))
+		
+		darkMode = 'dark' if tokens[0].lower() == 'dark' else 'light'
 
-		isDarkMode = tokens[0].lower() == 'dark'
-		colorName = tokens[1].replace('.xml', '')
-		if not QColor(colorName).isValid():
-			return (isDarkMode, gui_utils.DEFAULT_THEME_COLOR)
-		return (isDarkMode, colorName)
+		qtTheme = get_theme(themeName)
+		if not isinstance(qtTheme, dict) or 'primaryColor' not in qtTheme:
+			return (darkMode, QColor(gui_utils.DEFAULT_THEME_COLOR))
+
+		color = QColor(qtTheme['primaryColor'])
+		if not color.isValid():
+			return (darkMode, QColor(gui_utils.DEFAULT_THEME_COLOR))
+		return (darkMode, color)
 
 
 class SettingsManager:
