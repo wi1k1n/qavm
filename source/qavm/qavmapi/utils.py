@@ -1,4 +1,4 @@
-import os, platform, json, hashlib, subprocess, sys
+import os, platform, json, hashlib, subprocess, sys, zipfile, shutil
 from pathlib import Path
 from typing import Any
 
@@ -172,3 +172,28 @@ def IsProcessRunning(uid: str) -> bool:
 	if p and p.poll() is None:
 		return True
 	return False
+
+def ExtractZipFile(zipFilePath: Path, extractTo: Path) -> bool:
+	"""Extracts a ZIP file to the specified directory."""
+	raise AssertionError("This function isn't tested yet!")
+	if not zipfile.is_zipfile(zipFilePath):
+		return False
+	with zipfile.ZipFile(zipFilePath, 'r') as zip_ref:
+		zip_ref.extractall(extractTo)
+	return True
+
+def CopyFolder(srcFolderPath: Path, dstFolderPath: Path, mkdir: bool = True) -> None:
+	""" Copies srcFolderPath to dstFolderPath """
+	if not srcFolderPath.is_dir():
+		raise ValueError(f"Source path '{srcFolderPath}' is not a directory.")
+	if mkdir:
+		dstFolderPath.mkdir(parents=True, exist_ok=True)
+	shutil.copytree(srcFolderPath, dstFolderPath, dirs_exist_ok=True, symlinks=True)
+
+def DeleteFolder(folderPath: Path) -> None:
+	""" Deletes the specified folder and all its contents. """
+	if not folderPath.exists():
+		return  # nothing to delete
+	if not folderPath.is_dir():
+		raise ValueError(f"Path '{folderPath}' is not a directory.")
+	shutil.rmtree(folderPath)

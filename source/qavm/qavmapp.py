@@ -50,6 +50,9 @@ class QAVMApp(QApplication):
 		self.settingsManager.LoadQAVMSettings()
 		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
 
+		if not args.builtinPluginsDontUnpack:
+			self._unpackBuiltinPlugins(args)
+
 		self.pluginManager = PluginManager(self, self.GetPluginsFolderPaths(), self.GetPluginPaths())
 		self.pluginManager.LoadPlugins()
 
@@ -156,3 +159,43 @@ class QAVMApp(QApplication):
 			self.pluginPaths.update({Path(p) for p in args.extraPluginPath})
 
 		self.selectedSoftwareUID = args.selectedSoftwareUID
+
+	def _unpackBuiltinPlugins(self, args: argparse.Namespace) -> None:
+		unpackPath: Path = Path(args.builtinPluginsUnpackPath) if args.builtinPluginsUnpackPath else utils.GetDefaultPluginsFolderPath()
+		if not unpackPath.exists():
+			logger.info(f'Creating plugins folder: {unpackPath}')
+			unpackPath.mkdir(parents=True, exist_ok=True)
+		if not unpackPath.is_dir():
+			logger.error(f'Unpack path is not a directory: {unpackPath}')
+			return
+		
+		logger.info(f'Unpacking built-in plugins to: {unpackPath}')
+		builtinPluginsPath: Path = utils.GetQAVMRootPath() / 'builtin_plugins'
+		if not builtinPluginsPath.is_dir():
+			logger.error(f'Builtin plugins directory does not exist: {builtinPluginsPath}')
+			return
+		
+		for pluginPath in builtinPluginsPath.iterdir():
+			if not pluginPath.is_dir():
+				continue
+			destPath: Path = unpackPath / pluginPath.name
+			
+			if args.builtinPluginsForceReplace and destPath.exists():
+				logger.info(f'{destPath} already exists, deleting it due to --builtinPluginsForceReplace flag')
+				try:
+					utils.DeleteFolder(destPath)  # Delete existing plugin
+				except Exception as e:
+					logger.error(f'Failed to delete existing plugin {destPath}: {e}')
+					continue
+
+			if destPath.exists():
+				logger.info(f'Skipping unpacking of existing plugin: {destPath}')
+				continue
+			logger.info(f'Unpacking plugin: {pluginPath} to {destPath}')
+
+			# Copy the plugin folder to the destination path
+			try:
+				utils.CopyFolder(pluginPath, destPath)
+			except Exception as e:
+				logger.error(f'Failed to unpack plugin {pluginPath}: {e}')
+				continue

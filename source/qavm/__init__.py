@@ -27,7 +27,13 @@ def ParseArgs() -> argparse.Namespace:
 	parser.add_argument('--pluginsFolder', type=str, help='Path to the plugins folder (Default: %APPDATA%/qavm/plugins)', default=utils.GetDefaultPluginsFolderPath())
 	parser.add_argument('--extraPluginsFolder', type=str, action='append', help='Path to an additional plugins folder (can be used multiple times)', default=[])
 	parser.add_argument('--extraPluginPath', type=str, action='append', help='Path to an additional plugin to load (can be used multiple times)', default=[])
+	
 	parser.add_argument('--selectedSoftwareUID', type=str, help='UID of the selected software (Default: empty)', default='')
+	
+	parser.add_argument('--builtinPluginsDontUnpack', action='store_true', help='Do not unpack built-in plugins (Default: False)', default=False)
+	parser.add_argument('--builtinPluginsUnpackPath', type=str, help='Path to unpack built-in plugins (Default: empty, unpack to default plugins folder)', default='')
+	parser.add_argument('--builtinPluginsForceReplace', action='store_true', help='Force replace built-in plugins even if they are already unpacked (Default: False)', default=False)
+	
 	args = parser.parse_args()
 	
 	provided_args = {

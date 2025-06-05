@@ -11,6 +11,7 @@ a = Analysis(
     binaries=[],
     datas=[
         (f'build/{APP_NAME}/build.txt', './.'),
+        (f'build/{APP_NAME}/builtin_plugins', './builtin_plugins/.'),
         (f'{PATH_RES}/qavm_icon.png', './res/.'),
     ],
     hiddenimports=['qavm.qavmapi',

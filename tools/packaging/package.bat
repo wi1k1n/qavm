@@ -4,5 +4,8 @@ set APP_NAME=qavm
 python.exe _buildinfo.py %APP_NAME%
 if errorlevel 1 exit /b 1
 
+@REM Prepare builtin plugins for further packaging
+python.exe _gather-builtin-plugins.py --pluginsFolder ../../../qavm-plugins/plugins
+
 @REM pyinstaller.exe --name "qavm" "..\..\source\qavm.py" :: use this one to create default PyInstaller config
 pyinstaller.exe .\%APP_NAME%.spec
