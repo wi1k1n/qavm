@@ -11,7 +11,8 @@
             "program": "source/qavm.py",
             "args": [
                 "--extraPluginsFolder", "source/plugins",
-                // "--extraPluginsFolder", "../qavm-plugins/plugins",
+                "--extraPluginsFolder", "../qavm-plugins/plugins",
+                "--builtinPluginsDontUnpack",
             ],
             "console": "integratedTerminal",
         },
@@ -29,6 +30,17 @@
             "request": "launch",
             "program": "experiments/__init__.py",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "_gather-builtin-plugins",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "_gather-builtin-plugins.py",
+            "args": [
+                "--pluginsFolder", "../../../qavm-plugins/plugins",
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/tools/packaging"
         },
         {
             "name": "Python: Current File",
