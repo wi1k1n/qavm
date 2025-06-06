@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: QAVM",
+            "name": "QAVM",
             "type": "debugpy",
             "request": "launch",
             "program": "source/qavm.py",
@@ -17,31 +17,89 @@
             "console": "integratedTerminal",
         },
         {
-            "name": "Python Debugger: QAVM (deploy junction)",
+            "name": "QAVM - Builtin plugins",
             "type": "debugpy",
             "request": "launch",
             "program": "source/qavm.py",
+            "args": [
+                "--builtinPluginsForceReplace",
+            ],
             "console": "integratedTerminal",
-            "preLaunchTask": "deploy_plugins",
         },
         {
-            "name": "Python Debugger: Experiments",
+            "name": "Experiments window (Debug)",
             "type": "debugpy",
             "request": "launch",
             "program": "experiments/__init__.py",
             "console": "integratedTerminal"
         },
-        {
-            "name": "_gather-builtin-plugins",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "_gather-builtin-plugins.py",
-            "args": [
-                "--pluginsFolder", "../../../qavm-plugins/plugins",
-            ],
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/tools/packaging"
-        },
+        // {
+        //     "name": "gather-builtin-plugins",
+        //     "type": "debugpy",
+        //     "request": "launch",
+        //     "program": "gather-builtin-plugins.py",
+        //     "args": [
+        //         "--pluginsFolder", "../../../qavm-plugins/plugins",
+        //         "--destination", "build/qavm/builtin_plugins",
+        //     ],
+        //     "console": "integratedTerminal",
+        //     "cwd": "${workspaceFolder}/tools/packaging"
+        // },
+        // {
+        //     "name": "Signing: generate keys",
+        //     "type": "debugpy",
+        //     "request": "launch",
+        //     "cwd": "${workspaceFolder}/tools/packaging/signing",
+        //     "program": "generate_keys.py",
+        //     "args": [
+        //         "--private", "keys/private.pem",
+        //         "--public", "keys/public.pem",
+        //         "--deployPath", "keys/verification_key.py",
+        //     ],
+        //     "console": "integratedTerminal",
+        //     "justMyCode": false
+        // },
+        // {
+        //     "name": "Signing: sign a file",
+        //     "type": "debugpy",
+        //     "request": "launch",
+        //     "cwd": "${workspaceFolder}/tools/packaging/signing",
+        //     "program": "sign.py",
+        //     "args": [
+        //         "--key", "keys/private.pem",
+        //         "--target", "myscript.py",
+        //         "--outputSignature", "myscript.py.sig",
+        //     ],
+        //     "console": "integratedTerminal",
+        //     "justMyCode": false
+        // },
+        // {
+        //     "name": "Signing: sign plugins",
+        //     "type": "debugpy",
+        //     "request": "launch",
+        //     "cwd": "${workspaceFolder}/tools/packaging",
+        //     "program": "sign-builtin-plugins.py",
+        //     "args": [
+        //         "--pluginsFolder", "build/qavm/builtin_plugins",
+        //         "--key", "signing/keys/private.pem",
+        //         "--calculatePluginHashPythonScript", "../../source/qavm/utils_plugin_package.py",
+        //         "--calculatePluginHashFunction", "CalculatePluginHash"
+        //     ],
+        // },
+        // {
+        //     "name": "Signing: verify a file",
+        //     "type": "debugpy",
+        //     "request": "launch",
+        //     "cwd": "${workspaceFolder}/tools/packaging/signing",
+        //     "program": "verify.py",
+        //     "args": [
+        //         "--key", "keys/public.pem",
+        //         "--target", "myscript.py",
+        //         "--signature", "myscript.py.sig",
+        //     ],
+        //     "console": "integratedTerminal",
+        //     "justMyCode": false
+        // },
         {
             "name": "Python: Current File",
             "type": "debugpy",

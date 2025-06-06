@@ -12,6 +12,7 @@ import qavm.qavmapi.utils as utils
 import qavm.qavmapi.gui as gui_utils
 import qavm.qavmapi_utils as qavmapi_utils
 from qavm.qavmapi import BaseDescriptor, QualifierIdentificationConfig
+from qavm.utils_plugin_package import VerifyPlugin
 
 from PyQt6.QtGui import (
     QFont, QIcon
@@ -160,6 +161,15 @@ class QAVMApp(QApplication):
 
 		self.selectedSoftwareUID = args.selectedSoftwareUID
 
+	def _loadVerificationKey(self) -> bytes:
+		try:
+			from qavm.verification_key import VERIFICATION_KEY
+			return VERIFICATION_KEY.encode('utf-8')
+		except Exception as e:
+			logger.error(f'Failed to load verification key: {e}')
+			return b''
+
+	# TODO: refactor this giant function
 	def _unpackBuiltinPlugins(self, args: argparse.Namespace) -> None:
 		unpackPath: Path = Path(args.builtinPluginsUnpackPath) if args.builtinPluginsUnpackPath else utils.GetDefaultPluginsFolderPath()
 		if not unpackPath.exists():
@@ -180,6 +190,26 @@ class QAVMApp(QApplication):
 				continue
 			destPath: Path = unpackPath / pluginPath.name
 			
+
+
+
+			logger.info(f'Verifying plugin signature: {pluginPath}')
+			pluginSignaturePath: Path = pluginPath.parent / f'{pluginPath.name}.sig'
+			if not pluginSignaturePath.exists():
+				logger.error(f'Plugin signature not found: {pluginSignaturePath}')
+				continue
+
+			# Verify the plugin signature
+			publicKey: bytes = self._loadVerificationKey()
+			if not publicKey:
+				logger.error('Public key for plugin verification is not available')
+				continue
+
+			if not VerifyPlugin(pluginPath, pluginSignaturePath, publicKey):
+				logger.error(f'Plugin verification failed: {pluginPath}')
+				continue
+
+
 			if args.builtinPluginsForceReplace and destPath.exists():
 				logger.info(f'{destPath} already exists, deleting it due to --builtinPluginsForceReplace flag')
 				try:
@@ -191,6 +221,7 @@ class QAVMApp(QApplication):
 			if destPath.exists():
 				logger.info(f'Skipping unpacking of existing plugin: {destPath}')
 				continue
+
 			logger.info(f'Unpacking plugin: {pluginPath} to {destPath}')
 
 			# Copy the plugin folder to the destination path
