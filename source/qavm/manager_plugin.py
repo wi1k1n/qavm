@@ -262,7 +262,7 @@ class QAVMPlugin:
 
 
 class PluginManager:
-	def __init__(self, app, pluginsFolderPaths: list[Path], pluginPaths: list[Path] = []) -> None:
+	def __init__(self, app, pluginPaths: set[Path], pluginsFolderPaths: list[Path]) -> None:
 		self.app = app
 		self.pluginsFolderPaths: list[Path] = pluginsFolderPaths
 		self.pluginsPaths: list[Path] = pluginPaths  # individual plugins paths
@@ -275,6 +275,14 @@ class PluginManager:
 			logger.info(f'Created plugins folder: {defaultPluginsFolderPath}')
 
 	def LoadPlugins(self) -> bool:
+		# Iterate over individual plugin paths
+		for pluginPath in self.pluginsPaths:
+			if not pluginPath.is_dir():
+				continue
+			if not self.LoadPluginFromPath(pluginPath):
+				logger.error(f'Failed to load plugin from path: {pluginPath}')
+				continue
+
 		# Iterate over plugins folders first
 		for pluginsFolderPath in self.pluginsFolderPaths:
 			if not pluginsFolderPath.exists():
@@ -288,14 +296,6 @@ class PluginManager:
 				if not self.LoadPluginFromPath(pluginPath):
 					logger.error(f'Failed to load plugin from path: {pluginPath}')
 					continue
-
-		# Iterate over individual plugin paths
-		for pluginPath in self.pluginsPaths:
-			if not pluginPath.is_dir():
-				continue
-			if not self.LoadPluginFromPath(pluginPath):
-				logger.error(f'Failed to load plugin from path: {pluginPath}')
-				continue
 
 	def LoadPluginFromPath(self, pluginPath: Path) -> bool:
 		pluginName = pluginPath.name
@@ -311,6 +311,10 @@ class PluginManager:
 			spec.loader.exec_module(pluginPyModule)
 			
 			plugin = QAVMPlugin(pluginPyModule)
+			if plugin.pluginID in self.plugins:
+				logger.error(f'Duplicate plugin ID found: {plugin.pluginID} ({pluginName})')
+				return False
+			
 			logger.info(f'Loaded plugin: {pluginName} @ {plugin.GetVersionStr()} ({plugin.GetUID()})')
 			self.plugins[plugin.pluginID] = plugin
 		except:

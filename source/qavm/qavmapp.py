@@ -38,6 +38,7 @@ class QAVMApp(QApplication):
 
 		self.pluginsFolderPaths: set[Path] = {utils.GetDefaultPluginsFolderPath()}
 		self.pluginPaths: set[Path] = set()  # Paths to individual plugins
+		self.builtinPluginPaths: set[Path] = set()  # Paths to built-in plugins (i.e. unpacked plugins)
 		self.softwareDescriptions: list[BaseDescriptor] = None
 
 		self.processArgs(args)
@@ -51,10 +52,10 @@ class QAVMApp(QApplication):
 		self.settingsManager.LoadQAVMSettings()
 		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
 
-		if not args.builtinPluginsDontUnpack:
-			self._unpackBuiltinPlugins(args)
+		if not args.ignoreBuiltinPlugins:
+			self._verifyBuiltinPlugins(args)
 
-		self.pluginManager = PluginManager(self, self.GetPluginsFolderPaths(), self.GetPluginPaths())
+		self.pluginManager = PluginManager(self, self.builtinPluginPaths.union(self.pluginPaths), self.GetPluginsFolderPaths())
 		self.pluginManager.LoadPlugins()
 
 		# self.settingsManager.LoadModuleSettings()
@@ -170,28 +171,21 @@ class QAVMApp(QApplication):
 			return b''
 
 	# TODO: refactor this giant function
-	def _unpackBuiltinPlugins(self, args: argparse.Namespace) -> None:
-		unpackPath: Path = Path(args.builtinPluginsUnpackPath) if args.builtinPluginsUnpackPath else utils.GetDefaultPluginsFolderPath()
-		if not unpackPath.exists():
-			logger.info(f'Creating plugins folder: {unpackPath}')
-			unpackPath.mkdir(parents=True, exist_ok=True)
-		if not unpackPath.is_dir():
-			logger.error(f'Unpack path is not a directory: {unpackPath}')
-			return
-		
-		logger.info(f'Unpacking built-in plugins to: {unpackPath}')
+	def _verifyBuiltinPlugins(self, args: argparse.Namespace) -> None:	
 		builtinPluginsPath: Path = utils.GetQAVMRootPath() / 'builtin_plugins'
 		if not builtinPluginsPath.is_dir():
 			logger.error(f'Builtin plugins directory does not exist: {builtinPluginsPath}')
 			return
 		
+		# Verify the plugin signature
+		publicKey: bytes = self._loadVerificationKey()
+		if not publicKey:
+			logger.error('Public key for plugin verification is not available')
+			return
+
 		for pluginPath in builtinPluginsPath.iterdir():
 			if not pluginPath.is_dir():
 				continue
-			destPath: Path = unpackPath / pluginPath.name
-			
-
-
 
 			logger.info(f'Verifying plugin signature: {pluginPath}')
 			pluginSignaturePath: Path = pluginPath.parent / f'{pluginPath.name}.sig'
@@ -199,34 +193,8 @@ class QAVMApp(QApplication):
 				logger.error(f'Plugin signature not found: {pluginSignaturePath}')
 				continue
 
-			# Verify the plugin signature
-			publicKey: bytes = self._loadVerificationKey()
-			if not publicKey:
-				logger.error('Public key for plugin verification is not available')
-				continue
-
 			if not VerifyPlugin(pluginPath, pluginSignaturePath, publicKey):
 				logger.error(f'Plugin verification failed: {pluginPath}')
 				continue
 
-
-			if args.builtinPluginsForceReplace and destPath.exists():
-				logger.info(f'{destPath} already exists, deleting it due to --builtinPluginsForceReplace flag')
-				try:
-					utils.DeleteFolder(destPath)  # Delete existing plugin
-				except Exception as e:
-					logger.error(f'Failed to delete existing plugin {destPath}: {e}')
-					continue
-
-			if destPath.exists():
-				logger.info(f'Skipping unpacking of existing plugin: {destPath}')
-				continue
-
-			logger.info(f'Unpacking plugin: {pluginPath} to {destPath}')
-
-			# Copy the plugin folder to the destination path
-			try:
-				utils.CopyFolder(pluginPath, destPath)
-			except Exception as e:
-				logger.error(f'Failed to unpack plugin {pluginPath}: {e}')
-				continue
+			self.builtinPluginPaths.add(pluginPath.resolve().absolute())

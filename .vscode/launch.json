@@ -12,17 +12,7 @@
             "args": [
                 "--extraPluginsFolder", "source/plugins",
                 "--extraPluginsFolder", "../qavm-plugins/plugins",
-                "--builtinPluginsDontUnpack",
-            ],
-            "console": "integratedTerminal",
-        },
-        {
-            "name": "QAVM - Builtin plugins",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "source/qavm.py",
-            "args": [
-                "--builtinPluginsForceReplace",
+                "--ignoreBuiltinPlugins",
             ],
             "console": "integratedTerminal",
         },
