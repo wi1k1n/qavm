@@ -19,7 +19,9 @@ class PreferencesWindowExample(QWidget):
 		self.setWindowTitle("QAVM - Settings")
 		self.resize(800, 600)
 		self.setMinimumHeight(300)
-		self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+
+		# self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)  # this keeps the window on top even for other applications
+		self.setWindowFlag(Qt.WindowType.Tool)  # the tool window stays on top of the main window but doesn't affect other applications
 
 		self.settingsManager: SettingsManager = self.app.GetSettingsManager()
 
