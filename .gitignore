@@ -262,3 +262,4 @@ cython_debug/
 source/plugins/cinema4d/*
 source/qavm/verification_key.py
 tools/packaging/signing/keys/*
+tools/packaging/dist*
