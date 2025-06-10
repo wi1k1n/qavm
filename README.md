@@ -72,6 +72,15 @@ This is a rethought version of the [C4D Version Manager](https://github.com/wi1k
 * Add system of adding tags to the descriptors
 	* Also attach meta information to descriptors (ideally in a generic way and hence implemented as a separate plugin)
 
+* Sort/Filter/Group
+	* Need a system to filter out entries (in both table and tiles)
+		* plugins must be able to register their own filter targets
+		* minimal boolean logic would be great to have (and/or/not)
+			* with more complex setup of those (e.g. similar to railroads in factorio)
+	* Sorting capabilities also in tile widget
+		* ideally such that plugins are able to register their own corting targets
+	* Grouping abilities (similar to the old way c4d_version_manager did)
+
 * Multiple software at the same time (including placing them on the same layout)
 
 * ~~The API for the plugin to add their own tabs~~
