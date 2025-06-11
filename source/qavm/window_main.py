@@ -129,12 +129,13 @@ class MainWindow(QMainWindow):
 		self.softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
 		self.softwareSettings.tilesUpdateRequired.connect(self.UpdateTilesWidget)
 		self.softwareSettings.tablesUpdateRequired.connect(self.UpdateTableWidget)
-
 		
 		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
 		self.setWindowTitle(f'QAVM - {softwareHandler.GetName()}')
 		self.resize(1420, 840)
 		self.setMinimumSize(350, 250)
+
+		self.pluginMenuItems: list[QMenu | QAction] = list()  # for some reason QMenu and QAction need to live in the MainWindow, otherwise Qt gets rid of them
 
 		self._setupActions()
 		self._setupMenuBar()
@@ -193,15 +194,17 @@ class MainWindow(QMainWindow):
 		# TODO: handle case when softwareHandler is None
 		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
 		menuItems: BaseMenuItems = softwareHandler.GetMenuItems()
-		self.pluginMenuItems = menuItems.GetMenus()
-		for menuItemsMenu in self.pluginMenuItems:
+		menus = menuItems.GetMenus()
+		for menuItemsMenu in menus:
 			if menuItemsMenu is None:
 				continue
 			if isinstance(menuItemsMenu, QMenu):
 				menuBar.addMenu(menuItemsMenu)
+				self.pluginMenuItems.append(menuItemsMenu)
 				continue
 			elif isinstance(menuItemsMenu, QAction):
 				menuBar.addAction(menuItemsMenu)
+				self.pluginMenuItems.append(menuItemsMenu)
 				continue
 
 			logger.warning(f"Menu item {menuItemsMenu} is not a valid QMenu or QAction. Skipping.")
@@ -234,6 +237,7 @@ class MainWindow(QMainWindow):
 
 		# TODO: handle case when softwareHandler is None
 		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
+		softwareSettings: SoftwareBaseSettings = softwareHandler.GetSettings()
 
 		# TODO: FreeMove view is currently not implemented
 		# contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
@@ -244,7 +248,7 @@ class MainWindow(QMainWindow):
 		for customView, name in softwareHandler.GetCustomViews():
 			if customView is None:
 				continue
-			customTab: BaseCustomView = customView(self)
+			customTab: BaseCustomView = customView(softwareSettings, self)
 			self.tabsWidget.addTab(customTab, name)
 
 		self.setCentralWidget(self.tabsWidget)

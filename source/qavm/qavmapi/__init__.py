@@ -372,6 +372,7 @@ class BaseDescriptor(QObject):
 
 class BaseContextMenu(QObject):
 	def __init__(self, settings: SoftwareBaseSettings):
+		super().__init__()
 		self.settings: SoftwareBaseSettings = settings
 	
 	def CreateMenu(self, desc: BaseDescriptor) -> QMenu:
@@ -379,6 +380,7 @@ class BaseContextMenu(QObject):
 
 class BaseBuilder(QObject):
 	def __init__(self, settings: SoftwareBaseSettings, contextMenu: BaseContextMenu):
+		super().__init__()
 		self.settings: SoftwareBaseSettings = settings
 		self.contextMenu: BaseContextMenu = contextMenu
 		self.themeData: dict[str, str | None] | None = GetThemeData()
@@ -402,9 +404,15 @@ class BaseTableBuilder(BaseBuilder):
 		pass
 
 class BaseCustomView(QWidget):
-	pass
+	def __init__(self, settings: SoftwareBaseSettings, parent=None):
+		super().__init__(parent)
+		self.settings: SoftwareBaseSettings = settings
 
 class BaseMenuItems(QObject):
+	def __init__(self, settings: SoftwareBaseSettings):
+		super().__init__()
+		self.settings: SoftwareBaseSettings = settings
+
 	def GetMenus(self, parent=None) -> list[QMenu | QAction]:
 		""" Returns a list of QMenu objects to be added to the main menu. """
 		return []

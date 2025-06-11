@@ -282,8 +282,8 @@ class ExampleMenuItems(BaseMenuItems):
 		QMessageBox.information(None, f'Example Action {id}', f'This is an example action {id} from the Example Plugin.')
 
 class ExampleCustomView(BaseCustomView):
-	def __init__(self, parent: QWidget | None = None):
-		super().__init__(parent)
+	def __init__(self, settings: SoftwareBaseSettings, parent=None):
+		super().__init__(settings, parent)
 
 		self.setMinimumSize(300, 200)
 

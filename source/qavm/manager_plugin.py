@@ -123,7 +123,7 @@ class SoftwareHandler(QAVMHandlerNamed):
 			if self.menuItemsClass is not None:
 				logger.warning(f'Invalid menuitems entry for software: {self.id}')
 			self.menuItemsClass = BaseMenuItems
-		self.menuItemsInstance: BaseMenuItems = self.menuItemsClass()
+		self.menuItemsInstance: BaseMenuItems = self.menuItemsClass(self.settingsInstance)
 	
 	def GetDescriptorClass(self) -> BaseDescriptor.__class__:
 		return self.descriptorClass
