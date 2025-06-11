@@ -16,7 +16,7 @@ from PyQt6.QtGui import (
 )
 
 from qavm.qavmapi import utils
-from qavm.qavmapi.gui import GetThemeData, SearchPathsListWidget
+from qavm.qavmapi.gui import GetThemeData, FolderPathsListWidget
 
 # import qavm.logs as logs
 # logger = logs.logger
@@ -142,10 +142,10 @@ class SoftwareBaseSettings(BaseSettings):
 		layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 		layout.addWidget(QLabel('Search paths:', widget))
 
-		self.searchPathsWidget = SearchPathsListWidget()
+		self.searchPathsWidget = FolderPathsListWidget()
 		self.searchPathsWidget.itemChanged.connect(lambda _: self._updateSearchPathsSetting())
 		self.searchPathsWidget.itemDeleted.connect(lambda _: self._updateSearchPathsSetting())
-		self.searchPathsWidget.folderDropped.connect(self._searchPathFolderDropped)
+		self.searchPathsWidget.urlDropped.connect(self._searchPathFolderDropped)
 
 		for path in self.GetSetting('search_paths'):
 			self._addSearchPathToList(path)

@@ -136,10 +136,10 @@ class QAVMGlobalSettings(BaseSettings):
 		widget = QWidget(parent)
 		layout = QVBoxLayout(widget)
 
-		self.searchPathsWidget = gui_utils.SearchPathsListWidget()
+		self.searchPathsWidget = gui_utils.FolderPathsListWidget()
 		self.searchPathsWidget.itemChanged.connect(lambda _: self._updateSearchPathsSetting())
 		self.searchPathsWidget.itemDeleted.connect(lambda _: self._updateSearchPathsSetting())
-		self.searchPathsWidget.folderDropped.connect(self._searchPathFolderDropped)
+		self.searchPathsWidget.urlDropped.connect(self._searchPathFolderDropped)
 
 		for path in self.GetSetting('search_paths_global'):
 			self._addSearchPathToList(path)

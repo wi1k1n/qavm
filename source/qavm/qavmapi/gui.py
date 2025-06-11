@@ -129,8 +129,8 @@ class EmptySpaceDoubleClickableListWidget(DeletableListWidget):
 			# Default behavior (optional: start editing existing item)
 			super().mouseDoubleClickEvent(event)
 
-class SearchPathsListWidget(EmptySpaceDoubleClickableListWidget):
-	folderDropped = pyqtSignal(str)  # Signal emitted when a folder is dropped
+class PathsListWidget(EmptySpaceDoubleClickableListWidget):
+	urlDropped = pyqtSignal(str)  # Signal emitted when a url is dropped
 
 	def __init__(self, parent=None):
 		super().__init__(parent)
@@ -139,6 +139,10 @@ class SearchPathsListWidget(EmptySpaceDoubleClickableListWidget):
 		self.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
 		self.setEditTriggers(QListWidget.EditTrigger.DoubleClicked)
 		self.setAcceptDrops(True)
+
+	def DoAcceptPath(self, path: str) -> bool:
+		""" Override this method to accept or reject the path. """
+		return True
 		
 	def dragEnterEvent(self, event):
 		if event.mimeData().hasUrls():
@@ -151,9 +155,15 @@ class SearchPathsListWidget(EmptySpaceDoubleClickableListWidget):
 		if event.mimeData().hasUrls():
 			for url in event.mimeData().urls():
 				localPathStr: str = url.toLocalFile()
-				if Path(localPathStr).is_dir():
-					self.folderDropped.emit(localPathStr)
+				if self.DoAcceptPath(localPathStr):
+					self.urlDropped.emit(localPathStr)
 		event.acceptProposedAction()
+
+class FolderPathsListWidget(PathsListWidget):
+	""" A list widget that accepts only folder paths to be dropped on. """
+	def DoAcceptPath(self, path: str) -> bool:
+		""" Accept only folders, reject files. """
+		return Path(path).is_dir()
 
 
 DEFAULT_THEME_MODE = 'light'  # Default theme mode, can be 'light' or 'dark'
@@ -165,6 +175,9 @@ def GetDefaultTheme() -> str:
 g_CurrentTheme: str = GetDefaultTheme()
 def GetThemeName() -> str:
 	return g_CurrentTheme
+
+def IsThemeDark() -> bool:
+	return 'dark' in g_CurrentTheme
 
 def SetTheme(theme: str) -> None:
 	global g_CurrentTheme
@@ -210,7 +223,7 @@ def SetTheme(theme: str) -> None:
 	"""
 
 	styleExtraLineEdit = ""
-	if "dark" in g_CurrentTheme:
+	if IsThemeDark():
 		styleExtraLineEdit = """
 		QLineEdit, QComboBox {
 				color: white;

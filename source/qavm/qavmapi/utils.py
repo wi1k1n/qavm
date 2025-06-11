@@ -197,3 +197,10 @@ def DeleteFolder(folderPath: Path) -> None:
 	if not folderPath.is_dir():
 		raise ValueError(f"Path '{folderPath}' is not a directory.")
 	shutil.rmtree(folderPath)
+
+def CopyFile(srcFilePath: Path, dstFilePath: Path) -> None:
+	""" Copies a file from srcFilePath to dstFilePath. """
+	if not srcFilePath.is_file():
+		raise ValueError(f"Source path '{srcFilePath}' is not a file.")
+	dstFilePath.parent.mkdir(parents=True, exist_ok=True)
+	shutil.copy2(srcFilePath, dstFilePath)
