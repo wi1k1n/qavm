@@ -1,17 +1,19 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-	QWidget, QVBoxLayout, QLabel, QListWidgetItem, QListWidget, QHBoxLayout, QStackedWidget
+	QWidget, QVBoxLayout, QLabel, QListWidgetItem, QListWidget, QHBoxLayout, QStackedWidget,
+	QPushButton, 
 )
 
 from qavm.manager_plugin import PluginManager
 from qavm.manager_settings import SettingsManager
 
 from qavm.qavmapi import BaseSettings, SoftwareBaseSettings
+from qavm.qavmapi.utils import GetQAVMDataPath, OpenFolderInExplorer
 
 import qavm.logs as logs
 logger = logs.logger
 
-class PreferencesWindowExample(QWidget):
+class PreferencesWindow(QWidget):
 	def __init__(self, app, parent: QWidget | None = None) -> None:
 		super().__init__(parent)
 		self.app = app
@@ -42,10 +44,28 @@ class PreferencesWindowExample(QWidget):
 
 		self.menuWidget.setMinimumWidth(self.menuWidget.minimumSizeHint().width() + 20)
 		self.menuWidget.setMaximumWidth(200)
+		
+		mainContentLayout = QHBoxLayout()
+		mainContentLayout.addWidget(self.menuWidget, 1)
+		mainContentLayout.addWidget(self.contentWidget, 3)
 
-		mainLayout = QHBoxLayout()
-		mainLayout.addWidget(self.menuWidget, 1)
-		mainLayout.addWidget(self.contentWidget, 3)
+
+		self.settingsBarLayout: QHBoxLayout = QHBoxLayout()
+		qavmDataPath = GetQAVMDataPath()
+		self.openQAVMSettingsButton = QPushButton("Open QAVM Data Folder")
+		self.openQAVMSettingsButton.setToolTip("Open the folder where QAVM stores its data")
+		self.openQAVMSettingsButton.clicked.connect(lambda: OpenFolderInExplorer(qavmDataPath))
+		self.openQAVMSettingsButton.setFixedWidth(200)
+
+		self.qavmSettingsPathLabel = QLabel(str(qavmDataPath.resolve().absolute()))
+		self.qavmSettingsPathLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+		self.settingsBarLayout.addWidget(self.openQAVMSettingsButton)
+		self.settingsBarLayout.addWidget(self.qavmSettingsPathLabel)
+
+		mainLayout = QVBoxLayout()
+		mainLayout.addLayout(mainContentLayout)
+		mainLayout.addLayout(self.settingsBarLayout)
+
 		self.setLayout(mainLayout)
 	
 	def AddSettingsEntry(self, title: str, widget: QWidget):
