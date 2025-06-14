@@ -1,7 +1,7 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
 	QWidget, QVBoxLayout, QLabel, QListWidgetItem, QListWidget, QHBoxLayout, QStackedWidget,
-	QPushButton, 
+	QPushButton, QMessageBox, 
 )
 
 from qavm.manager_plugin import PluginManager
@@ -83,7 +83,22 @@ class PreferencesWindow(QWidget):
 		# logger.info(f'Selected menu item: {selectedItem.text()}')
 		self.contentWidget.setCurrentIndex(self.menuWidget.currentRow())
 
+	def keyPressEvent(self, event):
+		if event.key() == Qt.Key.Key_Escape:
+			self.close()
+			return
+		super().keyPressEvent(event)
+
 	def closeEvent(self, event):
 		# TODO: check if dirty settings and ask for confirmation
-		self.settingsManager.SaveQAVMSettings()
-		self.settingsManager.SaveSoftwareSettings()
+		reply = QMessageBox.question(self, "Save Preferences", "Do you want to save your preferences to disk?",
+			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel)
+
+		if reply == QMessageBox.StandardButton.Yes:
+			self.settingsManager.SaveQAVMSettings()
+			self.settingsManager.SaveSoftwareSettings()
+			event.accept()
+		elif reply == QMessageBox.StandardButton.No:
+			event.accept()
+		else:  # Cancel
+			event.ignore()
