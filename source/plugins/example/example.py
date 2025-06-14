@@ -4,6 +4,9 @@ copyright
 
 PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.example'
 PLUGIN_VERSION = '0.1.0'
+PLUGIN_NAME = 'Example Plugin'
+PLUGIN_DEVELOPER = 'Ilya Mazlov (mazlov.i.a@gmail.com)'
+PLUGIN_WEBSITE = 'https://github.com/wi1k1n/qavm'
 
 import os, subprocess, re, json, sys, logging, cv2, pyperclip, re
 import datetime as dt, numpy as np

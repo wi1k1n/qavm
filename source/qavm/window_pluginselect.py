@@ -38,7 +38,13 @@ class PluginSelectionWindow(QMainWindow):
 		for pluginID, softwareID, softwareHandler in swHandlers:
 			plugin: QAVMPlugin = self.pluginManager.GetPlugin(pluginID)
 			swUID: str = f'{pluginID}#{softwareID}'
-			button = QPushButton(f'{softwareHandler.GetName()} [{plugin.GetName()} @ {plugin.GetVersionStr()}] ({swUID})')
+			button = QPushButton(softwareHandler.GetName())
+			button.setToolTip(
+				f'{plugin.GetName()}'
+				f'\nVersion: {plugin.GetVersionStr()}'
+				f'\nSWUID: {swUID}'
+				f'\nPlugin: {plugin.GetExecutablePath()}'
+			)
 			button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 			button.clicked.connect(partial(self.selectPlugin, swUID))
 			layout.addWidget(button)

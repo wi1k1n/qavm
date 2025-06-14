@@ -170,17 +170,18 @@ class QAVMPlugin:
 	QAVM plugins are used to implement functionality that solves specific tasks.
 	For example, software handlers handle specific software and automate related tasks.
 	"""
-	def __init__(self, pluginModule: object) -> None:
+	def __init__(self, pluginModule: object, pluginExecutablePath: Path) -> None:
 		self.module = pluginModule
+		self.pluginExecutablePath: Path = pluginExecutablePath.resolve().absolute()
 
 		self.pluginID = ''
 		self.pluginVersion = ''
-		self.pluginName = self.module.__name__
+		self.pluginPackageName = self.module.__name__
 
 		self.softwareHandlers: dict[str, SoftwareHandler] = dict()  # softwareID: SoftwareHandler
 		# self.settingsHandlers: dict[str, SettingsHandler] = dict()  # moduleID: SettingsHandler
 
-		# First check if plugin contains PLUGIN_ID and PLUGIN_VERSION
+		# PLUGIN_ID and PLUGIN_VERSION are required
 		self.pluginID = getattr(self.module, 'PLUGIN_ID', '')
 		if not QAVMPlugin.ValidateUID(self.pluginID):
 			raise Exception(f'Invalid or missing PLUGIN_ID for: {self.module.__name__}')
@@ -188,6 +189,11 @@ class QAVMPlugin:
 		self.pluginVersion = getattr(self.module, 'PLUGIN_VERSION', '')
 		if not QAVMPlugin.ValidateVersion(self.pluginVersion):
 			raise Exception(f'Invalid or missing PLUGIN_VERSION for: {self.module.__name__}')
+		
+		# These are optional
+		self.pluginName = getattr(self.module, 'PLUGIN_NAME', self.pluginPackageName)
+		self.pluginDeveloper = getattr(self.module, 'PLUGIN_DEVELOPER', 'Unknown')
+		self.pluginWebsite = getattr(self.module, 'PLUGIN_WEBSITE', '')
 
 		self.LoadModuleSoftware()
 		# self.LoadModuleSettings()
@@ -224,7 +230,7 @@ class QAVMPlugin:
 
 	def GetUID(self) -> str:
 		return self.pluginID
-
+	
 	def GetName(self) -> str:
 		return self.pluginName
 	
@@ -233,6 +239,12 @@ class QAVMPlugin:
 	
 	def GetVersion(self) -> tuple[int, int, int]:
 		return tuple(map(int, self.pluginVersion.split('.')))
+
+	def GetPluginPackageName(self) -> str:
+		return self.pluginPackageName
+	
+	def GetExecutablePath(self) -> Path:
+		return self.pluginExecutablePath
 	
 	def GetSoftwareHandlers(self) -> dict[str, SoftwareHandler]:
 		return self.softwareHandlers
@@ -310,7 +322,7 @@ class PluginManager:
 			pluginPyModule = importlib.util.module_from_spec(spec)
 			spec.loader.exec_module(pluginPyModule)
 			
-			plugin = QAVMPlugin(pluginPyModule)
+			plugin = QAVMPlugin(pluginPyModule, pluginMainFile)
 			if plugin.pluginID in self.plugins:
 				logger.error(f'Duplicate plugin ID found: {plugin.pluginID} ({pluginName})')
 				return False
