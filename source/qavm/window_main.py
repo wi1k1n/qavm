@@ -6,7 +6,9 @@ from PyQt6.QtCore import Qt, QMargins, QPoint, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QMouseEvent
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
-	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication, QAbstractItemView, QMessageBox
+	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication, QAbstractItemView, QMessageBox,
+	QDialog, QVBoxLayout, QTextBrowser, QDialogButtonBox, QLineEdit, QHBoxLayout,
+	QSizePolicy, QTableView, QTableWidgetSelectionRange, 
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
@@ -470,9 +472,69 @@ class MainWindow(QMainWindow):
 		prefsWindow: QMainWindow = self.app.GetDialogsManager().GetPreferencesWindow()
 		prefsWindow.show()
 		prefsWindow.activateWindow()
-	
+
 	def _showAboutDialog(self):
-		aboutText = f"QAVM {GetQAVMVersion()}"
-		aboutText += f"\nPackage: {GetPackageVersion()}"
-		aboutText += f"\nBuild: {GetBuildVersion()}"
-		QMessageBox.about(self, "About QAVM", aboutText)
+		aboutDialog = QDialog(self)
+		aboutDialog.setWindowTitle("About QAVM")
+		aboutDialog.setMinimumSize(600, 400)
+		aboutDialog.setModal(True)
+
+		mainLayout = QVBoxLayout(aboutDialog)
+
+		# === Top section: Icon + version info ===
+		topLayout = QHBoxLayout()
+
+		# App icon
+		icon = QIcon("res/qavm_icon.png")  # Replace with your icon path or Qt resource
+		pixmap = icon.pixmap(64, 64)
+		iconLabel = QLabel()
+		iconLabel.setPixmap(pixmap)
+		iconLabel.setAlignment(Qt.AlignmentFlag.AlignTop)
+		topLayout.addWidget(iconLabel)
+
+		# Version info
+		versionInfo = (
+			f"<b>QAVM {GetQAVMVersion()}</b><br>"
+			f"Package: {GetPackageVersion()}<br>"
+			f"Build: {GetBuildVersion()}<br><br>"
+		)
+		versionLabel = QLabel(versionInfo)
+		versionLabel.setTextFormat(Qt.TextFormat.RichText)
+		versionLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+		topLayout.addWidget(versionLabel)
+
+		topLayout.addStretch()
+		mainLayout.addLayout(topLayout)
+
+		# === Scrollable plugin section ===
+		scrollArea = QScrollArea()
+		scrollArea.setWidgetResizable(True)
+		pluginContainer = QWidget()
+		pluginLayout = QVBoxLayout(pluginContainer)
+
+		for plugin in self.pluginManager.GetPlugins():
+			pluginText = (
+				f"<b>Plugin:</b> {plugin.GetName()}"
+				f"<br><b>Version:</b> {plugin.GetVersionStr()}"
+				f"<br><b>UID:</b> {plugin.GetUID()}"
+				f"<br><b>Executable:</b> <code>{plugin.GetExecutablePath()}</code>"
+				f"<br><b>Developer:</b> {plugin.GetPluginDeveloper()}"
+				f"<br><b>Website:</b> <a href='{plugin.GetPluginWebsite()}'>{plugin.GetPluginWebsite()}</a>"
+			)
+			pluginLabel = QLabel()
+			pluginLabel.setTextFormat(Qt.TextFormat.RichText)
+			pluginLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+			pluginLabel.setOpenExternalLinks(True)
+			pluginLabel.setWordWrap(True)
+			pluginLabel.setText(pluginText)
+			pluginLayout.addWidget(pluginLabel)
+
+		scrollArea.setWidget(pluginContainer)
+		mainLayout.addWidget(scrollArea)
+
+		# === OK Button ===
+		buttonBox = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+		buttonBox.accepted.connect(aboutDialog.accept)
+		mainLayout.addWidget(buttonBox)
+
+		aboutDialog.exec()

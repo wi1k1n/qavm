@@ -249,6 +249,12 @@ class QAVMPlugin:
 	def GetSoftwareHandlers(self) -> dict[str, SoftwareHandler]:
 		return self.softwareHandlers
 	
+	def GetPluginDeveloper(self) -> str:
+		return self.pluginDeveloper
+	
+	def GetPluginWebsite(self) -> str:
+		return self.pluginWebsite
+	
 	# def GetSettingsHandlers(self) -> dict[str, SettingsHandler]:
 	# 	return self.settingsHandlers
 			
