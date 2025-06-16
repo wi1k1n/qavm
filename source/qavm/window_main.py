@@ -205,7 +205,7 @@ class MainWindow(QMainWindow):
 		# TODO: handle case when softwareHandler is None
 		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
 		menuItems: BaseMenuItems = softwareHandler.GetMenuItems()
-		menus = menuItems.GetMenus()
+		menus = menuItems.GetMenus(self)
 		for menuItemsMenu in menus:
 			if menuItemsMenu is None:
 				continue
@@ -227,14 +227,14 @@ class MainWindow(QMainWindow):
 		##################################################################
 		########################## Right Corner ##########################
 		##################################################################
-		rightCornerMenu = QMenuBar(menuBar)
-		for pluginID, softwareID, softwareHandler in self.pluginManager.GetSoftwareHandlers():
-			swUID: str = f'{pluginID}#{softwareID}'
-			title: str = softwareHandler.GetName()
-			action = QAction(title, self, triggered=partial(self._switchToPluginSelection, swUID))
-			rightCornerMenu.addAction(action)
-
-		menuBar.setCornerWidget(rightCornerMenu)
+		if not PlatformMacOS():  # macOS isn't capable of complex things
+			rightCornerMenu = QMenuBar(menuBar)
+			for pluginID, softwareID, softwareHandler in self.pluginManager.GetSoftwareHandlers():
+				swUID: str = f'{pluginID}#{softwareID}'
+				title: str = softwareHandler.GetName()
+				action = QAction(title, self, triggered=partial(self._switchToPluginSelection, swUID))
+				rightCornerMenu.addAction(action)
+			menuBar.setCornerWidget(rightCornerMenu)
 	
 	def _setupStatusBar(self):
 		self.statusBar = QStatusBar()
