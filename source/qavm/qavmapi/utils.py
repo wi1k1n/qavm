@@ -1,4 +1,5 @@
-import os, platform, json, hashlib, subprocess, sys, zipfile, shutil
+import os, platform, json, hashlib, subprocess, sys
+import zipfile, shutil, tempfile
 from pathlib import Path
 from typing import Any
 
@@ -44,30 +45,23 @@ def GetAppDataPath() -> Path:
 def GetTempDataPath() -> Path:
 	"""Returns the path to the temporary directory."""
 	if PlatformWindows():
-		return Path(str(os.getenv('TEMP')))
-	if PlatformMacOS():
-		raise Exception('Not implemented')
-		return Path('/tmp')
-	# if PlatformLinux():
-	# 	return Path('/tmp')
+		return Path(os.getenv('TEMP', tempfile.gettempdir()))
+	if PlatformMacOS() or PlatformLinux():
+		return Path(tempfile.gettempdir())
 	raise Exception('Unsupported platform')
 
 def GetQAVMExecutablePath() -> Path:
-	if PlatformWindows():
+	if PlatformWindows() or PlatformMacOS():
 		return Path(sys.argv[0]).absolute()
-	elif PlatformMacOS():
-		raise Exception('Not implemented')
-	elif PlatformLinux():
+	if PlatformLinux():
 		raise Exception('Not implemented')
 	raise Exception('Unsupported platform')
 
 # TODO: this is likely for internal use only, so it should be outside of qavmapi
 def GetQAVMRootPath() -> Path:
-	if PlatformWindows():
+	if PlatformWindows() or PlatformMacOS():
 		return GetQAVMExecutablePath().parent
-	elif PlatformMacOS():
-		raise Exception('Not implemented')
-	elif PlatformLinux():
+	if PlatformLinux():
 		raise Exception('Not implemented')
 	raise Exception('Unsupported platform')
 
