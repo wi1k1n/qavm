@@ -499,6 +499,7 @@ class MainWindow(QMainWindow):
 			f"Build: {GetBuildVersion()}<br><br>"
 		)
 		versionLabel = QLabel(versionInfo)
+		versionLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
 		versionLabel.setTextFormat(Qt.TextFormat.RichText)
 		versionLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
 		topLayout.addWidget(versionLabel)
