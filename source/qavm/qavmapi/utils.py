@@ -1,7 +1,7 @@
 import os, platform, json, hashlib, subprocess, sys
-import zipfile, shutil, tempfile
+import zipfile, shutil, tempfile, ctypes
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from qavm.qavmapi.media_cache import MediaCache
 
@@ -15,71 +15,232 @@ def PlatformName() -> str:
 	return platform.system().lower()
 
 
-def CreateFolder(path: Path, parents: bool = True, exist_ok: bool = True) -> None:
-	""" Creates a folder at the specified path. """
-	path.mkdir(parents=parents, exist_ok=exist_ok)
+# def IsPathFile(path: Path) -> bool:
+# 	""" Checks if the given path is a file. """
+# 	if PlatformWindows():
+# 		if IsPathSymlink(path) or IsPathJunction(path):
+# 			return False  # Symlinks and junctions are not treated as regular files
+# 	return path.is_file() and not IsPathSymlink(path)
 
-def DeleteFolder(folderPath: Path) -> None:
-	""" Deletes the specified folder and all its contents. """
-	if not folderPath.exists():
-		return  # nothing to delete
-	if not folderPath.is_dir():
-		raise ValueError(f"Path '{folderPath}' is not a directory.")
-	shutil.rmtree(folderPath)
+# def IsPathFolder(path: Path) -> bool:
+# 	""" Checks if the given path is a folder. """
+# 	if PlatformWindows():
+# 		if IsPathJunction(path):
+# 			return False  # Junction points are treated as folders
+# 	return path.is_dir() and not IsPathSymlink(path)
 
-def CopyFolder(srcFolderPath: Path, dstFolderPath: Path, mkdir: bool = True) -> None:
-	""" Copies srcFolderPath to dstFolderPath """
-	if not srcFolderPath.is_dir():
-		raise ValueError(f"Source path '{srcFolderPath}' is not a directory.")
-	if mkdir:
-		dstFolderPath.mkdir(parents=True, exist_ok=True)
-	shutil.copytree(srcFolderPath, dstFolderPath, dirs_exist_ok=True, symlinks=True)
+# def IsPathSymlink(path: Path) -> bool:
+# 	"""
+# 	Checks if the given path is a symbolic link.
+# 	On Windows: returns False for junction points.
+# 	"""
+# 	return path.is_symlink()
+
+# def GetPathSymlinkTarget(path: Path) -> Path:
+# 	""" Returns the target of a symbolic link or junction point. If the path is not a symlink or junction, returns the path itself. """
+# 	return path.resolve(strict=False) if IsPathSymlink(path) else path
+
+# def IsPathJunction(path: Path) -> bool:
+# 	""" Checks if the given path is a junction point (Windows only). """
+# 	if not path.is_dir() or not PlatformWindows():
+# 		return False
+# 	import ctypes
+# 	FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
+# 	attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
+# 	return attrs != -1 and bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT) and not path.is_symlink()
+
+# def GetPathJunctionTarget(path: Path) -> Path:
+# 	""" Returns the target of a junction point. If the path is not a junction, returns the path itself. (Windows only) """
+# 	print('TODO: this is not tested!')  # TODO: test and fix
+# 	if not PlatformWindows():
+# 		raise NotImplementedError('This function is only supported on Windows')
+# 	return path.resolve(strict=False) if IsPathJunction(path) else path
 
 
-def CopyFile(srcFilePath: Path, dstFilePath: Path) -> None:
-	""" Copies a file from srcFilePath to dstFilePath. """
-	if not srcFilePath.is_file():
-		raise ValueError(f"Source path '{srcFilePath}' is not a file.")
-	dstFilePath.parent.mkdir(parents=True, exist_ok=True)
-	shutil.copy2(srcFilePath, dstFilePath)
+# def CreateFolder(path: Path, parents: bool = True, exist_ok: bool = True) -> None:
+# 	""" Creates a folder at the specified path. """
+# 	path.mkdir(parents=parents, exist_ok=exist_ok)
+
+# def CreateSymlink(target: Path, link_name: Path) -> None:
+# 	""" Creates a symbolic link at link_name pointing to target. """
+# 	if not target.exists():
+# 		raise ValueError(f"Target '{target}' does not exist.")
+# 	if link_name.exists():
+# 		raise ValueError(f"Link name '{link_name}' already exists.")
+# 	target.symlink_to(link_name, target_is_directory=target.is_dir())
+
+# def DeleteFolder(folderPath: Path) -> None:
+# 	""" Deletes the specified folder and all its contents. """
+# 	if not folderPath.exists():
+# 		return  # nothing to delete
+# 	if not IsPathFolder(folderPath) and not IsPathJunction(folderPath):
+# 		raise ValueError(f"Path '{folderPath}' is not a folder.")
+# 	shutil.rmtree(folderPath)
+
+# def DeleteFile(filePath: Path) -> None:
+# 	""" Deletes the specified file. """
+# 	if not IsPathFile(filePath) and not IsPathSymlink(filePath):
+# 		raise ValueError(f"Path '{filePath}' is not a file.")
+# 	filePath.unlink(missing_ok=True)  # missing_ok=True allows it to not raise an error if the file does not exist
+
+# def CopyFolder(srcFolderPath: Path, dstFolderPath: Path, mkdir: bool = True) -> None:
+# 	""" Copies srcFolderPath to dstFolderPath """
+# 	if not srcFolderPath.is_dir():
+# 		raise ValueError(f"Source path '{srcFolderPath}' is not a directory.")
+# 	if mkdir:
+# 		dstFolderPath.mkdir(parents=True, exist_ok=True)
+# 	shutil.copytree(srcFolderPath, dstFolderPath, dirs_exist_ok=True, symlinks=True)
+
+# def CopyFile(srcFilePath: Path, dstFilePath: Path) -> None:
+# 	""" Copies a file from srcFilePath to dstFilePath. """
+# 	if not srcFilePath.is_file():
+# 		raise ValueError(f"Source path '{srcFilePath}' is not a file.")
+# 	dstFilePath.parent.mkdir(parents=True, exist_ok=True)
+# 	shutil.copy2(srcFilePath, dstFilePath)
+
+
+
+# === Detection Functions ===
 
 def IsPathFile(path: Path) -> bool:
-	""" Checks if the given path is a file. """
-	if PlatformWindows():
-		if IsPathSymlink(path) or IsPathJunction(path):
-			return False  # Symlinks and junctions are not treated as regular files
-	return path.is_file() and not IsPathSymlink(path)
+	return path.is_file() and not path.is_symlink()
 
-def IsPathFolder(path: Path) -> bool:
-	""" Checks if the given path is a folder. """
-	if PlatformWindows():
-		if IsPathJunction(path):
-			return True  # Junction points are treated as folders
-	return path.is_dir() and not IsPathSymlink(path)
+def IsPathDir(path: Path) -> bool:
+	return path.is_dir() and not path.is_symlink() and not IsPathJunction(path)
 
-def IsPathSymlink(path: Path) -> bool:
-	""" Checks if the given path is a symbolic link. """
-	return path.is_symlink()
+def IsPathShortcut(path: Path) -> bool:
+	return path.suffix.lower() == '.lnk' and path.is_file()
 
-def GetPathSymlinkTarget(path: Path) -> Path:
-	""" Returns the target of a symbolic link or junction point. If the path is not a symlink or junction, returns the path itself. """
-	return path.resolve(strict=False) if IsPathSymlink(path) else path
+def IsPathSymlinkF(path: Path) -> bool:
+	return path.is_symlink() and Path(path.resolve()).is_file()
+
+def IsPathSymlinkD(path: Path) -> bool:
+	return path.is_symlink() and Path(path.resolve()).is_dir()
 
 def IsPathJunction(path: Path) -> bool:
-	""" Checks if the given path is a junction point (Windows only). """
-	if not path.is_dir() or not PlatformWindows():
+	if not path.is_dir() or not path.exists():
 		return False
-	import ctypes
-	FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
+	# Check if it's a reparse point
+	FILE_ATTRIBUTE_REPARSE_POINT = 0x400
 	attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
-	return attrs != -1 and bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT) and not path.is_symlink()
+	return bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT) and not path.is_symlink()
 
-def GetPathJunctionTarget(path: Path) -> Path:
-	""" Returns the target of a junction point. If the path is not a junction, returns the path itself. (Windows only) """
-	print('TODO: this is not tested!')  # TODO: test and fix
-	if not PlatformWindows():
-		raise NotImplementedError('This function is only supported on Windows')
-	return path.resolve(strict=False) if IsPathJunction(path) else path
+def IsPathHardlink(path: Path) -> bool:
+	if not path.exists() or path.is_symlink():
+		return False
+	# Check link count
+	hfile = os.open(path, os.O_RDONLY)
+	try:
+		info = os.fstat(hfile)
+		return info.st_nlink > 1
+	finally:
+		os.close(hfile)
+
+
+# === Target Retrieval Functions ===
+
+def GetShortcutTarget(path: Path) -> Optional[Path]:
+	if not IsPathShortcut(path):
+		return None
+	import win32com.client
+	shell = win32com.client.Dispatch("WScript.Shell")
+	shortcut = shell.CreateShortcut(str(path))
+	return Path(shortcut.TargetPath)
+
+def GetSymlinkFTarget(path: Path) -> Optional[Path]:
+	if not IsPathSymlinkF(path):
+		return None
+	return path.resolve()
+
+def GetSymlinkDTarget(path: Path) -> Optional[Path]:
+	if not IsPathSymlinkD(path):
+		return None
+	return path.resolve()
+
+def GetJunctionTarget(path: Path) -> Optional[Path]:
+	if not IsPathJunction(path):
+		return None
+	return path.resolve()
+
+
+# === Creation Functions ===
+
+def _checkLinkExistsOverwriteMkdir(target: Path, link: Path, exist_overwrite: bool):
+	if not target.exists():
+		raise FileNotFoundError(target)
+	if link.exists():
+		if exist_overwrite:
+			DeletePath(link)
+		else:
+			raise FileExistsError(link)
+	link.parent.mkdir(parents=True, exist_ok=True)
+
+def CreateDir(path: Path, parents: bool = True, exist_ok: bool = True):
+	path.mkdir(parents=parents, exist_ok=exist_ok)
+
+def CreateShortcut(target: Path, link: Path, exist_overwrite: bool = False):
+	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
+
+	import win32com.client
+	shell = win32com.client.Dispatch("WScript.Shell")
+	shortcut = shell.CreateShortcut(str(link))
+	shortcut.TargetPath = str(target)
+	shortcut.Save()
+
+def CreateSymlinkF(target: Path, link: Path, exist_overwrite: bool = False):
+	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
+	link.symlink_to(target)
+
+def CreateSymlinkD(target: Path, link: Path, exist_overwrite: bool = False):
+	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
+	link.symlink_to(target, target_is_directory=True)
+
+def CreateJunction(target: Path, link: Path, exist_overwrite: bool = False):
+	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
+	os.system(f'mklink /J "{link}" "{target}" >nul')
+
+def CreateHardlink(target: Path, link: Path, exist_overwrite: bool = False):
+	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
+	os.link(target, link)
+
+
+# === Deletion Function ===
+
+def DeletePath(path: Path):
+	if IsPathDir(path):
+		shutil.rmtree(path)
+	else:
+		path.unlink()
+
+
+
+
+
+
+
+
+
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+
+
+
+
+
+
+
+
+
 
 def GetFileBirthtime(path: Path) -> float:
 	if PlatformWindows():
@@ -165,31 +326,31 @@ def GetTempDataPath() -> Path:
 def GetQAVMDataPath(create=True) -> Path:
 	"""Returns the default path to the QAVM data folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm"""
 	path: Path = GetAppDataPath()/'qamv'
-	if create: CreateFolder(path)
+	if create: CreateDir(path)
 	return path
 
 def GetDefaultPluginsFolderPath(create=True) -> Path:
 	"""Returns the default path to the QAVM plugins folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\plugins"""
 	path: Path = GetQAVMDataPath()/'plugins'
-	if create: CreateFolder(path)
+	if create: CreateDir(path)
 	return path
 
 def GetPrefsFolderPath(create=True) -> Path:
 	"""Returns the path to the QAVM preferences folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\preferences"""
 	path: Path = GetQAVMDataPath()/'preferences'
-	if create: CreateFolder(path)
+	if create: CreateDir(path)
 	return path
 
 def GetQAVMTempPath(create=True) -> Path:
 	"""Returns the path to the QAVM temporary folder. For example: C:\\Users\\myself\\AppData\\Local\\Temp\\qavm"""
 	path: Path =  GetTempDataPath()/'qavm'
-	if create: CreateFolder(path)
+	if create: CreateDir(path)
 	return path
 
 def GetQAVMCachePath(create=True) -> Path:
 	"""Returns the path to the QAVM cache folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\cache"""
 	path: Path =  GetQAVMDataPath()/'cache'
-	if create: CreateFolder(path)
+	if create: CreateDir(path)
 	return path
 
 def GetQAVMExecutablePath() -> Path:
@@ -284,3 +445,18 @@ def ExtractZipFile(zipFilePath: Path, extractTo: Path) -> bool:
 	with zipfile.ZipFile(zipFilePath, 'r') as zip_ref:
 		zip_ref.extractall(extractTo)
 	return True
+
+
+
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
