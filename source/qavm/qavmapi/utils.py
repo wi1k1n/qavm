@@ -108,27 +108,15 @@ def IsPathFile(path: Path) -> bool:
 def IsPathDir(path: Path) -> bool:
 	return path.is_dir() and not path.is_symlink() and not IsPathJunction(path)
 
-def IsPathShortcut(path: Path) -> bool:
-	return path.suffix.lower() == '.lnk' and path.is_file()
-
 def IsPathSymlinkF(path: Path) -> bool:
-	return path.is_symlink() and Path(path.resolve()).is_file()
+	return path.is_symlink() and path.resolve().is_file()
 
 def IsPathSymlinkD(path: Path) -> bool:
-	return path.is_symlink() and Path(path.resolve()).is_dir()
-
-def IsPathJunction(path: Path) -> bool:
-	if not path.is_dir() or not path.exists():
-		return False
-	# Check if it's a reparse point
-	FILE_ATTRIBUTE_REPARSE_POINT = 0x400
-	attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
-	return bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT) and not path.is_symlink()
+	return path.is_symlink() and path.resolve().is_dir()
 
 def IsPathHardlink(path: Path) -> bool:
 	if not path.exists() or path.is_symlink():
 		return False
-	# Check link count
 	hfile = os.open(path, os.O_RDONLY)
 	try:
 		info = os.fstat(hfile)
@@ -136,10 +124,34 @@ def IsPathHardlink(path: Path) -> bool:
 	finally:
 		os.close(hfile)
 
+def IsPathJunction(path: Path) -> bool:
+	if not PlatformWindows():
+		raise NotImplementedError("Junctions are only supported on Windows.")
+	if not path.is_dir() or not path.exists():
+		return False
+	FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+	attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
+	return bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT) and not path.is_symlink()
+
+def IsPathShortcut(path: Path) -> bool:
+	if not PlatformWindows():
+		raise NotImplementedError("Shortcuts are only supported on Windows.")
+	return path.suffix.lower() == '.lnk' and path.is_file()
+
+def IsPathAlias(path: Path) -> bool:
+	if not PlatformMacOS():
+		raise NotImplementedError("Aliases are only supported on macOS.")
+	return path.exists() and subprocess.run(
+		["osascript", "-e", f'tell application "Finder" to return kind of (POSIX file "{path}" as alias)'],
+		stdout=subprocess.DEVNULL,
+		stderr=subprocess.DEVNULL
+	).returncode == 0
 
 # === Target Retrieval Functions ===
 
 def GetShortcutTarget(path: Path) -> Optional[Path]:
+	if not PlatformWindows():
+		raise NotImplementedError("Shortcuts are only supported on Windows.")
 	if not IsPathShortcut(path):
 		return None
 	import win32com.client
@@ -147,23 +159,30 @@ def GetShortcutTarget(path: Path) -> Optional[Path]:
 	shortcut = shell.CreateShortcut(str(path))
 	return Path(shortcut.TargetPath)
 
-def GetSymlinkFTarget(path: Path) -> Optional[Path]:
-	if not IsPathSymlinkF(path):
+def GetAliasTarget(path: Path) -> Optional[Path]:
+	if not PlatformMacOS():
+		raise NotImplementedError("Aliases are only supported on macOS.")
+	if not IsPathAlias(path):
 		return None
-	return path.resolve()
+	result = subprocess.run([
+		"osascript",
+		"-e",
+		f'set originalItem to (POSIX path of (original item of (POSIX file "{path}" as alias)))'
+	], capture_output=True, text=True)
+	return Path(result.stdout.strip()) if result.returncode == 0 else None
+
+def GetSymlinkFTarget(path: Path) -> Optional[Path]:
+	return path.resolve() if IsPathSymlinkF(path) else None
 
 def GetSymlinkDTarget(path: Path) -> Optional[Path]:
-	if not IsPathSymlinkD(path):
-		return None
-	return path.resolve()
+	return path.resolve() if IsPathSymlinkD(path) else None
 
 def GetJunctionTarget(path: Path) -> Optional[Path]:
-	if not IsPathJunction(path):
-		return None
-	return path.resolve()
+	if not PlatformWindows():
+		raise NotImplementedError("Junctions are only supported on Windows.")
+	return path.resolve() if IsPathJunction(path) else None
 
-
-# === Creation Functions ===
+# === Creation Helpers ===
 
 def _checkLinkExistsOverwriteMkdir(target: Path, link: Path, exist_overwrite: bool):
 	if not target.exists():
@@ -175,10 +194,14 @@ def _checkLinkExistsOverwriteMkdir(target: Path, link: Path, exist_overwrite: bo
 			raise FileExistsError(link)
 	link.parent.mkdir(parents=True, exist_ok=True)
 
+# === Creation Functions ===
+
 def CreateDir(path: Path, parents: bool = True, exist_ok: bool = True):
 	path.mkdir(parents=parents, exist_ok=exist_ok)
 
 def CreateShortcut(target: Path, link: Path, exist_overwrite: bool = False):
+	if not PlatformWindows():
+		raise NotImplementedError("Shortcuts are only supported on Windows.")
 	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
 
 	import win32com.client
@@ -186,6 +209,18 @@ def CreateShortcut(target: Path, link: Path, exist_overwrite: bool = False):
 	shortcut = shell.CreateShortcut(str(link))
 	shortcut.TargetPath = str(target)
 	shortcut.Save()
+
+def CreateAlias(target: Path, link: Path, exist_overwrite: bool = False):
+	if not PlatformMacOS():
+		raise NotImplementedError("Aliases are only supported on macOS.")
+	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
+	subprocess.run([
+		"osascript",
+		"-e",
+		f'tell application "Finder" to make alias file to POSIX file "{target}" at POSIX file "{link.parent}"',
+		"-e",
+		f'tell application "Finder" to set name of result to "{link.name}"'
+	], check=True)
 
 def CreateSymlinkF(target: Path, link: Path, exist_overwrite: bool = False):
 	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
@@ -196,6 +231,8 @@ def CreateSymlinkD(target: Path, link: Path, exist_overwrite: bool = False):
 	link.symlink_to(target, target_is_directory=True)
 
 def CreateJunction(target: Path, link: Path, exist_overwrite: bool = False):
+	if not PlatformWindows():
+		raise NotImplementedError("Junctions are only supported on Windows.")
 	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
 	os.system(f'mklink /J "{link}" "{target}" >nul')
 
@@ -203,8 +240,7 @@ def CreateHardlink(target: Path, link: Path, exist_overwrite: bool = False):
 	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
 	os.link(target, link)
 
-
-# === Deletion Function ===
+# === Deletion Functions ===
 
 def DeletePath(path: Path):
 	if IsPathDir(path):
