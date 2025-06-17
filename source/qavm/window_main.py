@@ -18,6 +18,7 @@ from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu,
 	BaseCustomView, SoftwareBaseSettings, BaseMenuItems, 
 )
+from qavm.qavmapi.utils import PlatformMacOS, PlatformWindows, PlatformLinux
 from qavm.utils_gui import FlowLayout
 from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion
 
@@ -166,21 +167,29 @@ class MainWindow(QMainWindow):
 
 	def _setupMenuBar(self):
 		menuBar: QMenuBar = self.menuBar()
-		menuBar.setNativeMenuBar(True)
+		menuBar.setNativeMenuBar(True)  # Use native menu bar on macOS
 		
-		fileMenu = menuBar.addMenu('&File')
+		fileMenu: QMenu = QMenu("&File", self)
 		fileMenu.addAction(self.actionRescan)
 		fileMenu.addSeparator()
 		fileMenu.addAction(self.actionPluginSelection)
 		fileMenu.addSeparator()
 		fileMenu.addAction(self.actionExit)
+		menuBar.addMenu(fileMenu)
 		
-		editMenu = menuBar.addMenu("&Edit")
-		editMenu.addAction(self.actionPrefs)
+		if PlatformMacOS():  # workaround for stupid macOS menu bar
+			fileMenu.addAction(self.actionPrefs)
+		else:
+			editMenu: QMenu = QMenu("&Edit", self)
+			editMenu.addAction(self.actionPrefs)
+			menuBar.addMenu(editMenu)
 		
-		viewMenu = menuBar.addMenu("&View")
+		viewMenu = QMenu("&View", self)
+		menuBar.addMenu(viewMenu)
 		
-		switchMenu = menuBar.addMenu("&Software")
+		switchMenu: QMenu = QMenu("&Switch Workspace", self)
+		switchMenu.addAction(QAction("osx sucks", self))
+		menuBar.addMenu(switchMenu)
 		def populate_switch_menu():
 			switchMenu.clear()
 			swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()  # [pluginID, softwareID, SoftwareHandler]
@@ -196,7 +205,7 @@ class MainWindow(QMainWindow):
 		# TODO: handle case when softwareHandler is None
 		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
 		menuItems: BaseMenuItems = softwareHandler.GetMenuItems()
-		menus = menuItems.GetMenus()
+		menus = menuItems.GetMenus(self)
 		for menuItemsMenu in menus:
 			if menuItemsMenu is None:
 				continue
@@ -211,20 +220,21 @@ class MainWindow(QMainWindow):
 
 			logger.warning(f"Menu item {menuItemsMenu} is not a valid QMenu or QAction. Skipping.")
 
-		helpMenu = menuBar.addMenu("&Help")
+		helpMenu: QMenu = QMenu("&Help", self)
 		helpMenu.addAction(self.actionAbout)
+		menuBar.addMenu(helpMenu)
 
 		##################################################################
 		########################## Right Corner ##########################
 		##################################################################
-		rightCornerMenu = QMenuBar(menuBar)
-		for pluginID, softwareID, softwareHandler in self.pluginManager.GetSoftwareHandlers():
-			swUID: str = f'{pluginID}#{softwareID}'
-			title: str = softwareHandler.GetName()
-			action = QAction(title, self, triggered=partial(self._switchToPluginSelection, swUID))
-			rightCornerMenu.addAction(action)
-
-		menuBar.setCornerWidget(rightCornerMenu)
+		if not PlatformMacOS():  # macOS isn't capable of complex things
+			rightCornerMenu = QMenuBar(menuBar)
+			for pluginID, softwareID, softwareHandler in self.pluginManager.GetSoftwareHandlers():
+				swUID: str = f'{pluginID}#{softwareID}'
+				title: str = softwareHandler.GetName()
+				action = QAction(title, self, triggered=partial(self._switchToPluginSelection, swUID))
+				rightCornerMenu.addAction(action)
+			menuBar.setCornerWidget(rightCornerMenu)
 	
 	def _setupStatusBar(self):
 		self.statusBar = QStatusBar()

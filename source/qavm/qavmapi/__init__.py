@@ -413,6 +413,6 @@ class BaseMenuItems(QObject):
 		super().__init__()
 		self.settings: SoftwareBaseSettings = settings
 
-	def GetMenus(self, parent=None) -> list[QMenu | QAction]:
+	def GetMenus(self, parent) -> list[QMenu | QAction]:
 		""" Returns a list of QMenu objects to be added to the main menu. """
 		return []
