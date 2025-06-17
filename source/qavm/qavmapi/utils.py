@@ -106,7 +106,8 @@ def IsPathFile(path: Path) -> bool:
 	return path.is_file() and not path.is_symlink()
 
 def IsPathDir(path: Path) -> bool:
-	return path.is_dir() and not path.is_symlink() and not IsPathJunction(path)
+	isJunction = IsPathJunction(path) if PlatformWindows() else False
+	return path.is_dir() and not path.is_symlink() and not isJunction
 
 def IsPathSymlinkF(path: Path) -> bool:
 	return path.is_symlink() and path.resolve().is_file()
@@ -164,12 +165,27 @@ def GetAliasTarget(path: Path) -> Optional[Path]:
 		raise NotImplementedError("Aliases are only supported on macOS.")
 	if not IsPathAlias(path):
 		return None
-	result = subprocess.run([
-		"osascript",
-		"-e",
-		f'set originalItem to (POSIX path of (original item of (POSIX file "{path}" as alias)))'
-	], capture_output=True, text=True)
-	return Path(result.stdout.strip()) if result.returncode == 0 else None
+
+	script = f'''
+	tell application "Finder"
+		set aliasFile to POSIX file "{path}" as alias
+		set targetFile to original item of aliasFile as text
+	end tell
+	set posixPath to POSIX path of targetFile
+	return posixPath
+	'''
+
+	result = subprocess.run(
+		["osascript", "-e", script],
+		capture_output=True,
+		text=True
+	)
+
+	if result.returncode == 0:
+		return Path(result.stdout.strip())
+	else:
+		return None
+
 
 def GetSymlinkFTarget(path: Path) -> Optional[Path]:
 	return path.resolve() if IsPathSymlinkF(path) else None
