@@ -1,7 +1,8 @@
 #!/bin/bash
-# filepath: /Users/i_mazlov/dev/qavm/tools/packaging/package_cinema4d.sh
 
 APP_NAME=qavm
+
+source ../../venv/bin/activate
 
 # Create build.txt during packaging phase
 python create-build-info.py $APP_NAME
@@ -17,4 +18,4 @@ python sign-builtin-plugins.py --pluginsFolder build/qavm/builtin_plugins --key 
 
 # Use PyInstaller to build the application
 # Comment: pyinstaller --name "qavm" "../../source/qavm.py" # use this to create default PyInstaller config
-pyinstaller ./$APP_NAME.spec --distpath dist
+pyinstaller ./$APP_NAME.spec --distpath dist --noconfirm
