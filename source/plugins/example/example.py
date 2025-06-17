@@ -270,7 +270,7 @@ class ExampleContextMenu(BaseContextMenu):
 		desc.updated.emit()
 
 class ExampleMenuItems(BaseMenuItems):
-	def GetMenus(self, parent=None) -> list[QMenu | QAction]:
+	def GetMenus(self, parent) -> list[QMenu | QAction]:
 		# This method can be used to create custom menus that can be added to the main QAVM window.
 		# For example, you can create a menu with some actions related to the plugin.
 		menu = QMenu('Example Plugin', parent)
