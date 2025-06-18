@@ -17,7 +17,6 @@ def run_tests():
 	p_dir = testFilesPath / "test_dir"
 	p_symlink_file = testFilesPath / "file_symlink"
 	p_symlink_dir = testFilesPath / "dir_symlink"
-	p_alias = testFilesPath / "file_alias"
 
 	p_file.write_text("Hello world!")
 	p_dir.mkdir(exist_ok=True)
@@ -38,9 +37,6 @@ def run_tests():
 		if p_junction.exists(): shutil.rmtree(p_junction, ignore_errors=True)
 		qutils.CreateJunction(p_dir, p_junction, exist_overwrite=True)
 
-	if qutils.PlatformMacOS():
-		qutils.CreateAlias(p_file, p_alias, exist_overwrite=True)
-
 	# === Type Detection ===
 	assert qutils.IsPathFile(p_file)
 	assert qutils.IsPathDir(p_dir)
@@ -50,9 +46,6 @@ def run_tests():
 	if qutils.PlatformWindows():
 		assert qutils.IsPathShortcut(p_shortcut)
 		assert qutils.IsPathJunction(p_junction)
-
-	if qutils.PlatformMacOS():
-		assert qutils.IsPathAlias(p_alias)
 
 	print("✅ Type detection passed.")
 
@@ -64,16 +57,12 @@ def run_tests():
 		assert qutils.GetShortcutTarget(p_shortcut).resolve() == p_file.resolve()
 		assert qutils.GetJunctionTarget(p_junction).resolve() == p_dir.resolve()
 
-	if qutils.PlatformMacOS():
-		assert qutils.GetAliasTarget(p_alias).resolve() == p_file.resolve()
-
 	print("✅ Target resolution passed.")
 
 	# === Test creation & deletion ===
 	pcreate_dir = testFilesPath / "z_mydir"
 	pcreate_symlink_file = testFilesPath / "z_symlink_file"
 	pcreate_symlink_dir = testFilesPath / "z_symlink_dir"
-	pcreate_alias = testFilesPath / "z_alias"
 	pcreate_shortcut = testFilesPath / "z_shortcut.lnk"
 	pcreate_junction = testFilesPath / "z_junction"
 
@@ -93,18 +82,12 @@ def run_tests():
 		qutils.CreateJunction(p_dir, pcreate_junction, exist_overwrite=True)
 		assert qutils.IsPathJunction(pcreate_junction)
 
-	if qutils.PlatformMacOS():
-		qutils.CreateAlias(p_file, pcreate_alias, exist_overwrite=True)
-		assert qutils.IsPathAlias(pcreate_alias)
-
 	print("✅ Creation functions passed.")
 
 	# === Test deletion ===
 	to_delete = [pcreate_dir, pcreate_symlink_file, pcreate_symlink_dir]
 	if qutils.PlatformWindows():
 		to_delete += [pcreate_shortcut, pcreate_junction]
-	if qutils.PlatformMacOS():
-		to_delete += [pcreate_alias]
 
 	for p in to_delete:
 		qutils.DeletePath(p)
@@ -139,9 +122,6 @@ def run_tests():
 	if qutils.PlatformWindows():
 		test_copy(p_shortcut, "Shortcut", qutils.IsPathShortcut, '_shortcut.lnk')
 		test_copy(p_junction, "Junction", qutils.IsPathJunction)
-
-	if qutils.PlatformMacOS():
-		test_copy(p_alias, "Alias", qutils.IsPathAlias)
 
 	print("✅ CopyPath function passed.")
 

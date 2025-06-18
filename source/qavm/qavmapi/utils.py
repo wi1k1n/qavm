@@ -42,15 +42,6 @@ def IsPathShortcut(path: Path) -> bool:
 		raise NotImplementedError("Shortcuts are only supported on Windows.")
 	return path.suffix.lower() == '.lnk' and path.is_file()
 
-def IsPathAlias(path: Path) -> bool:
-	if not PlatformMacOS():
-		raise NotImplementedError("Aliases are only supported on macOS.")
-	return path.exists() and subprocess.run(
-		["osascript", "-e", f'tell application "Finder" to return kind of (POSIX file "{path}" as alias)'],
-		stdout=subprocess.DEVNULL,
-		stderr=subprocess.DEVNULL
-	).returncode == 0
-
 # === Target Retrieval Functions ===
 
 def GetShortcutTarget(path: Path) -> Optional[Path]:
@@ -62,33 +53,6 @@ def GetShortcutTarget(path: Path) -> Optional[Path]:
 	shell = win32com.client.Dispatch("WScript.Shell")
 	shortcut = shell.CreateShortcut(str(path))
 	return Path(shortcut.TargetPath)
-
-def GetAliasTarget(path: Path) -> Optional[Path]:
-	if not PlatformMacOS():
-		raise NotImplementedError("Aliases are only supported on macOS.")
-	if not IsPathAlias(path):
-		return None
-
-	script = f'''
-	tell application "Finder"
-		set aliasFile to POSIX file "{path}" as alias
-		set targetFile to original item of aliasFile as text
-	end tell
-	set posixPath to POSIX path of targetFile
-	return posixPath
-	'''
-
-	result = subprocess.run(
-		["osascript", "-e", script],
-		capture_output=True,
-		text=True
-	)
-
-	if result.returncode == 0:
-		return Path(result.stdout.strip())
-	else:
-		return None
-
 
 def GetSymlinkFTarget(path: Path) -> Optional[Path]:
 	return path.resolve() if IsPathSymlinkF(path) else None
@@ -128,18 +92,6 @@ def CreateShortcut(target: Path, link: Path, exist_overwrite: bool = False):
 	shortcut = shell.CreateShortcut(str(link))
 	shortcut.TargetPath = str(target)
 	shortcut.Save()
-
-def CreateAlias(target: Path, link: Path, exist_overwrite: bool = False):
-	if not PlatformMacOS():
-		raise NotImplementedError("Aliases are only supported on macOS.")
-	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
-	subprocess.run([
-		"osascript",
-		"-e",
-		f'tell application "Finder" to make alias file to POSIX file "{target}" at POSIX file "{link.parent}"',
-		"-e",
-		f'tell application "Finder" to set name of result to "{link.name}"'
-	], check=True)
 
 def CreateSymlinkF(target: Path, link: Path, exist_overwrite: bool = False):
 	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
@@ -191,9 +143,6 @@ def CopyPath(src: Path, dst: Path, exist_overwrite: bool = False):
 
 	elif PlatformWindows() and IsPathJunction(src):
 		CreateJunction(GetJunctionTarget(src), dst, exist_overwrite=exist_overwrite)
-
-	elif PlatformMacOS() and IsPathAlias(src):
-		CreateAlias(GetAliasTarget(src), dst, exist_overwrite=exist_overwrite)
 
 	elif IsPathFile(src):  # this should be the last check
 		shutil.copy2(src, dst)
