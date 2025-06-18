@@ -235,7 +235,7 @@ def RunCommandWindowsAsAdmin(cmd):
 	if result <= 32:
 		raise RuntimeError(f"Failed to launch admin cmd (error code {result})")
 	
-def RunCommandMacOS(cmd: str):
+def RunCommandMacOS(cmd: str) -> subprocess.CompletedProcess:
 	""" Launches a shell command on macOS and returns the output.
 	cmd: string, e.g. 'ls -l /Applications'
 	"""
