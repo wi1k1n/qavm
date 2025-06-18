@@ -8,8 +8,7 @@ PLUGIN_NAME = 'Example Plugin'
 PLUGIN_DEVELOPER = 'Ilya Mazlov (mazlov.i.a@gmail.com)'
 PLUGIN_WEBSITE = 'https://github.com/wi1k1n/qavm'
 
-import os, subprocess, re, json, sys, logging, cv2, pyperclip, re
-import datetime as dt, numpy as np
+import os, logging
 from pathlib import Path
 from functools import partial
 from typing import Any, Iterator
@@ -20,11 +19,13 @@ from qavm.qavmapi import (
 	BaseMenuItems, 
 )
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem, RunningBorderWidget
+
+import qavm.qavmapi.utils as qutils
 from qavm.qavmapi.utils import (
 	GetQAVMDataPath, GetQAVMCachePath, GetAppDataPath, GetHashString, GetPrefsFolderPath,
 	PlatformWindows, PlatformMacOS, PlatformLinux, PlatformName,
 	OpenFolderInExplorer, GetTempDataPath, GetHashFile, GetQAVMTempPath,
-	StartProcess, StopProcess, IsProcessRunning, GetPathSymlinkTarget, GetPathJunctionTarget,
+	StartProcess, StopProcess, IsProcessRunning,
 	GetFileBirthtime
 )
 from qavm.qavmapi.media_cache import MediaCache
@@ -193,9 +194,9 @@ class ExampleTableBuilder(BaseTableBuilder):
 			dirTypePrefix: str = f'({desc.dirType}) ' if desc.dirType else ''
 			dirLinkTarget: str = ''
 			if desc.dirType == 'S':
-				dirLinkTarget = f' ( → {GetPathSymlinkTarget(desc.dirPath)})'
+				dirLinkTarget = f' ( → {qutils.GetSymlinkDTarget(desc.dirPath)})'
 			elif desc.dirType == 'J':
-				dirLinkTarget = f' ( → {GetPathJunctionTarget(desc.dirPath)})'
+				dirLinkTarget = f' ( → {qutils.GetJunctionTarget(desc.dirPath)})'
 			return f'{dirTypePrefix}{str(desc.dirPath)}{dirLinkTarget}'
 		return ''
 

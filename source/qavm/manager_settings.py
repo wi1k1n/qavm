@@ -186,16 +186,19 @@ class QAVMGlobalSettings(BaseSettings):
 
 	def _createThemeSelectorWidget(self, parent: QWidget | None = None) -> QWidget:
 		self.tabWidget = QTabWidget(parent)
+		self.tabWidget.setTabPosition(QTabWidget.TabPosition.North)
 		self.tabWidget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
 		lightTab = QWidget()
 		self.lightSwatchesLayout = QHBoxLayout()
 		self.lightSwatchesLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+		self.lightSwatchesLayout.setContentsMargins(0, 0, 0, 0)
 		lightTab.setLayout(self.lightSwatchesLayout)
 
 		darkTab = QWidget()
 		self.darkSwatchesLayout = QHBoxLayout()
 		self.darkSwatchesLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+		self.darkSwatchesLayout.setContentsMargins(0, 0, 0, 0)
 		darkTab.setLayout(self.darkSwatchesLayout)
 
 		self._initSwatches()  # Fill swatches once
@@ -214,7 +217,9 @@ class QAVMGlobalSettings(BaseSettings):
 
 	def _initSwatches(self):
 		# themeName: (darkMode, color)
-		themesParsed: dict[str, tuple[str, QColor]] = {themeName: self._parseThemeName(themeName) for themeName in gui_utils.GetThemesList()}
+		themesParsed: dict[str, tuple[str, QColor]] = {
+			themeName: self._parseThemeName(themeName) for themeName in gui_utils.GetThemesList()
+		}
 		
 		self._swatchButtons: dict[str, ColorButton] = {}
 		curThemeName: str = gui_utils.GetThemeName()

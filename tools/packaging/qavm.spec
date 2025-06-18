@@ -1,5 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import platform
+
 APP_NAME = 'qavm' # !!! Changing this would create separate .spec file with default settings
 
 PATH_RES = '../../res'
@@ -55,3 +57,15 @@ coll = COLLECT(
     upx_exclude=[],
     name=APP_NAME,
 )
+
+if platform.system() == 'Darwin':
+    app_bundle = BUNDLE(
+        coll,
+        name='QAVM.app',
+        icon=f'{PATH_RES}/qavm_icon.png',
+        bundle_identifier='in.wi1k.tools.qavm',
+        info_plist={
+            'NSHighResolutionCapable': 'True',  # for Retina display
+            'NSPrincipalClass': 'NSApplication',
+        },
+    )

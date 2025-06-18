@@ -1,8 +1,7 @@
-import os, platform, json, hashlib, subprocess, sys, zipfile, shutil
+import os, platform, json, hashlib, subprocess, sys
+import zipfile, shutil, tempfile, ctypes
 from pathlib import Path
-from typing import Any
-
-from qavm.qavmapi.media_cache import MediaCache
+from typing import Any, Optional
 
 def PlatformWindows():
 	return platform.system() == 'Windows'
@@ -14,62 +13,181 @@ def PlatformName() -> str:
 	return platform.system().lower()
 
 
-def GetQAVMDataPath() -> Path:
-	path: Path = GetAppDataPath()/'qamv'
-	os.makedirs(path, exist_ok=True)
-	return path
+# === Detection Functions ===
 
-def GetDefaultPluginsFolderPath() -> Path:
-	return GetQAVMDataPath()/'plugins'
+def IsPathFile(path: Path) -> bool:
+	return path.is_file() and not path.is_symlink()
 
-def GetPrefsFolderPath() -> Path:
-	return GetQAVMDataPath()/'preferences'
+def IsPathDir(path: Path) -> bool:
+	isJunction = IsPathJunction(path) if PlatformWindows() else False
+	return path.is_dir() and not path.is_symlink() and not isJunction
 
-def GetQAVMTempPath() -> Path:
-	return GetTempDataPath()/'qavm'
+def IsPathSymlinkF(path: Path) -> bool:
+	return path.is_symlink() and path.resolve().is_file()
 
-def GetQAVMCachePath() -> Path:
-	return GetQAVMDataPath()/'cache'
+def IsPathSymlinkD(path: Path) -> bool:
+	return path.is_symlink() and path.resolve().is_dir()
 
-def GetAppDataPath() -> Path:
-	"""Returns the path to the AppData folder for the current user."""
+def IsPathJunction(path: Path) -> bool:
+	if not PlatformWindows():
+		raise NotImplementedError("Junctions are only supported on Windows.")
+	if not path.is_dir() or not path.exists():
+		return False
+	FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+	attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
+	return bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT) and not path.is_symlink()
+
+def IsPathShortcut(path: Path) -> bool:
+	if not PlatformWindows():
+		raise NotImplementedError("Shortcuts are only supported on Windows.")
+	return path.suffix.lower() == '.lnk' and path.is_file()
+
+# === Target Retrieval Functions ===
+
+def GetShortcutTarget(path: Path) -> Optional[Path]:
+	if not PlatformWindows():
+		raise NotImplementedError("Shortcuts are only supported on Windows.")
+	if not IsPathShortcut(path):
+		return None
+	import win32com.client
+	shell = win32com.client.Dispatch("WScript.Shell")
+	shortcut = shell.CreateShortcut(str(path))
+	return Path(shortcut.TargetPath)
+
+def GetSymlinkFTarget(path: Path) -> Optional[Path]:
+	return path.resolve() if IsPathSymlinkF(path) else None
+
+def GetSymlinkDTarget(path: Path) -> Optional[Path]:
+	return path.resolve() if IsPathSymlinkD(path) else None
+
+def GetJunctionTarget(path: Path) -> Optional[Path]:
+	if not PlatformWindows():
+		raise NotImplementedError("Junctions are only supported on Windows.")
+	return path.resolve() if IsPathJunction(path) else None
+
+# === Creation Helpers ===
+
+def _checkLinkExistsOverwriteMkdir(target: Path, link: Path, exist_overwrite: bool):
+	if not target.exists():
+		raise FileNotFoundError(target)
+	if link.exists():
+		if exist_overwrite:
+			DeletePath(link)
+		else:
+			raise FileExistsError(link)
+	link.parent.mkdir(parents=True, exist_ok=True)
+
+# === Creation Functions ===
+
+def CreateDir(path: Path, parents: bool = True, exist_ok: bool = True):
+	path.mkdir(parents=parents, exist_ok=exist_ok)
+
+def CreateShortcut(target: Path, link: Path, exist_overwrite: bool = False):
+	if not PlatformWindows():
+		raise NotImplementedError("Shortcuts are only supported on Windows.")
+	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
+
+	import win32com.client
+	shell = win32com.client.Dispatch("WScript.Shell")
+	shortcut = shell.CreateShortcut(str(link))
+	shortcut.TargetPath = str(target)
+	shortcut.Save()
+
+def CreateSymlinkF(target: Path, link: Path, exist_overwrite: bool = False):
+	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
+	link.symlink_to(target)
+
+def CreateSymlinkD(target: Path, link: Path, exist_overwrite: bool = False):
+	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
+	link.symlink_to(target, target_is_directory=True)
+
+def CreateJunction(target: Path, link: Path, exist_overwrite: bool = False):
+	if not PlatformWindows():
+		raise NotImplementedError("Junctions are only supported on Windows.")
+	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
+	os.system(f'mklink /J "{link}" "{target}" >nul')
+
+# === Deletion Functions ===
+
+def DeletePath(path: Path):
+	if IsPathDir(path):
+		shutil.rmtree(path)
+	else:
+		path.unlink()
+
+# === Copy Functions ===
+
+def CopyPath(src: Path, dst: Path, exist_overwrite: bool = False):
+	"""
+	Copies the filesystem object at `src` to `dst`, preserving the object type.
+	"""
+	if not src.exists():
+		raise FileNotFoundError(src)
+
+	if dst.exists():
+		if not exist_overwrite:
+			raise FileExistsError(dst)
+		DeletePath(dst)
+
+	if IsPathDir(src):
+		shutil.copytree(src, dst)
+
+	elif IsPathSymlinkF(src):
+		CreateSymlinkF(src.resolve(), dst, exist_overwrite=exist_overwrite)
+
+	elif IsPathSymlinkD(src):
+		CreateSymlinkD(src.resolve(), dst, exist_overwrite=exist_overwrite)
+
+	elif PlatformWindows() and IsPathShortcut(src):
+		CreateShortcut(GetShortcutTarget(src), dst, exist_overwrite=exist_overwrite)
+
+	elif PlatformWindows() and IsPathJunction(src):
+		CreateJunction(GetJunctionTarget(src), dst, exist_overwrite=exist_overwrite)
+
+	elif IsPathFile(src):  # this should be the last check
+		shutil.copy2(src, dst)
+
+	else:
+		raise ValueError(f"Unsupported or unknown path type: {src}")
+
+
+
+
+
+
+
+
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+
+
+
+
+
+
+
+
+
+
+def GetFileBirthtime(path: Path) -> float:
 	if PlatformWindows():
-		return Path(str(os.getenv('APPDATA')))
-	if PlatformMacOS():
-		return Path.home()/'Library/Preferences'
-	# if PlatformLinux():
-	# 	return os.path.expanduser('~')
-	raise Exception('Unsupported platform')
-
-def GetTempDataPath() -> Path:
-	"""Returns the path to the temporary directory."""
-	if PlatformWindows():
-		return Path(str(os.getenv('TEMP')))
-	if PlatformMacOS():
-		raise Exception('Not implemented')
-		return Path('/tmp')
-	# if PlatformLinux():
-	# 	return Path('/tmp')
-	raise Exception('Unsupported platform')
-
-def GetQAVMExecutablePath() -> Path:
-	if PlatformWindows():
-		return Path(sys.argv[0]).absolute()
+		return path.stat().st_ctime
 	elif PlatformMacOS():
-		raise Exception('Not implemented')
+		return path.stat().st_birthtime
 	elif PlatformLinux():
-		raise Exception('Not implemented')
-	raise Exception('Unsupported platform')
+		raise NotImplementedError('Not implemented')
 
-# TODO: this is likely for internal use only, so it should be outside of qavmapi
-def GetQAVMRootPath() -> Path:
-	if PlatformWindows():
-		return GetQAVMExecutablePath().parent
-	elif PlatformMacOS():
-		raise Exception('Not implemented')
-	elif PlatformLinux():
-		raise Exception('Not implemented')
-	raise Exception('Unsupported platform')
+
 
 def OpenFolderInExplorer(folderPath: Path):
 	if PlatformWindows():
@@ -80,6 +198,115 @@ def OpenFolderInExplorer(folderPath: Path):
 	# 	subprocess.Popen(['xdg-open', folderPath])
 	else:
 		raise Exception('Unsupported platform')
+
+def RunCommandWindows(cmd: str) -> str:
+	"""
+	Launch cmd.exe and run `cmd`.
+	cmd: string, e.g. 'dir C:\\Windows'
+	"""
+	if not PlatformWindows():
+		raise Exception('This function is only supported on Windows')
+	import subprocess
+	params = f"/c {cmd}"
+	result = subprocess.run(['cmd.exe', params], capture_output=True, text=True)
+	if result.returncode != 0:
+		raise RuntimeError(f"Command failed with error: {result.stderr}")
+	return result.stdout
+
+def RunCommandWindowsAsAdmin(cmd):
+	"""
+	Launch cmd.exe as administrator and run `cmd`.
+	cmd: string, e.g. 'dir C:\\Windows'
+	"""
+	if not PlatformWindows():
+		raise Exception('This function is only supported on Windows')
+	import ctypes
+	# ShellExecuteW returns >32 if successful
+	params = f"/k {cmd}"
+	# None, verb, file, params, cwd, show
+	result = ctypes.windll.shell32.ShellExecuteW(
+		None,                   # hwnd
+		"runas",                # verb
+		"cmd.exe",              # file
+		params,                 # parameters
+		None,                   # directory (use default)
+		1                       # SW_SHOWNORMAL
+	)
+	if result <= 32:
+		raise RuntimeError(f"Failed to launch admin cmd (error code {result})")
+	
+def RunCommandMacOS(cmd: str) -> subprocess.CompletedProcess:
+	""" Launches a shell command on macOS and returns the output.
+	cmd: string, e.g. 'ls -l /Applications'
+	"""
+	if not PlatformMacOS():
+		raise Exception('This function is only supported on macOS')
+	return subprocess.run(cmd, shell=True, capture_output=True, text=True)
+
+
+
+
+def GetAppDataPath() -> Path:
+	"""Returns the path to the AppData folder for the current user. For example: C:\\Users\\myself\\AppData\\Roaming"""
+	if PlatformWindows():
+		return Path(str(os.getenv('APPDATA')))
+	if PlatformMacOS():
+		return Path.home()/'Library/Preferences'
+	# if PlatformLinux():
+	# 	return os.path.expanduser('~')
+	raise Exception('Unsupported platform')
+
+def GetTempDataPath() -> Path:
+	"""Returns the path to the temporary directory. For example: C:\\Users\\myself\\AppData\\Local\\Temp"""
+	return Path(tempfile.gettempdir())
+
+def GetQAVMDataPath(create=True) -> Path:
+	"""Returns the default path to the QAVM data folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm"""
+	path: Path = GetAppDataPath()/'qamv'
+	if create: CreateDir(path)
+	return path
+
+def GetDefaultPluginsFolderPath(create=True) -> Path:
+	"""Returns the default path to the QAVM plugins folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\plugins"""
+	path: Path = GetQAVMDataPath()/'plugins'
+	if create: CreateDir(path)
+	return path
+
+def GetPrefsFolderPath(create=True) -> Path:
+	"""Returns the path to the QAVM preferences folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\preferences"""
+	path: Path = GetQAVMDataPath()/'preferences'
+	if create: CreateDir(path)
+	return path
+
+def GetQAVMTempPath(create=True) -> Path:
+	"""Returns the path to the QAVM temporary folder. For example: C:\\Users\\myself\\AppData\\Local\\Temp\\qavm"""
+	path: Path =  GetTempDataPath()/'qavm'
+	if create: CreateDir(path)
+	return path
+
+def GetQAVMCachePath(create=True) -> Path:
+	"""Returns the path to the QAVM cache folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\cache"""
+	path: Path =  GetQAVMDataPath()/'cache'
+	if create: CreateDir(path)
+	return path
+
+def GetQAVMExecutablePath() -> Path:
+	""" Returns the absolute path to the QAVM executable. For example: qavm\\source\\qavm.py"""
+	if PlatformWindows() or PlatformMacOS():
+		return Path(sys.argv[0]).absolute()
+	if PlatformLinux():
+		raise Exception('Not implemented')
+	raise Exception('Unsupported platform')
+
+def GetQAVMRootPath() -> Path:
+	if PlatformWindows() or PlatformMacOS():
+		return GetQAVMExecutablePath().parent
+	if PlatformLinux():
+		raise Exception('Not implemented')
+	raise Exception('Unsupported platform')
+
+
+
 
 def GetHashNumber(number, hashAlgo='sha256'):
 	return GetHashString(str(number), hashAlgo)
@@ -94,32 +321,6 @@ def GetHashFile(filePath: Path, hashAlgo='sha256'):
 		while chunk := file.read(CHUNKSIZE):
 			hashFunc.update(chunk)
 	return hashFunc.hexdigest()[:12]
-
-def IsPathSymlink(path: Path) -> bool:
-  return path.is_symlink()
-
-def IsPathJunction(path: Path) -> bool:
-		if not path.is_dir() or not PlatformWindows():
-			return False
-		import ctypes
-		FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
-		attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
-		return attrs != -1 and bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT) and not path.is_symlink()
-
-def GetPathSymlinkTarget(path: Path) -> Path:
-  return path.resolve(strict=False) if IsPathSymlink(path) else path
-
-def GetPathJunctionTarget(path: Path) -> Path:
-  print('TODO: this is not tested!')  # TODO: test and fix
-  return path.resolve(strict=False) if IsPathJunction(path) else path
-
-def GetFileBirthtime(path: Path) -> float:
-	if PlatformWindows():
-		return path.stat().st_ctime
-	elif PlatformMacOS():
-		return path.stat().st_birthtime
-	elif PlatformLinux():
-		raise NotImplementedError('Linux does not support file birthtime retrieval in a standard way')
 
 # TODO: this is better to be an QAVMApp class variable
 processes: dict[str, subprocess.Popen] = dict()
@@ -182,25 +383,17 @@ def ExtractZipFile(zipFilePath: Path, extractTo: Path) -> bool:
 		zip_ref.extractall(extractTo)
 	return True
 
-def CopyFolder(srcFolderPath: Path, dstFolderPath: Path, mkdir: bool = True) -> None:
-	""" Copies srcFolderPath to dstFolderPath """
-	if not srcFolderPath.is_dir():
-		raise ValueError(f"Source path '{srcFolderPath}' is not a directory.")
-	if mkdir:
-		dstFolderPath.mkdir(parents=True, exist_ok=True)
-	shutil.copytree(srcFolderPath, dstFolderPath, dirs_exist_ok=True, symlinks=True)
 
-def DeleteFolder(folderPath: Path) -> None:
-	""" Deletes the specified folder and all its contents. """
-	if not folderPath.exists():
-		return  # nothing to delete
-	if not folderPath.is_dir():
-		raise ValueError(f"Path '{folderPath}' is not a directory.")
-	shutil.rmtree(folderPath)
 
-def CopyFile(srcFilePath: Path, dstFilePath: Path) -> None:
-	""" Copies a file from srcFilePath to dstFilePath. """
-	if not srcFilePath.is_file():
-		raise ValueError(f"Source path '{srcFilePath}' is not a file.")
-	dstFilePath.parent.mkdir(parents=True, exist_ok=True)
-	shutil.copy2(srcFilePath, dstFilePath)
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
+# ======================================================================
