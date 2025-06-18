@@ -8,7 +8,7 @@ logger = logs.logger
 from qavm.manager_plugin import PluginManager, SoftwareHandler
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.manager_dialogs import DialogsManager
-import qavm.qavmapi.utils as utils
+import qavm.qavmapi.utils as utils  # TODO: rename to qutils
 import qavm.qavmapi.gui as gui_utils
 import qavm.qavmapi_utils as qavmapi_utils
 from qavm.qavmapi import BaseDescriptor, QualifierIdentificationConfig
@@ -171,8 +171,11 @@ class QAVMApp(QApplication):
 			return b''
 
 	# TODO: refactor this giant function
-	def _verifyBuiltinPlugins(self, args: argparse.Namespace) -> None:	
-		builtinPluginsPath: Path = utils.GetQAVMRootPath() / 'builtin_plugins'
+	def _verifyBuiltinPlugins(self, args: argparse.Namespace) -> None:
+		if utils.PlatformWindows():
+			builtinPluginsPath: Path = utils.GetQAVMRootPath() / 'builtin_plugins'
+		elif utils.PlatformMacOS():
+			builtinPluginsPath: Path = utils.GetQAVMRootPath() / '../Resources/builtin_plugins'
 		if not builtinPluginsPath.is_dir():
 			logger.error(f'Builtin plugins directory does not exist: {builtinPluginsPath}')
 			return
