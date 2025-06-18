@@ -9,6 +9,7 @@ from qavm.manager_settings import SettingsManager
 
 from qavm.qavmapi import BaseSettings, SoftwareBaseSettings
 from qavm.qavmapi.utils import GetQAVMDataPath, OpenFolderInExplorer
+import qavm.qavmapi.utils as qutils
 
 import qavm.logs as logs
 logger = logs.logger
@@ -42,8 +43,11 @@ class PreferencesWindow(QWidget):
 		# for mSettings in self.settingsManager.GetModuleSettings().values():
 		# 	self.AddSettingsEntry(mSettings.GetName(), mSettings)
 
-		self.menuWidget.setMinimumWidth(self.menuWidget.minimumSizeHint().width() + 20)
-		self.menuWidget.setMaximumWidth(200)
+		minExtraWidth = 20
+		if qutils.PlatformMacOS():
+			minExtraWidth = 40
+		self.menuWidget.setMinimumWidth(self.menuWidget.minimumSizeHint().width() + minExtraWidth)
+		self.menuWidget.setMaximumWidth(300 if qutils.PlatformMacOS() else 200)
 		
 		mainContentLayout = QHBoxLayout()
 		mainContentLayout.addWidget(self.menuWidget, 1)
