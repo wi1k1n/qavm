@@ -364,9 +364,9 @@ class BaseDescriptor(QObject):
 	
 	def _retrieveDirType(self) -> str:  # TODO: make it enum
 		dirType = ''
-		if utils.IsPathSymlink(self.dirPath):
+		if utils.IsPathSymlinkD(self.dirPath):
 			dirType = 'S'
-		elif utils.IsPathJunction(self.dirPath):
+		elif utils.PlatformWindows() and utils.IsPathJunction(self.dirPath):
 			dirType = 'J'
 		return dirType
 

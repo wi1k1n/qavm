@@ -3,8 +3,6 @@ import zipfile, shutil, tempfile, ctypes
 from pathlib import Path
 from typing import Any, Optional
 
-from qavm.qavmapi.media_cache import MediaCache
-
 def PlatformWindows():
 	return platform.system() == 'Windows'
 def PlatformLinux():
@@ -13,91 +11,6 @@ def PlatformMacOS():
 	return platform.system() == 'Darwin'
 def PlatformName() -> str:
 	return platform.system().lower()
-
-
-# def IsPathFile(path: Path) -> bool:
-# 	""" Checks if the given path is a file. """
-# 	if PlatformWindows():
-# 		if IsPathSymlink(path) or IsPathJunction(path):
-# 			return False  # Symlinks and junctions are not treated as regular files
-# 	return path.is_file() and not IsPathSymlink(path)
-
-# def IsPathFolder(path: Path) -> bool:
-# 	""" Checks if the given path is a folder. """
-# 	if PlatformWindows():
-# 		if IsPathJunction(path):
-# 			return False  # Junction points are treated as folders
-# 	return path.is_dir() and not IsPathSymlink(path)
-
-# def IsPathSymlink(path: Path) -> bool:
-# 	"""
-# 	Checks if the given path is a symbolic link.
-# 	On Windows: returns False for junction points.
-# 	"""
-# 	return path.is_symlink()
-
-# def GetPathSymlinkTarget(path: Path) -> Path:
-# 	""" Returns the target of a symbolic link or junction point. If the path is not a symlink or junction, returns the path itself. """
-# 	return path.resolve(strict=False) if IsPathSymlink(path) else path
-
-# def IsPathJunction(path: Path) -> bool:
-# 	""" Checks if the given path is a junction point (Windows only). """
-# 	if not path.is_dir() or not PlatformWindows():
-# 		return False
-# 	import ctypes
-# 	FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
-# 	attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
-# 	return attrs != -1 and bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT) and not path.is_symlink()
-
-# def GetPathJunctionTarget(path: Path) -> Path:
-# 	""" Returns the target of a junction point. If the path is not a junction, returns the path itself. (Windows only) """
-# 	print('TODO: this is not tested!')  # TODO: test and fix
-# 	if not PlatformWindows():
-# 		raise NotImplementedError('This function is only supported on Windows')
-# 	return path.resolve(strict=False) if IsPathJunction(path) else path
-
-
-# def CreateFolder(path: Path, parents: bool = True, exist_ok: bool = True) -> None:
-# 	""" Creates a folder at the specified path. """
-# 	path.mkdir(parents=parents, exist_ok=exist_ok)
-
-# def CreateSymlink(target: Path, link_name: Path) -> None:
-# 	""" Creates a symbolic link at link_name pointing to target. """
-# 	if not target.exists():
-# 		raise ValueError(f"Target '{target}' does not exist.")
-# 	if link_name.exists():
-# 		raise ValueError(f"Link name '{link_name}' already exists.")
-# 	target.symlink_to(link_name, target_is_directory=target.is_dir())
-
-# def DeleteFolder(folderPath: Path) -> None:
-# 	""" Deletes the specified folder and all its contents. """
-# 	if not folderPath.exists():
-# 		return  # nothing to delete
-# 	if not IsPathFolder(folderPath) and not IsPathJunction(folderPath):
-# 		raise ValueError(f"Path '{folderPath}' is not a folder.")
-# 	shutil.rmtree(folderPath)
-
-# def DeleteFile(filePath: Path) -> None:
-# 	""" Deletes the specified file. """
-# 	if not IsPathFile(filePath) and not IsPathSymlink(filePath):
-# 		raise ValueError(f"Path '{filePath}' is not a file.")
-# 	filePath.unlink(missing_ok=True)  # missing_ok=True allows it to not raise an error if the file does not exist
-
-# def CopyFolder(srcFolderPath: Path, dstFolderPath: Path, mkdir: bool = True) -> None:
-# 	""" Copies srcFolderPath to dstFolderPath """
-# 	if not srcFolderPath.is_dir():
-# 		raise ValueError(f"Source path '{srcFolderPath}' is not a directory.")
-# 	if mkdir:
-# 		dstFolderPath.mkdir(parents=True, exist_ok=True)
-# 	shutil.copytree(srcFolderPath, dstFolderPath, dirs_exist_ok=True, symlinks=True)
-
-# def CopyFile(srcFilePath: Path, dstFilePath: Path) -> None:
-# 	""" Copies a file from srcFilePath to dstFilePath. """
-# 	if not srcFilePath.is_file():
-# 		raise ValueError(f"Source path '{srcFilePath}' is not a file.")
-# 	dstFilePath.parent.mkdir(parents=True, exist_ok=True)
-# 	shutil.copy2(srcFilePath, dstFilePath)
-
 
 
 # === Detection Functions ===
@@ -114,16 +27,6 @@ def IsPathSymlinkF(path: Path) -> bool:
 
 def IsPathSymlinkD(path: Path) -> bool:
 	return path.is_symlink() and path.resolve().is_dir()
-
-def IsPathHardlink(path: Path) -> bool:
-	if not path.exists() or path.is_symlink():
-		return False
-	hfile = os.open(path, os.O_RDONLY)
-	try:
-		info = os.fstat(hfile)
-		return info.st_nlink > 1
-	finally:
-		os.close(hfile)
 
 def IsPathJunction(path: Path) -> bool:
 	if not PlatformWindows():
@@ -252,10 +155,6 @@ def CreateJunction(target: Path, link: Path, exist_overwrite: bool = False):
 	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
 	os.system(f'mklink /J "{link}" "{target}" >nul')
 
-def CreateHardlink(target: Path, link: Path, exist_overwrite: bool = False):
-	_checkLinkExistsOverwriteMkdir(target, link, exist_overwrite)
-	os.link(target, link)
-
 # === Deletion Functions ===
 
 def DeletePath(path: Path):
@@ -264,6 +163,43 @@ def DeletePath(path: Path):
 	else:
 		path.unlink()
 
+# === Copy Functions ===
+
+def CopyPath(src: Path, dst: Path, exist_overwrite: bool = False):
+	"""
+	Copies the filesystem object at `src` to `dst`, preserving the object type.
+	"""
+	if not src.exists():
+		raise FileNotFoundError(src)
+
+	if dst.exists():
+		if not exist_overwrite:
+			raise FileExistsError(dst)
+		DeletePath(dst)
+
+	if IsPathDir(src):
+		shutil.copytree(src, dst)
+
+	elif IsPathSymlinkF(src):
+		CreateSymlinkF(src.resolve(), dst, exist_overwrite=exist_overwrite)
+
+	elif IsPathSymlinkD(src):
+		CreateSymlinkD(src.resolve(), dst, exist_overwrite=exist_overwrite)
+
+	elif PlatformWindows() and IsPathShortcut(src):
+		CreateShortcut(GetShortcutTarget(src), dst, exist_overwrite=exist_overwrite)
+
+	elif PlatformWindows() and IsPathJunction(src):
+		CreateJunction(GetJunctionTarget(src), dst, exist_overwrite=exist_overwrite)
+
+	elif PlatformMacOS() and IsPathAlias(src):
+		CreateAlias(GetAliasTarget(src), dst, exist_overwrite=exist_overwrite)
+
+	elif IsPathFile(src):  # this should be the last check
+		shutil.copy2(src, dst)
+
+	else:
+		raise ValueError(f"Unsupported or unknown path type: {src}")
 
 
 
