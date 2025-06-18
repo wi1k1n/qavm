@@ -11,4 +11,4 @@ python.exe gather-builtin-plugins.py --pluginsFolder ../../source/plugins --dest
 python.exe sign-builtin-plugins.py --pluginsFolder build/qavm/builtin_plugins --key signing/keys/private.pem --calculatePluginHashPythonScript ../../source/qavm/utils_plugin_package.py --calculatePluginHashFunction CalculatePluginHash
 
 @REM pyinstaller.exe --name "qavm" "..\..\source\qavm.py" :: use this one to create default PyInstaller config
-pyinstaller.exe .\%APP_NAME%.spec --distpath dist_example
+pyinstaller.exe .\%APP_NAME%.spec --distpath dist_example --noconfirm
