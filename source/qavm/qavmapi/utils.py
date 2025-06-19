@@ -330,8 +330,8 @@ def StartProcess(uid: str, path: Path, args: list[str]) -> int:
 	if PlatformWindows():
 		p = subprocess.Popen([str(path), *args])
 	elif PlatformMacOS():
-		raise Exception('Not implemented')
-		p = subprocess.Popen(['open', str(path), *args])
+		# TODO: open doesn't give a PID, so we can't track the process. need to find the PID by name or something else
+		p = subprocess.Popen(['open', '-a', str(path), '--args', *args])
 	# elif PlatformLinux():
 	# 	return subprocess.Popen([path, args]).pid
 	else:
