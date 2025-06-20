@@ -20,7 +20,7 @@ from qavm.qavmapi import (
 )
 from qavm.qavmapi.utils import PlatformMacOS, PlatformWindows, PlatformLinux
 from qavm.utils_gui import FlowLayout
-from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion
+from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion, GetQAVMVersionVariant
 
 import qavm.logs as logs
 logger = logs.logger
@@ -134,7 +134,7 @@ class MainWindow(QMainWindow):
 		self.softwareSettings.tablesUpdateRequired.connect(self.UpdateTableWidget)
 		
 		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
-		self.setWindowTitle(f'QAVM - {softwareHandler.GetName()}')
+		self.setWindowTitle(f'QAVM {GetQAVMVersionVariant()}- {softwareHandler.GetName()}')
 		self.resize(1420, 840)
 		self.setMinimumSize(350, 250)
 
@@ -504,7 +504,7 @@ class MainWindow(QMainWindow):
 
 		# Version info
 		versionInfo = (
-			f"<b>QAVM {GetQAVMVersion()}</b><br>"
+			f"<b>QAVM {GetQAVMVersionVariant()}</b><br>"
 			f"Package: {GetPackageVersion()}<br>"
 			f"Build: {GetBuildVersion()}<br><br>"
 		)

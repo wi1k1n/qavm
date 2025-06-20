@@ -35,7 +35,11 @@ def LoadVersionInfo(rootPath: Path):
 		logger.exception('Failed to load build info from build.txt file')
 
 def GetQAVMVersion() -> str:
-	return QAVM_VERSION + (f'({QAVM_VARIANT})' if QAVM_VARIANT else '')
+	return QAVM_VERSION
+def GetQAVMVariant() -> str:
+	return QAVM_VARIANT
+def GetQAVMVersionVariant() -> str:
+	return QAVM_VERSION + (f' ({QAVM_VARIANT})' if QAVM_VARIANT else '')
 def GetPackageVersion() -> str:
 	return PACKAGE_VERSION
 def GetBuildVersion() -> str:

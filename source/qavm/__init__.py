@@ -5,7 +5,7 @@ import cProfile, pstats
 import qavm.logs as logs
 logger = logs.logger
 
-from qavm.qavm_version import LoadVersionInfo, GetBuildVersion, GetQAVMVersion, GetPackageVersion
+from qavm.qavm_version import LoadVersionInfo, GetBuildVersion, GetQAVMVersion, GetPackageVersion, GetQAVMVariant
 from qavm.qavmapp import QAVMApp
 import qavm.qavmapi.utils as utils
 from qavm.qavmapi.gui import GetThemeName, SetTheme
@@ -43,6 +43,7 @@ def ParseArgs() -> argparse.Namespace:
 def main():
 	LoadVersionInfo(utils.GetQAVMRootPath())
 	print(f'QAVM Version: {GetQAVMVersion()}')
+	print(f'QAVM Variant: {GetQAVMVariant()}')
 	print(f'Package Version: {GetPackageVersion()}')
 	print(f'Build Version: {GetBuildVersion()}')
 
