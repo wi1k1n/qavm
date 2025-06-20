@@ -2,7 +2,8 @@ from pathlib import Path
 import qavm.logs as logs
 logger = logs.logger
 
-QAVM_VERSION = '0.1.0'
+QAVM_VERSION = '0.1.1'
+QAVM_VARIANT = 'Alpha'
 PACKAGE_VERSION = ''
 BUILD_VERSION = ''
 
@@ -34,7 +35,7 @@ def LoadVersionInfo(rootPath: Path):
 		logger.exception('Failed to load build info from build.txt file')
 
 def GetQAVMVersion() -> str:
-	return QAVM_VERSION
+	return QAVM_VERSION + (f'({QAVM_VARIANT})' if QAVM_VARIANT else '')
 def GetPackageVersion() -> str:
 	return PACKAGE_VERSION
 def GetBuildVersion() -> str:
