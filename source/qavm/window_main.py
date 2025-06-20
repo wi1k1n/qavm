@@ -184,8 +184,8 @@ class MainWindow(QMainWindow):
 			editMenu.addAction(self.actionPrefs)
 			menuBar.addMenu(editMenu)
 		
-		viewMenu = QMenu("&View", self)
-		menuBar.addMenu(viewMenu)
+		# viewMenu = QMenu("&View", self)
+		# menuBar.addMenu(viewMenu)
 		
 		switchMenu: QMenu = QMenu("&Switch Workspace", self)
 		switchMenu.addAction(QAction("osx sucks", self))
