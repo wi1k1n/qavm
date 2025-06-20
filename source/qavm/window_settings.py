@@ -94,15 +94,20 @@ class PreferencesWindow(QWidget):
 		super().keyPressEvent(event)
 
 	def closeEvent(self, event):
-		# TODO: check if dirty settings and ask for confirmation
-		reply = QMessageBox.question(self, "Save Preferences", "Do you want to save your preferences to disk?",
-			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel)
+		# # TODO: check if dirty settings and ask for confirmation
+		# reply = QMessageBox.question(self, "Save Preferences", "Do you want to save your preferences to disk?",
+		# 	QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel)
 
-		if reply == QMessageBox.StandardButton.Yes:
-			self.settingsManager.SaveQAVMSettings()
-			self.settingsManager.SaveSoftwareSettings()
-			event.accept()
-		elif reply == QMessageBox.StandardButton.No:
-			event.accept()
-		else:  # Cancel
-			event.ignore()
+		# if reply == QMessageBox.StandardButton.Yes:
+		# 	self.settingsManager.SaveQAVMSettings()
+		# 	self.settingsManager.SaveSoftwareSettings()
+		# 	event.accept()
+		# elif reply == QMessageBox.StandardButton.No:
+		# 	event.accept()
+		# else:  # Cancel
+		# 	event.ignore()
+		
+		# Save settings without confirmation for now, until the dirty settings check is implemented
+		self.settingsManager.SaveQAVMSettings()
+		self.settingsManager.SaveSoftwareSettings()
+		event.accept()
