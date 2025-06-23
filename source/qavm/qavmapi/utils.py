@@ -12,6 +12,8 @@ def PlatformMacOS():
 def PlatformName() -> str:
 	return platform.system().lower()
 
+def IsDebug() -> bool:
+	return __debug__
 
 # === Detection Functions ===
 
