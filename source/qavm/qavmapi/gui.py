@@ -2,17 +2,21 @@ import datetime as dt
 from pathlib import Path
 
 from PyQt6.QtCore import (
-	Qt, pyqtSignal, QPropertyAnimation, pyqtProperty, 
+	Qt, pyqtSignal, QPropertyAnimation, pyqtProperty, QEasingCurve, QPointF,
+	QModelIndex, 
 )
 from PyQt6.QtWidgets import (
 	QApplication, QFrame, QVBoxLayout, QLabel, QTableWidgetItem, QListWidget, QScrollBar,
-	QListWidgetItem, QLineEdit, QComboBox, QSizePolicy,
+	QListWidgetItem, QLineEdit, QComboBox, QSizePolicy, QStyledItemDelegate, QStyleOptionViewItem,
+	QStyledItemDelegate,
 )
 from PyQt6.QtGui import (
-	QColor, QKeyEvent, QMouseEvent, QCursor,
+	QColor, QKeyEvent, QMouseEvent, QCursor, QPainter, QPalette, QLinearGradient, QGradient,
 )
 
 from qt_material import apply_stylesheet, get_theme, list_themes
+
+import qavm.qavmapi.utils as qutils
 
 class DateTimeTableWidgetItem(QTableWidgetItem):
 	def __init__(self, date: dt.datetime, format: str):
@@ -164,6 +168,134 @@ class FolderPathsListWidget(PathsListWidget):
 	def DoAcceptPath(self, path: str) -> bool:
 		""" Accept only folders, reject files. """
 		return Path(path).is_dir()
+	
+
+class AnimatedRowGradientDelegate(QStyledItemDelegate):
+	""" A delegate that animates the background gradient of the entire row in a table widget. """
+	def __init__(self, parent = None):
+		super().__init__(parent)
+		self._pos = 0.0
+
+		self.type = 1  # 0 - bouncing, 1 - wrapping  # TODO: make it configurable and enum
+		
+		self.anim = QPropertyAnimation(self, b"pos", self)
+
+		if self.type == 0:
+			self.anim.setDuration(10000)
+			self.anim.setKeyValueAt(0.0, 0.0)
+			self.anim.setKeyValueAt(0.5, 1.0)
+			self.anim.setKeyValueAt(1.0, 0.0)
+		elif self.type == 1:
+			self.anim.setDuration(5000)
+			self.anim.setKeyValueAt(0.0, 1.0)
+			self.anim.setKeyValueAt(1.0, 0.0)
+		
+		self.anim.setLoopCount(-1)
+		self.anim.setEasingCurve(QEasingCurve.Type.Linear)
+		self.anim.start()
+	
+	def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex):
+		tableWidget = option.widget
+		row = index.row()
+		descIdx: int = int(tableWidget.item(row, tableWidget.columnCount() - 1).text())
+		if self.IsSpecialPaint(descIdx):
+			return self._doPpaint(painter, option, index)
+
+		QStyledItemDelegate.paint(self, painter, option, index)
+
+	def IsSpecialPaint(self, descIdx: int):
+		raise NotImplementedError("IsSpecialPaint method should be implemented in a subclass")
+
+	def _doPpaint(self, painter: QPainter, option, index):
+		table = option.widget  # or maybe use self.parent() instead?
+		if table is None:
+			return super().paint(painter, option, index)
+
+		tableContentColumnsWidth = sum(table.columnWidth(c) for c in range(table.columnCount()))
+		# scrollBarVerticalWidth = table.verticalScrollBar().width() if table.verticalScrollBar().isVisible() else 0
+		# verticalHeaderWidth = table.verticalHeader().width()
+		
+		hScrollBar: QScrollBar = table.horizontalScrollBar()
+		# scrollOffPercent = hScrollBar.value() / max(hScrollBar.maximum(), 1)
+		# scrollOffset = hScrollBar.sliderPosition()
+		scrollOffset = hScrollBar.value()
+
+		# left = 0 - scrollOffset
+		# right = 2 * tableContentColumnsWidth - scrollOffset
+		
+		left = -tableContentColumnsWidth * self._pos - scrollOffset
+		right = 2 * tableContentColumnsWidth - tableContentColumnsWidth * self._pos - scrollOffset
+		
+		grad = QLinearGradient(QPointF(left, 0), QPointF(right, 0))
+		
+		grad.setCoordinateMode(QGradient.CoordinateMode.LogicalMode)
+		grad.setSpread(QGradient.Spread.PadSpread)
+
+		if self.type == 0:
+			colorMid = QColor(255, 255, 255)  # TODO: get background color from theme
+			colorEnd = QColor(Qt.GlobalColor.darkGreen)
+			colorEnd.setAlpha(75)
+			stripeWPercent = 0.35
+
+			grad.setColorAt(0.0, colorMid)
+			grad.setColorAt(0.5 - stripeWPercent / 2, colorMid)
+			grad.setColorAt(0.5, colorEnd)
+			grad.setColorAt(0.5 + stripeWPercent / 2, colorMid)
+			grad.setColorAt(1.0, colorMid)
+		elif self.type == 1:
+			colorMidMy = QColor(255, 255, 255)
+			colorEndMy = QColor(Qt.GlobalColor.darkGreen)
+			colorEndMy.setAlpha(75)
+			stripeWPercent = 0.35
+
+			colorEnd1 = colorEndMy
+			colorMid = colorMidMy
+			colorEnd2 = colorEndMy
+			grad.setColorAt(0.0, colorEnd1)
+			grad.setColorAt(0.0 + stripeWPercent / 2, colorMid)
+			grad.setColorAt(0.5 - stripeWPercent / 2, colorMid)
+			grad.setColorAt(0.5, colorEnd2)
+			grad.setColorAt(0.5 + stripeWPercent / 2, colorMid)
+			grad.setColorAt(1.0 - stripeWPercent / 2, colorMid)
+			grad.setColorAt(1.0, colorEnd1)
+
+		painter.save()
+		painter.fillRect(option.rect, grad)
+		# painter.setPen(option.palette.color(option.palette.ColorRole.Text))
+		# painter.drawText(option.rect, Qt.AlignmentFlag.AlignCenter, index.data())
+		painter.restore()
+		return super().paint(painter, option, index)
+
+	def getPos(self) -> float:
+		return self._pos
+	
+	def setPos(self, v: float):
+		tableWidget = self.parent()
+		if tableWidget is None:
+			return
+		
+		self._pos = v
+		tableWidget.viewport().update()  # this is likely expensive, so should be better solution for multiple rows repainting
+		return
+	
+		# repaint exactly the span of the whole row
+		# first = tableWidget.model().index(self.target_row, 0)
+		# last  = tableWidget.model().index(self.target_row, tableWidget.columnCount() - 1)
+		first = tableWidget.model().index(0, 0)
+		last  = tableWidget.model().index(tableWidget.rowCount(), tableWidget.columnCount() - 1)
+		row_rect = (tableWidget.visualRect(first).united(tableWidget.visualRect(last)))
+		tableWidget.viewport().update(row_rect)
+
+	pos = pyqtProperty(float, getPos, setPos)
+
+
+class RunningDescriptorAnimatedRowGradientDelegate(AnimatedRowGradientDelegate):
+	def IsSpecialPaint(self, descIdx: int):
+		descs = QApplication.instance().GetSoftwareDescriptions()
+		if descIdx >= len(descs):
+			return False
+		
+		return qutils.IsProcessRunning(descs[descIdx].UID)
 
 
 DEFAULT_THEME_MODE = 'light'  # Default theme mode, can be 'light' or 'dark'
