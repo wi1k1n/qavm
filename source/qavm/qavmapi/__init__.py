@@ -404,6 +404,7 @@ class BaseTableBuilder(BaseBuilder):
 		pass
 
 class BaseCustomView(QWidget):
+	# TODO: add function GetIcon() to return an icon for the view and sygnal changeIcon to request icon change
 	def __init__(self, settings: SoftwareBaseSettings, parent=None):
 		super().__init__(parent)
 		self.settings: SoftwareBaseSettings = settings

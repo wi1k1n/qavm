@@ -59,7 +59,7 @@ loggerFileHandler.setLevel(logging.ERROR)
 loggerFileHandler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(loggerFileHandler)
 
-class ExampleQualifier(BaseQualifier):
+class ExampleQualifier1(BaseQualifier):
 	def ProcessSearchPaths(self, searchPaths: list[str]) -> list[str]:
 		# At this point the searchPaths from QAVM preferences can be adjusted.
 		# For example, you can add some default paths to search for the software.
@@ -78,8 +78,12 @@ class ExampleQualifier(BaseQualifier):
 			return False
 
 		return True
+	
+class ExampleQualifier2(BaseQualifier):
+	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> bool:
+		return currentPath.is_dir() and any(list(currentPath.glob('*.dll')))
 
-class ExampleDescriptor(BaseDescriptor):
+class ExampleDescriptor1(BaseDescriptor):
 	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
 		super().__init__(dirPath, settings, fileContents)
 		# There's already this info from the BaseDescriptor:
@@ -94,7 +98,7 @@ class ExampleDescriptor(BaseDescriptor):
 
 		if self.dirPath.is_dir():
 			if not PlatformWindows():
-				raise NotImplementedError('ExampleDescriptor is currently implemented only for Windows platform.')
+				raise NotImplementedError('ExampleDescriptor1 is currently implemented only for Windows platform.')
 			
 			# Find the executable file in the directory
 			self.execPaths = list(self.dirPath.glob('*.exe'))
@@ -113,12 +117,15 @@ class ExampleDescriptor(BaseDescriptor):
 		return self.execPaths[0] if self.execPaths else Path()
 	
 	def __str__(self):
-		return f'ExampleDescriptor: {os.path.basename(self.dirPath)}'
+		return f'ExampleDescriptor1: {os.path.basename(self.dirPath)}'
 	
 	def __repr__(self):
 		return self.__str__()
+	
+class ExampleDescriptor2(ExampleDescriptor1):
+	pass
 
-class ExampleTileBuilder(BaseTileBuilder):
+class ExampleTileBuilder1(BaseTileBuilder):
 	def __init__(self, settings: SoftwareBaseSettings, contextMenu: BaseContextMenu):
 		super().__init__(settings, contextMenu)
 		# From BaseTileBuilder:
@@ -126,7 +133,7 @@ class ExampleTileBuilder(BaseTileBuilder):
 		# self.contextMenu: BaseContextMenu
 		# self.themeData: dict
 
-	def CreateTileWidget(self, descriptor: ExampleDescriptor, parent) -> QWidget:
+	def CreateTileWidget(self, descriptor: ExampleDescriptor1, parent) -> QWidget:
 		descWidget: QWidget = self._createDescWidget(descriptor, parent)
 		
 		isProcessRunning: bool = IsProcessRunning(descriptor.UID)
@@ -135,7 +142,7 @@ class ExampleTileBuilder(BaseTileBuilder):
 		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, borderColor, isProcessRunning, parent)
 		return animatedBorderWidget
 	
-	def _createDescWidget(self, desc: ExampleDescriptor, parent: QWidget):
+	def _createDescWidget(self, desc: ExampleDescriptor1, parent: QWidget):
 		descWidget = QWidget(parent)
 
 		secondaryDarkColor = self.themeData['secondaryDarkColor']
@@ -180,12 +187,15 @@ class ExampleTileBuilder(BaseTileBuilder):
 		animBorderWidget.setFixedSize(QSize(fullWidth, fullHeight))
 
 		return animBorderWidget
+	
+class ExampleTileBuilder2(ExampleTileBuilder1):
+	pass
 
-class ExampleTableBuilder(BaseTableBuilder):
+class ExampleTableBuilder1(BaseTableBuilder):
 	def GetTableCaptions(self) -> list[str]:
 		return ['Folder name', 'Version', 'Path']
 	
-	def GetTableCellValue(self, desc: ExampleDescriptor, col: int) -> str | QTableWidgetItem:
+	def GetTableCellValue(self, desc: ExampleDescriptor1, col: int) -> str | QTableWidgetItem:
 		if col == 0:
 			return desc.dirPath.name
 		if col == 1:
@@ -199,6 +209,12 @@ class ExampleTableBuilder(BaseTableBuilder):
 				dirLinkTarget = f' ( → {qutils.GetJunctionTarget(desc.dirPath)})'
 			return f'{dirTypePrefix}{str(desc.dirPath)}{dirLinkTarget}'
 		return ''
+	
+class ExampleTableBuilder2(ExampleTableBuilder1):
+	def GetTableCellValue(self, desc: ExampleDescriptor1, col: int) -> str | QTableWidgetItem:
+		if col == 0:
+			return '(dll) ' + desc.dirPath.name
+		return super().GetTableCellValue(desc, col)
 
 class ExampleSettings(SoftwareBaseSettings):
 	CONTAINER_DEFAULTS: dict[str, Any] = {
@@ -248,7 +264,7 @@ class ExampleSettings(SoftwareBaseSettings):
 	# 		self.tablesUpdateRequired.emit()
 
 class ExampleContextMenu(BaseContextMenu):
-	def CreateMenu(self, desc: ExampleDescriptor) -> QMenu:
+	def CreateMenu(self, desc: ExampleDescriptor1) -> QMenu:
 		menu = QMenu()
 
 		titleLabel: QLabel = QLabel(f'{desc.dirPath.name}')
@@ -266,7 +282,7 @@ class ExampleContextMenu(BaseContextMenu):
 
 		return menu
 
-	def _run(self, desc: ExampleDescriptor, arguments: list[str] = []):
+	def _run(self, desc: ExampleDescriptor1, arguments: list[str] = []):
 		StartProcess(desc.UID, desc.GetExecutablePath(), arguments)
 		desc.updated.emit()
 
@@ -285,14 +301,27 @@ class ExampleMenuItems(BaseMenuItems):
 	def _exampleAction(self, id):
 		QMessageBox.information(None, f'Example Action {id}', f'This is an example action {id} from the Example Plugin.')
 
-class ExampleCustomView(BaseCustomView):
+class ExampleCustomView1(BaseCustomView):
 	def __init__(self, settings: SoftwareBaseSettings, parent=None):
 		super().__init__(settings, parent)
 
 		self.setMinimumSize(300, 200)
 
 		layout = QVBoxLayout(self)
-		label = QLabel('This is an example custom view widget.', self)
+		label = QLabel('This is an example (1) custom view widget.', self)
+		label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		layout.addWidget(label)
+
+		self.setLayout(layout)
+
+class ExampleCustomView2(BaseCustomView):
+	def __init__(self, settings: SoftwareBaseSettings, parent=None):
+		super().__init__(settings, parent)
+
+		self.setMinimumSize(300, 200)
+
+		layout = QVBoxLayout(self)
+		label = QLabel('This is another example (2) custom view widget.', self)
 		label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 		layout.addWidget(label)
 
@@ -300,38 +329,89 @@ class ExampleCustomView(BaseCustomView):
 
 def RegisterModuleSoftware():
 	return [
+		# {
+		# 	'id': 'software.example1',  # this is a unique id under the PLUGIN_ID domain
+		# 	'name': 'Example SW',
+
+		# 	'qualifier': ExampleQualifier1,
+		# 	'descriptor': ExampleDescriptor1,
+		# 	'settings': ExampleSettings,
+		# 	'menuitems': ExampleMenuItems,
+		# 	'tile_view': {
+		# 		'tile_builder': ExampleTileBuilder,
+		# 		'context_menu': ExampleContextMenu,
+		# 	},
+		# 	'table_view': {
+		# 		'table_builder': ExampleTableBuilder,
+		# 		'context_menu': ExampleContextMenu,
+		# 	},
+		# 	'custom_views': [
+		# 		{
+		# 			'name': 'My Custom View',
+		# 			'view_class': ExampleCustomView,  # This should be a BaseCustomView subclass
+		# 		},
+		# 		{
+		# 			'name': 'Another Custom View',
+		# 			'view_class': ExampleCustomView,  # This can be the same or different widget
+		# 		}
+		# 	]
+		# },
+		
 		{
 			'id': 'software.example1',  # this is a unique id under the PLUGIN_ID domain
-			'name': 'Example',
-			# 'description': 'Example software module for QAVM',
-			# 'author': 'wi1k1n',
-			# 'author_email': 'vfpkjd@gmail.com',
+			'name': 'Example SW',
 
-			'qualifier': ExampleQualifier,
-			'descriptor': ExampleDescriptor,
+			'descriptors': {
+				'desc.type.1': {
+					'qualifier': ExampleQualifier1,
+					'descriptor': ExampleDescriptor1,
+				},
+				'desc.type.2': {
+					'qualifier': ExampleQualifier2,
+					'descriptor': ExampleDescriptor2,
+				}
+			},
+			'views': {
+				'tiles': {
+					'view.tiles.1': ExampleTileBuilder1,
+					'view.tiles.2': ExampleTileBuilder2,
+				},
+				'table': {
+					'view.table.1': ExampleTableBuilder1,
+					'view.table.2': ExampleTableBuilder2,
+				},
+				'custom': {
+					'view.custom.1': ExampleCustomView1,
+					'view.custom.2': ExampleCustomView2,
+				}
+			},
 			'settings': ExampleSettings,
 			'menuitems': ExampleMenuItems,
-			'tile_view': {
-				'tile_builder': ExampleTileBuilder,
-				'context_menu': ExampleContextMenu,
-			},
-			'table_view': {
-				'table_builder': ExampleTableBuilder,
-				'context_menu': ExampleContextMenu,
-			},
-			'custom_views': [
-				{
-					'name': 'My Custom View',
-					'view_class': ExampleCustomView,  # This should be a BaseCustomView subclass
-					# 'icon': 'example_icon.png',  # Path to the icon file relative to the plugin folder
-				},
-				{
-					'name': 'Another Custom View',
-					'view_class': ExampleCustomView,  # This can be the same or different widget
-					# 'icon': 'another_icon.png',  # Path to the icon file relative to the plugin folder
-				}
-			]
 		},
+
+		{
+			'id': 'software.example2',  # this is a unique id under the PLUGIN_ID domain
+			'name': 'Example SW 2',
+			'descriptors': {
+				'desc.type.1': {
+					'qualifier': ExampleQualifier1,
+					'descriptor': ExampleDescriptor1,
+				},
+			},
+			'views': {
+				'tiles': {
+					'view.tiles.1': ExampleTileBuilder1,
+				},
+				'table': {
+					'view.table.1': ExampleTableBuilder1,
+				},
+				'custom': {
+					'view.custom.1': ExampleCustomView1,
+				}
+			},
+			'settings': ExampleSettings,
+			'menuitems': ExampleMenuItems,
+		}
 	]
 
 def RegisterModuleSettings():
