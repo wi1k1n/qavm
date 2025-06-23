@@ -10,7 +10,6 @@ from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.manager_dialogs import DialogsManager
 import qavm.qavmapi.utils as utils  # TODO: rename to qutils
 import qavm.qavmapi.gui as gui_utils
-import qavm.qavmapi_utils as qavmapi_utils
 from qavm.qavmapi import BaseDescriptor, QualifierIdentificationConfig
 from qavm.utils_plugin_package import VerifyPlugin
 
@@ -226,14 +225,10 @@ class QAVMApp(QApplication):
 		searchPaths = qualifier.ProcessSearchPaths(searchPaths)
 
 		config: QualifierIdentificationConfig = qualifier.GetIdentificationConfig()
-		# if not qavmapi_utils.ValidateQualifierConfig(config):
-		# 	raise Exception('Invalid Qualifier config')
 		
 		def getDirListIgnoreError(pathDir: str) -> list[Path]:
 			try:
 				return [d for d in Path(pathDir).iterdir() if d.is_dir()]
-				# dirList: list[Path] = [Path(pathDir)/d for d in os.listdir(pathDir)]
-				# return list(filter(lambda d: os.path.isdir(d), dirList))
 			except:
 				# logger.warning(f'Failed to get dir list: {pathDir}')
 				pass
@@ -285,7 +280,7 @@ class QAVMApp(QApplication):
 
 	def _loadVerificationKey(self) -> bytes:
 		try:
-			from qavm.verification_key import VERIFICATION_KEY
+			from source.qavm.generated.verification_key import VERIFICATION_KEY
 			return VERIFICATION_KEY.encode('utf-8')
 		except Exception as e:
 			logger.error(f'Failed to load verification key: {e}')
