@@ -260,6 +260,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 source/plugins/cinema4d/*
-source/qavm/verification_key.py
+source/qavm/generated/verification_key.py
 tools/packaging/signing/keys/*
 tools/packaging/dist*
