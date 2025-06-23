@@ -6,7 +6,7 @@ import qavm.logs as logs
 logger = logs.logger
 
 from qavm.qavm_version import LoadVersionInfo, GetBuildVersion, GetQAVMVersion, GetPackageVersion, GetQAVMVariant
-from qavm.qavmapp import QAVMApp
+from qavm.qavm_app import QAVMApp
 import qavm.qavmapi.utils as utils
 from qavm.qavmapi.gui import GetThemeName, SetTheme
 
