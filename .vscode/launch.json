@@ -15,6 +15,9 @@
                 "--ignoreBuiltinPlugins",
             ],
             "console": "integratedTerminal",
+            "env": {
+                "QAVM_DEV_MODE": "1",
+            }
         },
         {
             "name": "Experiments window (Debug)",

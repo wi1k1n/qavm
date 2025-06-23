@@ -13,7 +13,7 @@ def PlatformName() -> str:
 	return platform.system().lower()
 
 def IsDebug() -> bool:
-	return __debug__
+	return os.environ.get('QAVM_DEV_MODE', '0') in ('1', 'true', 'True')
 
 # === Detection Functions ===
 
