@@ -286,8 +286,7 @@ class QAVMGlobalSettings(BaseSettings):
 
 
 class SettingsManager:
-	def __init__(self, app, prefsFolderPath: Path):
-		self.app = app
+	def __init__(self, prefsFolderPath: Path):
 		self.prefsFolderPath: Path = prefsFolderPath
 
 		self.qavmGlobalSettings: QAVMGlobalSettings = QAVMGlobalSettings('qavm-global')

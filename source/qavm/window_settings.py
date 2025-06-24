@@ -11,13 +11,14 @@ from qavm.qavmapi import BaseSettings, SoftwareBaseSettings
 from qavm.qavmapi.utils import GetQAVMDataPath, OpenFolderInExplorer
 import qavm.qavmapi.utils as qutils
 
+from PyQt6.QtWidgets import QApplication
+
 import qavm.logs as logs
 logger = logs.logger
 
 class PreferencesWindow(QWidget):
-	def __init__(self, app, parent: QWidget | None = None) -> None:
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super().__init__(parent)
-		self.app = app
 
 		self.setWindowTitle("QAVM - Settings")
 		self.resize(800, 600)
@@ -26,7 +27,8 @@ class PreferencesWindow(QWidget):
 		# self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)  # this keeps the window on top even for other applications
 		self.setWindowFlag(Qt.WindowType.Tool)  # the tool window stays on top of the main window but doesn't affect other applications
 
-		self.settingsManager: SettingsManager = self.app.GetSettingsManager()
+		app = QApplication.instance()
+		self.settingsManager: SettingsManager = app.GetSettingsManager()
 
 		self.contentWidget: QStackedWidget = QStackedWidget(self)
 

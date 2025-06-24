@@ -8,6 +8,8 @@ from qavm.qavmapi import (
 )
 import qavm.qavmapi.utils as utils
 
+from PyQt6.QtWidgets import QApplication
+
 import qavm.logs as logs
 logger = logs.logger
 
@@ -266,8 +268,7 @@ class QAVMPlugin:
 
 
 class PluginManager:
-	def __init__(self, app, pluginPaths: set[Path], pluginsFolderPaths: list[Path]) -> None:
-		self.app = app
+	def __init__(self, pluginPaths: set[Path], pluginsFolderPaths: list[Path]) -> None:
 		self.pluginsFolderPaths: list[Path] = pluginsFolderPaths
 		self.pluginsPaths: list[Path] = pluginPaths  # individual plugins paths
 
@@ -350,5 +351,6 @@ class PluginManager:
 		return plugin.GetSoftwareHandlers().get(softwareID, None)
 	
 	def GetCurrentSoftwareHandler(self) -> SoftwareHandler:
-		qavmSettings = self.app.GetSettingsManager().GetQAVMSettings()
+		app = QApplication.instance()
+		qavmSettings = app.GetSettingsManager().GetQAVMSettings()
 		return self.GetSoftwareHandler(qavmSettings.GetSelectedSoftwareUID())

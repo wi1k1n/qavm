@@ -13,8 +13,8 @@ class QAVMWorkspace:
 	
 	def GetInvolvedPlugins(self) -> tuple[set[QAVMPlugin], set[str]]:
 		""" Returns a set of loaded plugins involved in the workspace views (and a set of plugins that were not found). """
-		qavmApp = QApplication.instance()
-		pluginManager: PluginManager = qavmApp.GetPluginManager()
+		app = QApplication.instance()
+		pluginManager: PluginManager = app.GetPluginManager()
 		plugins: set[QAVMPlugin] = set()
 		notFoundPlugins: set[str] = set()
 		for viewUID in self.views:

@@ -120,14 +120,13 @@ class MyTableWidget(QTableWidget):
 		super().mouseDoubleClickEvent(event)
 
 class MainWindow(QMainWindow):
-	def __init__(self, app, parent: QWidget | None = None) -> None:
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super(MainWindow, self).__init__(parent)
 
-		self.app = app
-		
-		self.dialogsManager = self.app.GetDialogsManager()
-		self.pluginManager: PluginManager = self.app.GetPluginManager()
-		self.settingsManager: SettingsManager = self.app.GetSettingsManager()
+		app = QApplication.instance()
+		self.dialogsManager = app.GetDialogsManager()
+		self.pluginManager: PluginManager = app.GetPluginManager()
+		self.settingsManager: SettingsManager = app.GetSettingsManager()
 		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
 		self.softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
 		self.softwareSettings.tilesUpdateRequired.connect(self.UpdateTilesWidget)
@@ -289,7 +288,8 @@ class MainWindow(QMainWindow):
 		if hasattr(self, 'tableWidget') and self.tableWidget:
 			self.tableWidget.deleteLater()
 		
-		self.tableWidget = self._createTableWidget(self.app.GetSoftwareDescriptions(), tableBuilder, contextMenu, self)
+		app = QApplication.instance()
+		self.tableWidget = self._createTableWidget(app.GetSoftwareDescriptions(), tableBuilder, contextMenu, self)
 		self.tabsWidget.insertTab(1, self.tableWidget, "Details")
 		self.tabsWidget.currentChanged.connect(partial(self._tableItemFocusBuggedWorkaround, self.tableWidget))
 		
@@ -362,14 +362,16 @@ class MainWindow(QMainWindow):
 	def _onTableItemDoubleClickedLeft(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
 			return
+		app = QApplication.instance()
 		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
-		tableBuilder.HandleClick(self.app.GetSoftwareDescriptions()[descIdx], row, col, True, 0, QApplication.keyboardModifiers())
+		tableBuilder.HandleClick(app.GetSoftwareDescriptions()[descIdx], row, col, True, 0, QApplication.keyboardModifiers())
 
 	def _onTableItemClickedMiddle(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
 			return
+		app = QApplication.instance()
 		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
-		tableBuilder.HandleClick(self.app.GetSoftwareDescriptions()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
+		tableBuilder.HandleClick(app.GetSoftwareDescriptions()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
 	
 	def UpdateTilesWidget(self):
 		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
@@ -383,7 +385,8 @@ class MainWindow(QMainWindow):
 		if hasattr(self, 'tilesWidget') and self.tilesWidget:
 			self.tilesWidget.deleteLater()
 
-		self.tilesWidget = self._createTilesWidget(self.app.GetSoftwareDescriptions(), tileBuilder, contextMenu, self)
+		app = QApplication.instance()
+		self.tilesWidget = self._createTilesWidget(app.GetSoftwareDescriptions(), tileBuilder, contextMenu, self)
 		self.tabsWidget.insertTab(0, self.tilesWidget, "Tiles")
 		
 		self.tabsWidget.setCurrentIndex(currentTabIndex)
@@ -464,9 +467,10 @@ class MainWindow(QMainWindow):
 		return scrollWidget
 	
 	def _switchToPluginSelection(self, swUID: str = ''):
+		app = QApplication.instance()
 		# TODO: this should probably has clearer handling
 		self.qavmSettings.SetSelectedSoftwareUID(swUID)
-		self.app.selectedSoftwareUID = swUID
+		app.selectedSoftwareUID = swUID
 		# TODO: storing the setting without being sure that the plugin runs leads to a deadlock (start and crash)
 		self.qavmSettings.Save()
 		self.dialogsManager.ResetPreferencesWindow()
@@ -474,12 +478,14 @@ class MainWindow(QMainWindow):
 		self.close()
 	
 	def _rescanSoftware(self):
-		self.app.ResetSoftwareDescriptions()
+		app = QApplication.instance()
+		app.ResetSoftwareDescriptions()
 		self.UpdateTilesWidget()
 
 
 	def _showPreferences(self):
-		prefsWindow: QMainWindow = self.app.GetDialogsManager().GetPreferencesWindow()
+		app = QApplication.instance()
+		prefsWindow: QMainWindow = app.GetDialogsManager().GetPreferencesWindow()
 		prefsWindow.show()
 		prefsWindow.activateWindow()
 

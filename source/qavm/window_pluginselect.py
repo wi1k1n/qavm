@@ -1,9 +1,6 @@
 import sys
 from functools import partial
 
-import qavm.logs as logs
-logger = logs.logger
-
 from qavm.manager_plugin import PluginManager, QAVMPlugin, SoftwareHandler
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 
@@ -11,26 +8,28 @@ from PyQt6.QtCore import (
 	pyqtSignal
 )
 from PyQt6.QtWidgets import (
-	QMainWindow, QWidget, QVBoxLayout, QPushButton, QSizePolicy, QMessageBox
+	QMainWindow, QWidget, QVBoxLayout, QPushButton, QSizePolicy, QMessageBox, QApplication
 )
+
+import qavm.logs as logs
+logger = logs.logger
 
 class PluginSelectionWindow(QMainWindow):
 	# pluginSelected = pyqtSignal(str, str)  # (pluginID, softwareID)
 
-	def __init__(self, app, parent: QWidget | None = None) -> None:
+	def __init__(self, parent: QWidget | None = None) -> None:
 		super(PluginSelectionWindow, self).__init__(parent)
-
-		self.app = app
 
 		self.setWindowTitle("Select Software handler")
 		self.resize(480, 240)
 
 		layout: QVBoxLayout = QVBoxLayout()
 
-		self.dialogsManager = self.app.GetDialogsManager()
+		app = QApplication.instance()
+		self.dialogsManager = app.GetDialogsManager()
 
 		self.pluginManager: PluginManager = app.GetPluginManager()
-		self.settingsManager: SettingsManager = self.app.GetSettingsManager()
+		self.settingsManager: SettingsManager = app.GetSettingsManager()
 		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
 
 		swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()  # [pluginID, softwareID, SoftwareHandler]
@@ -93,7 +92,8 @@ class PluginSelectionWindow(QMainWindow):
 	def startMainWindow(self):
 		self.settingsManager.LoadSoftwareSettings()
 		
-		self.app.ResetSoftwareDescriptions()
+		app = QApplication.instance()
+		app.ResetSoftwareDescriptions()
 		self.dialogsManager.ResetPreferencesWindow()
 		self.dialogsManager.ResetMainWindow()
 

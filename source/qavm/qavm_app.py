@@ -49,16 +49,16 @@ class QAVMApp(QApplication):
 		logger.info(f'Plugins folder paths: {[str(p) for p in self.pluginsFolderPaths]}')
 		logger.info(f'Extra individial plugin paths: {[str(p) for p in self.pluginPaths]}')
 		
-		self.dialogsManager: DialogsManager = DialogsManager(self)
+		self.dialogsManager: DialogsManager = DialogsManager()
 
-		self.settingsManager = SettingsManager(self, utils.GetPrefsFolderPath())
+		self.settingsManager = SettingsManager(utils.GetPrefsFolderPath())
 		self.settingsManager.LoadQAVMSettings()
 		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
 
 		if not args.ignoreBuiltinPlugins:
 			self._verifyBuiltinPlugins(args)
 
-		self.pluginManager = PluginManager(self, self.builtinPluginPaths.union(self.pluginPaths), self.GetPluginsFolderPaths())
+		self.pluginManager = PluginManager(self.builtinPluginPaths.union(self.pluginPaths), self.GetPluginsFolderPaths())
 		self.pluginManager.LoadPlugins()  # TODO: try/except here?
 
 		gui_utils.SetTheme(self.settingsManager.GetQAVMSettings().GetAppTheme())  # TODO: move this to the QAVMGlobalSettings class?

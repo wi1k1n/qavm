@@ -7,9 +7,7 @@ import qavm.logs as logs
 logger = logs.logger
 
 class DialogsManager:
-	def __init__(self, app) -> None:
-		self.app = app
-
+	def __init__(self) -> None:
 		self.selectPluginWindow: PluginSelectionWindow = None
 		self.mainWindow: MainWindow = None
 		self.windowPrefs: PreferencesWindow = None
@@ -23,12 +21,12 @@ class DialogsManager:
 
 	def GetPluginSelectionWindow(self):
 		if self.selectPluginWindow is None:
-			self.selectPluginWindow: PluginSelectionWindow = PluginSelectionWindow(self.app)
+			self.selectPluginWindow: PluginSelectionWindow = PluginSelectionWindow()
 		return self.selectPluginWindow
 	
 	def GetMainWindow(self):
 		if self.mainWindow is None:
-			self.mainWindow: MainWindow = MainWindow(self.app)
+			self.mainWindow: MainWindow = MainWindow()
 		return self.mainWindow
 	
 	def ResetMainWindow(self):
@@ -36,7 +34,7 @@ class DialogsManager:
 	
 	def GetPreferencesWindow(self):
 		if self.windowPrefs is None:
-			self.windowPrefs = PreferencesWindow(self.app, self.GetMainWindow())
+			self.windowPrefs = PreferencesWindow(self.GetMainWindow())
 		return self.windowPrefs
 	def ResetPreferencesWindow(self):
 		self.windowPrefs = None
