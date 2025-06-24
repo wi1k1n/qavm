@@ -10,120 +10,202 @@ import qavm.qavmapi.utils as utils
 import qavm.logs as logs
 logger = logs.logger
 
-class QAVMHandler:
-	""" Base class for QAVM handlers, e.g. is used as base for software handler, settings handler, etc. """
-	def __init__(self, plugin, regData):
-		self.id = regData.get('id', None)
 
-class QAVMHandlerNamed(QAVMHandler):
-	def __init__(self, plugin, regData) -> None:
-		super().__init__(plugin, regData)
-		self.name = regData.get('name', self.id)
-	
+class SoftwareHandler:
+	def __init__(self, plugin, regData) -> None:		
+		# self._initRegData(regData)
+		self._initRegDataNew(regData)
+
+	def _initRegDataNew(self, regData: dict) -> None:
+		"""
+		{
+			'id': 'software.example1',  # this is a unique id under the PLUGIN_ID domain
+			'name': 'Example SW',
+
+			'descriptors': {
+				'desc.type.1': {
+					'qualifier': ExampleQualifier1,
+					'descriptor': ExampleDescriptor1,
+				},
+				'desc.type.2': {
+					'qualifier': ExampleQualifier2,
+					'descriptor': ExampleDescriptor2,
+				}
+			},
+			'views': {
+				'tiles': {
+					'view.tiles.1': ExampleTileBuilder1,
+					'view.tiles.2': ExampleTileBuilder2,
+				},
+				'table': {
+					'view.table.1': ExampleTableBuilder1,
+					'view.table.2': ExampleTableBuilder2,
+				},
+				'custom': {
+					'view.custom.1': ExampleCustomView1,
+					'view.custom.2': ExampleCustomView2,
+				}
+			},
+			'settings': ExampleSettings,
+			'menuitems': ExampleMenuItems,
+		}
+		"""
+		
+		########################### ID ###########################
+		self.id: str = regData.get('id', '')
+		self._checkType(self.id, str, 'software ID')
+		if not QAVMPlugin.ValidateID(self.id):
+			raise Exception(f'Invalid Software ID: {self.id}')
+		
+		########################### Name ###########################
+		self.name: str = regData.get('name', self.id)
+		self._checkType(self.name, str, 'software name')
+		
+		########################### Descriptors ###########################
+		self.descriptorClasses: dict[str, tuple[BaseQualifier, BaseDescriptor]] = dict()  # descriptorTypeId: (qualifierClass, descriptorClass)
+
+		descTypesData: dict = regData.get('descriptors', {})
+		self._checkType(descTypesData, dict, 'descriptors')
+		for descTypeId, descType in descTypesData.items():
+			self._checkType(descTypeId, str, 'descriptor type ID')
+			self._checkType(descType, dict, 'descriptor type data')
+			qualifierClass = descType.get('qualifier', None)
+			self._checkSubClass(qualifierClass, BaseQualifier, 'qualifier class')
+			descriptorClass = descType.get('descriptor', None)
+			self._checkSubClass(descriptorClass, BaseDescriptor, 'descriptor class')
+			
+			self.descriptorClasses[descTypeId] = (qualifierClass, descriptorClass)
+
+		########################### Views ###########################
+		self.tileBuilderClasses: dict[str, BaseTileBuilder] = dict()  # viewTypeId: tileBuilderClass
+		self.tableBuilderClasses: dict[str, BaseTableBuilder] = dict()  # viewTypeId: tableBuilderClass
+		self.customViewClasses: dict[str, BaseCustomView] = dict()  # viewTypeId: customViewClass
+
+		viewsData: dict = regData.get('views', {})
+		self._checkType(viewsData, dict, 'views')
+		
+		tileViewsData: dict = viewsData.get('tiles', {})
+		self._checkType(tileViewsData, dict, 'tile views')
+		for viewTypeId, tileBuilderClass in tileViewsData.items():
+			self._checkType(viewTypeId, str, 'tile view type ID')
+			self._checkSubClass(tileBuilderClass, BaseTileBuilder, 'tile builder class')
+			self.tileBuilderClasses[viewTypeId] = tileBuilderClass
+
+		tableViewsData: dict = viewsData.get('table', {})
+		self._checkType(tableViewsData, dict, 'table views')
+		for viewTypeId, tableBuilderClass in tableViewsData.items():
+			self._checkType(viewTypeId, str, 'table view type ID')
+			self._checkSubClass(tableBuilderClass, BaseTableBuilder, 'table builder class')
+			self.tableBuilderClasses[viewTypeId] = tableBuilderClass
+
+		customViewsData: dict = viewsData.get('custom', {})
+		self._checkType(customViewsData, dict, 'custom views')
+		for viewTypeId, customViewClass in customViewsData.items():
+			self._checkType(viewTypeId, str, 'custom view type ID')
+			self._checkSubClass(customViewClass, BaseCustomView, 'custom view class')
+			self.customViewClasses[viewTypeId] = customViewClass
+
+		########################### Settings ###########################
+		self.settingsClass: BaseSettings = regData.get('settings', None)
+		if self.settingsClass is not None:  # optional
+			self._checkSubClass(self.settingsClass, BaseSettings, 'settings class')
+
+		########################### MenuItems ###########################
+		self.menuItemsClass: BaseMenuItems = regData.get('menuitems', None)
+		if self.menuItemsClass is not None:  # optional
+			self._checkSubClass(self.menuItemsClass, BaseMenuItems, 'menu items class')
+			
+	def _checkType(self, value: object, expectedType: type, name: str) -> None:
+		if not isinstance(value, expectedType):
+			raise Exception(f'Invalid {name} type for software: {self.id}. Expected {expectedType.__name__}, got {type(value).__name__}')
+		
+	def _checkSubClass(self, value: object, expectedType: type, name: str) -> None:
+		if not issubclass(value, expectedType):
+			raise Exception(f'Invalid {name} class for software: {self.id}. Expected subclass of {expectedType.__name__}, got {value.__name__}')
+
+	# def _initRegData(self, regData: dict) -> None:
+	# 	############################ Settings ############################
+	# 	self.settingsClass = regData.get('settings', None)  # optional
+	# 	if not self.settingsClass:
+	# 		self.settingsClass = SoftwareBaseSettings
+	# 	if not issubclass(self.settingsClass, SoftwareBaseSettings):
+	# 		raise Exception(f'Invalid settings for software: {self.id}')
+	# 	self.settingsInstance = self.settingsClass(self.id)
+
+	# 	############################ Qualifier ###########################
+	# 	self.qualifierClass = regData.get('qualifier', None)
+	# 	if not self.qualifierClass or not issubclass(self.qualifierClass, BaseQualifier):  # required
+	# 		raise Exception(f'Missing or invalid qualifier for software: {self.id}')
+	# 	self.qualifierInstance = self.qualifierClass()
+
+	# 	########################### Descriptor ###########################
+	# 	self.descriptorClass = regData.get('descriptor', None)
+	# 	if not self.descriptorClass or not issubclass(self.descriptorClass, BaseDescriptor):  # required
+	# 		raise Exception(f'Missing or invalid descriptor for software: {self.id}')
+		
+	# 	########################### TileBuilder ##########################
+	# 	self.tileBuilderClass: BaseTileBuilder = BaseTileBuilder
+	# 	self.tileContextMenuClass: BaseContextMenu = BaseContextMenu
+	# 	tileViewData: dict = regData.get('tile_view', {})
+	# 	if tileViewData:
+	# 		if not isinstance(tileViewData, dict):
+	# 			raise Exception(f'Invalid tile view data for software: {self.id}')
+	# 		self.tileBuilderClass: BaseTileBuilder = tileViewData.get('tile_builder', None)
+	# 		if not self.tileBuilderClass:
+	# 			self.tileBuilderClass = BaseTileBuilder
+	# 		if not issubclass(self.tileBuilderClass, BaseTileBuilder):
+	# 			raise Exception(f'Invalid tile builder for software: {self.id}')
+			
+	# 		self.tileContextMenuClass: BaseContextMenu = tileViewData.get('context_menu', None)
+	# 		if not self.tileContextMenuClass:
+	# 			self.tileContextMenuClass = BaseContextMenu
+	# 		if not issubclass(self.tileContextMenuClass, BaseContextMenu):
+	# 			raise Exception(f'Invalid context menu for software: {self.id}')
+		
+	# 	########################## TableBuilder ##########################
+	# 	self.tableBuilderClass: BaseTableBuilder.__class__ = BaseTableBuilder
+	# 	self.tableContextMenuClass: BaseContextMenu = BaseContextMenu
+	# 	tableViewData: dict = regData.get('table_view', {})
+	# 	if tableViewData:
+	# 		if not isinstance(tableViewData, dict):
+	# 			raise Exception(f'Invalid table view data for software: {self.id}')
+	# 		self.tableBuilderClass: BaseTableBuilder = tableViewData.get('table_builder', None)
+	# 		if not self.tableBuilderClass:
+	# 			self.tableBuilderClass = BaseTableBuilder
+	# 		if not issubclass(self.tableBuilderClass, BaseTableBuilder):
+	# 			raise Exception(f'Invalid table builder for software: {self.id}')
+
+	# 		self.tableContextMenuClass: BaseContextMenu = tableViewData.get('context_menu', None)
+	# 		if not self.tableContextMenuClass:
+	# 			self.tableContextMenuClass = BaseContextMenu
+	# 		if not issubclass(self.tableContextMenuClass, BaseContextMenu):
+	# 			raise Exception(f'Invalid context menu for software: {self.id}')
+			
+	# 	########################### CustomViews ##########################
+	# 	self.customViews: list[tuple[BaseCustomView.__class__, str]] = []
+	# 	customViewsData: list[dict] = regData.get('custom_views', [])
+	# 	if customViewsData:
+	# 		if not isinstance(customViewsData, list):
+	# 			raise Exception(f'Invalid custom views data for software: {self.id}')
+	# 		for customViewData in customViewsData:
+	# 			customViewName = customViewData.get('name', None)
+	# 			customViewClass = customViewData.get('view_class', None)
+	# 			if not customViewName or not isinstance(customViewName, str) \
+	# 			or not customViewClass or not issubclass(customViewClass, BaseCustomView):
+	# 				raise Exception(f'Invalid custom view class for software: {self.id}')
+	# 			self.customViews.append((customViewClass, customViewName))
+
+	# 	############################ MenuItems ###########################
+	# 	self.menuItemsClass: BaseMenuItems.__class__ = regData.get('menuitems', None)
+	# 	if self.menuItemsClass is None or not issubclass(self.menuItemsClass, BaseMenuItems):
+	# 		if self.menuItemsClass is not None:
+	# 			logger.warning(f'Invalid menuitems entry for software: {self.id}')
+	# 		self.menuItemsClass = BaseMenuItems
+	# 	self.menuItemsInstance: BaseMenuItems = self.menuItemsClass(self.settingsInstance)
+		
+
 	def GetName(self) -> str:
 		return self.name
-
-class SoftwareHandler(QAVMHandlerNamed):
-	def __init__(self, plugin, regData) -> None:
-		super().__init__(plugin, regData)
-		
-		if not QAVMPlugin.ValidateID(self.id):
-			raise Exception(f'Invalid or missing Software ID: {self.id}')
-		
-		# TODO: lots of repeated code here, refactor
-
-		##################################################################
-		############################ Settings ############################
-		##################################################################
-		self.settingsClass = regData.get('settings', None)  # optional
-		if not self.settingsClass:
-			self.settingsClass = SoftwareBaseSettings
-		if not issubclass(self.settingsClass, SoftwareBaseSettings):
-			raise Exception(f'Invalid settings for software: {self.id}')
-		self.settingsInstance = self.settingsClass(self.id)
-
-		##################################################################
-		############################ Qualifier ###########################
-		##################################################################
-		self.qualifierClass = regData.get('qualifier', None)
-		if not self.qualifierClass or not issubclass(self.qualifierClass, BaseQualifier):  # required
-			raise Exception(f'Missing or invalid qualifier for software: {self.id}')
-		self.qualifierInstance = self.qualifierClass()
-
-		##################################################################
-		########################### Descriptor ###########################
-		##################################################################
-		self.descriptorClass = regData.get('descriptor', None)
-		if not self.descriptorClass or not issubclass(self.descriptorClass, BaseDescriptor):  # required
-			raise Exception(f'Missing or invalid descriptor for software: {self.id}')
-		
-		##################################################################
-		########################### TileBuilder ##########################
-		##################################################################
-		self.tileBuilderClass: BaseTileBuilder = BaseTileBuilder
-		self.tileContextMenuClass: BaseContextMenu = BaseContextMenu
-		tileViewData: dict = regData.get('tile_view', {})
-		if tileViewData:
-			if not isinstance(tileViewData, dict):
-				raise Exception(f'Invalid tile view data for software: {self.id}')
-			self.tileBuilderClass: BaseTileBuilder = tileViewData.get('tile_builder', None)
-			if not self.tileBuilderClass:
-				self.tileBuilderClass = BaseTileBuilder
-			if not issubclass(self.tileBuilderClass, BaseTileBuilder):
-				raise Exception(f'Invalid tile builder for software: {self.id}')
-			
-			self.tileContextMenuClass: BaseContextMenu = tileViewData.get('context_menu', None)
-			if not self.tileContextMenuClass:
-				self.tileContextMenuClass = BaseContextMenu
-			if not issubclass(self.tileContextMenuClass, BaseContextMenu):
-				raise Exception(f'Invalid context menu for software: {self.id}')
-		
-		##################################################################
-		########################## TableBuilder ##########################
-		##################################################################
-		self.tableBuilderClass: BaseTableBuilder.__class__ = BaseTableBuilder
-		self.tableContextMenuClass: BaseContextMenu = BaseContextMenu
-		tableViewData: dict = regData.get('table_view', {})
-		if tableViewData:
-			if not isinstance(tableViewData, dict):
-				raise Exception(f'Invalid table view data for software: {self.id}')
-			self.tableBuilderClass: BaseTableBuilder = tableViewData.get('table_builder', None)
-			if not self.tableBuilderClass:
-				self.tableBuilderClass = BaseTableBuilder
-			if not issubclass(self.tableBuilderClass, BaseTableBuilder):
-				raise Exception(f'Invalid table builder for software: {self.id}')
-
-			self.tableContextMenuClass: BaseContextMenu = tableViewData.get('context_menu', None)
-			if not self.tableContextMenuClass:
-				self.tableContextMenuClass = BaseContextMenu
-			if not issubclass(self.tableContextMenuClass, BaseContextMenu):
-				raise Exception(f'Invalid context menu for software: {self.id}')
-			
-		##################################################################
-		########################### CustomViews ##########################
-		##################################################################
-		self.customViews: list[tuple[BaseCustomView.__class__, str]] = []
-		customViewsData: list[dict] = regData.get('custom_views', [])
-		if customViewsData:
-			if not isinstance(customViewsData, list):
-				raise Exception(f'Invalid custom views data for software: {self.id}')
-			for customViewData in customViewsData:
-				customViewName = customViewData.get('name', None)
-				customViewClass = customViewData.get('view_class', None)
-				if not customViewName or not isinstance(customViewName, str) \
-				or not customViewClass or not issubclass(customViewClass, BaseCustomView):
-					raise Exception(f'Invalid custom view class for software: {self.id}')
-				self.customViews.append((customViewClass, customViewName))
-
-		##################################################################
-		############################ MenuItems ###########################
-		##################################################################
-		self.menuItemsClass: BaseMenuItems.__class__ = regData.get('menuitems', None)
-		if self.menuItemsClass is None or not issubclass(self.menuItemsClass, BaseMenuItems):
-			if self.menuItemsClass is not None:
-				logger.warning(f'Invalid menuitems entry for software: {self.id}')
-			self.menuItemsClass = BaseMenuItems
-		self.menuItemsInstance: BaseMenuItems = self.menuItemsClass(self.settingsInstance)
 	
 	def GetDescriptorClass(self) -> BaseDescriptor.__class__:
 		return self.descriptorClass
