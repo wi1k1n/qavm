@@ -285,7 +285,6 @@ class MainWindow(QMainWindow):
 		for swHandler, tilesViewsUIDs in workspace.GetTilesViews().items():
 			if not tilesViewsUIDs:
 				continue
-			swSettings: SoftwareBaseSettings = swHandler.GetSettings()
 			for viewUID in tilesViewsUIDs:
 				self._createTilesView(swHandler, viewUID)
 
@@ -324,12 +323,13 @@ class MainWindow(QMainWindow):
 		tileBuilder: BaseTileBuilder = tileBuilderClass(swHandler.GetSettings(), contextMenu)
 
 		app = QApplication.instance()
-
 		descsMap: dict[str, list[BaseDescriptor]] = app.GetSoftwareDescriptors(swHandler)  # TODO: move out from here, to not iterate unnecessarily over all descriptors
 
 		for descUID, descs in descsMap.items():
 			tilesWidget = self._createTilesWidget(descs, tileBuilder, contextMenu, parent=self)
-			self.tabsWidget.addTabWithUid(tilesWidget, tileBuilder.GetName(), viewUID+descUID)
+			# self.tabsWidget.addTabWithUid(tilesWidget, tileBuilder.GetName(), viewUID+descUID)
+			self.tabsWidget.insertTab(0, tilesWidget, descUID+':'+tileBuilder.GetName())
+			print(f"Added tiles view for {swHandler.GetName()} with UID {viewUID} and descriptor UID {descUID}")
 
 	def _onTabChanged(self, index: int):
 		self.qavmSettings.SetSetting('last_opened_tab', index)

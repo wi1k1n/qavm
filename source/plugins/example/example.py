@@ -328,7 +328,7 @@ class ExampleCustomView2(BaseCustomView):
 
 		self.setLayout(layout)
 
-def RegisterModuleSoftware():
+def RegisterPluginSoftware():
 	return [
 		# {
 		# 	'id': 'software.example1',  # this is a unique id under the PLUGIN_ID domain
@@ -363,27 +363,27 @@ def RegisterModuleSoftware():
 			'name': 'Example SW',
 
 			'descriptors': {
-				'desc.type.1': {
+				'1': {
 					'qualifier': ExampleQualifierEXE,
 					'descriptor': ExampleDescriptor1,
 				},
-				'desc.type.2': {
+				'2': {
 					'qualifier': ExampleQualifierPNG,
 					'descriptor': ExampleDescriptor2,
 				}
 			},
 			'views': {
 				'tiles': {
-					'view.tiles.1': ExampleTileBuilder1,
-					'view.tiles.2': ExampleTileBuilder2,
+					'1': ExampleTileBuilder1,
+					'2': ExampleTileBuilder2,
 				},
 				'table': {
-					'view.table.1': ExampleTableBuilder1,
-					'view.table.2': ExampleTableBuilder2,
+					'1': ExampleTableBuilder1,
+					'2': ExampleTableBuilder2,
 				},
 				'custom': {
-					'view.custom.1': ExampleCustomView1,
-					'view.custom.2': ExampleCustomView2,
+					'1': ExampleCustomView1,
+					'2': ExampleCustomView2,
 				}
 			},
 			'settings': ExampleSettings,
@@ -394,26 +394,23 @@ def RegisterModuleSoftware():
 			'id': 'software.example2',  # this is a unique id under the PLUGIN_ID domain
 			'name': 'Example SW 2',
 			'descriptors': {
-				'desc.type.1': {
+				'1': {
 					'qualifier': ExampleQualifierEXE,
 					'descriptor': ExampleDescriptor1,
 				},
 			},
 			'views': {
 				'tiles': {
-					'view.tiles.1': ExampleTileBuilder1,
+					'1': ExampleTileBuilder1,
 				},
 				'table': {
-					'view.table.1': ExampleTableBuilder1,
+					'1': ExampleTableBuilder1,
 				},
 				'custom': {
-					'view.custom.1': ExampleCustomView1,
+					'1': ExampleCustomView1,
 				}
 			},
 			'settings': ExampleSettings,
 			'menuitems': ExampleMenuItems,
 		}
 	]
-
-def RegisterModuleSettings():
-	return []

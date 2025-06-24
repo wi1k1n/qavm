@@ -94,33 +94,33 @@ class QAVMGlobalSettings(BaseSettings):
 		'workspace_last': {
 			'views': {
 				'tiles': [
-					'in.wi1k.tools.qavm.plugin.example#software.example1.view.tiles.1',
-					'in.wi1k.tools.qavm.plugin.example#software.example1.view.tiles.2',
+					'in.wi1k.tools.qavm.plugin.example#software.example1#views/tiles/1',
+					'in.wi1k.tools.qavm.plugin.example#software.example1#views/tiles/2',
 				],
 				'table': [
-					'in.wi1k.tools.qavm.plugin.example#software.example1.view.table.1',
-					'in.wi1k.tools.qavm.plugin.example#software.example1.view.table.2',
+					'in.wi1k.tools.qavm.plugin.example#software.example1#views/table/1',
+					'in.wi1k.tools.qavm.plugin.example#software.example1#views/table/2',
 				],
 				'custom': [
-					'in.wi1k.tools.qavm.plugin.example#software.example1.view.custom.1',
-					'in.wi1k.tools.qavm.plugin.example#software.example1.view.custom.2',
+					'in.wi1k.tools.qavm.plugin.example#software.example1#views/custom/1',
+					'in.wi1k.tools.qavm.plugin.example#software.example1#views/custom/2',
 				],
 			},
 			'manuitems': [],
 		},  # the workspace is a dict: {'view': [], 'menuitems': []}, where lists are the list of IDs
 	}
 
-	def GetSelectedSoftwareUID(self) -> str:
-		app = QApplication.instance()
-		if app.selectedSoftwareUID is None:  # That's the way to force no selected software UID
-			return ''
-		if app.selectedSoftwareUID:  # That's the way to force specific software UID
-			return app.selectedSoftwareUID
-		# If it's empty otherwise, get the selected software UID from settings
-		return self.GetSetting('selected_software_uid')
+	# def GetSelectedSoftwareUID(self) -> str:
+	# 	app = QApplication.instance()
+	# 	if app.selectedSoftwareUID is None:  # That's the way to force no selected software UID
+	# 		return ''
+	# 	if app.selectedSoftwareUID:  # That's the way to force specific software UID
+	# 		return app.selectedSoftwareUID
+	# 	# If it's empty otherwise, get the selected software UID from settings
+	# 	return self.GetSetting('selected_software_uid')
 
-	def SetSelectedSoftwareUID(self, softwareUID: str) -> None:
-		self.SetSetting('selected_software_uid', softwareUID)
+	# def SetSelectedSoftwareUID(self, softwareUID: str) -> None:
+	# 	self.SetSetting('selected_software_uid', softwareUID)
 
 	def GetAppTheme(self) -> str:
 		return self.GetSetting('app_theme')

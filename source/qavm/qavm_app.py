@@ -117,9 +117,9 @@ class QAVMApp(QApplication):
 		descs: dict[str, list[BaseDescriptor]] = dict()
 		softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings(swHandler)
 		searchPaths: list[Path] = softwareSettings.GetEvaluatedSearchPaths()
-		for descUID, (qualifier, descClass) in swHandler.GetDescriptorClasses().items():
+		for descDPath, (qualifier, descClass) in swHandler.GetDescriptorClasses().items():
 			MAX_SCAN_DEPTH: int = 1
-			descs[descUID] = self._scanSoftwareDescriptor(qualifier, descClass, softwareSettings, searchPaths, scanDepth=MAX_SCAN_DEPTH)
+			descs[descDPath] = self._scanSoftwareDescriptor(qualifier, descClass, softwareSettings, searchPaths, scanDepth=MAX_SCAN_DEPTH)
 		return descs
 
 	def _scanSoftwareDescriptor(self,

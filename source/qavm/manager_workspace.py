@@ -1,4 +1,4 @@
-from qavm.manager_plugin import QAVMPlugin, SoftwareHandler, PluginManager
+from qavm.manager_plugin import QAVMPlugin, SoftwareHandler, PluginManager, UID
 
 from PyQt6.QtWidgets import QApplication
 
@@ -57,9 +57,8 @@ class QAVMWorkspace:
 		""" Returns tiles views in current workspace grouped by software handlers. """
 		tilesViews: dict[SoftwareHandler, list[str]] = {}
 		for viewUID in self.tiles:
-			pluginID: str = QAVMPlugin.FetchPluginIDFromUID(viewUID)
-			if plugin := QApplication.instance().GetPluginManager().GetPlugin(pluginID):
-				for swHandler in plugin.GetSoftwareHandlers().values():
+			if plugin := QApplication.instance().GetPluginManager().GetPlugin(viewUID):
+				if swHandler := plugin.GetSoftwareHandler(viewUID):
 					if swHandler not in tilesViews:
 						tilesViews[swHandler] = []
 					tilesViews[swHandler].append(viewUID)
@@ -71,9 +70,8 @@ class QAVMWorkspace:
 		plugins: set[QAVMPlugin] = set()
 		notFoundPlugins: set[str] = set()
 		for viewUID in uids:
-			pluginID: str = QAVMPlugin.FetchPluginIDFromUID(viewUID)
-			if plugin := pluginManager.GetPlugin(pluginID):
+			if plugin := pluginManager.GetPlugin(viewUID):
 				plugins.add(plugin)
 			else:
-				notFoundPlugins.add(pluginID)
+				notFoundPlugins.add(viewUID)
 		return plugins, notFoundPlugins

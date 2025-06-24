@@ -1,6 +1,6 @@
 import importlib.util, os, re
 from pathlib import Path
-from typing import Type, Optional
+from typing import Type, Optional, Any
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu,
@@ -16,6 +16,12 @@ import re
 from typing import Optional
 
 class UID:
+	"""
+	UIDs are in the format: 'plugin.id#software.id#data/path'
+	- plugin.id: e.g. 'com.example.plugin'
+	- software.id: e.g. 'software.example1'
+	- data/path: e.g. 'view/tiles/c4d'
+	"""
 	DOMAIN_ID_REGEX = r'[a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)*'
 	DATAPATH_REGEX = r'[a-zA-Z0-9]+(?:/[a-zA-Z0-9]+)*'
 
@@ -111,14 +117,20 @@ class UID:
 
 
 class SoftwareHandler:
-	def __init__(self, plugin, regData) -> None:
-		self._initRegDataNew(regData)
+	# TODO: should be a unified dataPath accessing scheme (check UID class for IsDataPathValid, etc...)
+	KEY_DESCRIPTORS = 'descriptors'
+	KEY_VIEWS = 'views'
+	KEY_TILES = 'tiles'
+	KEY_TABLE = 'table'
+	KEY_CUSTOM = 'custom'
+	KEY_SETTINGS = 'settings'
+	KEY_MENUITEMS = 'menuitems'
 
-	def _initRegDataNew(self, regData: dict) -> None:
+	def __init__(self, regData: dict) -> None:
 		########################### ID ###########################
 		self.id: str = regData.get('id', '')
 		self._checkType(self.id, str, 'software ID')
-		if not QAVMPlugin.ValidateID(self.id):
+		if not UID.IsSoftwareIDValid(self.id):
 			raise Exception(f'Invalid Software ID: {self.id}')
 		
 		########################### Name ###########################
@@ -128,8 +140,8 @@ class SoftwareHandler:
 		########################### Descriptors ###########################
 		self.descriptorClasses: dict[str, tuple[BaseQualifier, Type[BaseDescriptor]]] = dict()  # descriptorTypeId: (qualifierClass, descriptorClass)
 
-		descTypesData: dict = regData.get('descriptors', {})
-		self._checkType(descTypesData, dict, 'descriptors')
+		descTypesData: dict = regData.get(self.KEY_DESCRIPTORS, {})
+		self._checkType(descTypesData, dict, self.KEY_DESCRIPTORS)
 		for descTypeId, descType in descTypesData.items():
 			self._checkType(descTypeId, str, 'descriptor type ID')
 			self._checkType(descType, dict, 'descriptor type data')
@@ -138,56 +150,56 @@ class SoftwareHandler:
 			descriptorClass = descType.get('descriptor', None)
 			self._checkSubClass(descriptorClass, BaseDescriptor, 'descriptor class')
 			
-			self.descriptorClasses[descTypeId] = (qualifierClass(), descriptorClass)
+			self.descriptorClasses[f'{self.KEY_DESCRIPTORS}/{descTypeId}'] = (qualifierClass(), descriptorClass)
 
 		########################### Views ###########################
 		self.tileBuilderClasses: dict[str, Type[BaseTileBuilder]] = dict()  # viewTypeId: tileBuilderClass
 		self.tableBuilderClasses: dict[str, Type[BaseTableBuilder]] = dict()  # viewTypeId: tableBuilderClass
 		self.customViewClasses: dict[str, Type[BaseCustomView]] = dict()  # viewTypeId: customViewClass
 
-		viewsData: dict = regData.get('views', {})
-		self._checkType(viewsData, dict, 'views')
+		viewsData: dict = regData.get(self.KEY_VIEWS, {})
+		self._checkType(viewsData, dict, self.KEY_VIEWS)
 		
-		tileViewsData: dict = viewsData.get('tiles', {})
-		self._checkType(tileViewsData, dict, 'tile views')
+		tileViewsData: dict = viewsData.get(self.KEY_TILES, {})
+		self._checkType(tileViewsData, dict, self.KEY_TILES)
 		for viewTypeId, tileBuilderClass in tileViewsData.items():
 			self._checkType(viewTypeId, str, 'tile view type ID')
 			self._checkSubClass(tileBuilderClass, BaseTileBuilder, 'tile builder class')
-			self.tileBuilderClasses[viewTypeId] = tileBuilderClass
+			self.tileBuilderClasses[f'{self.KEY_VIEWS}/{self.KEY_TILES}/{viewTypeId}'] = tileBuilderClass
 
-		tableViewsData: dict = viewsData.get('table', {})
-		self._checkType(tableViewsData, dict, 'table views')
+		tableViewsData: dict = viewsData.get(self.KEY_TABLE, {})
+		self._checkType(tableViewsData, dict, self.KEY_TABLE)
 		for viewTypeId, tableBuilderClass in tableViewsData.items():
 			self._checkType(viewTypeId, str, 'table view type ID')
 			self._checkSubClass(tableBuilderClass, BaseTableBuilder, 'table builder class')
-			self.tableBuilderClasses[viewTypeId] = tableBuilderClass
+			self.tableBuilderClasses[f'{self.KEY_VIEWS}/{self.KEY_TABLE}/{viewTypeId}'] = tableBuilderClass
 
-		customViewsData: dict = viewsData.get('custom', {})
-		self._checkType(customViewsData, dict, 'custom views')
+		customViewsData: dict = viewsData.get(self.KEY_CUSTOM, {})
+		self._checkType(customViewsData, dict, self.KEY_CUSTOM)
 		for viewTypeId, customViewClass in customViewsData.items():
 			self._checkType(viewTypeId, str, 'custom view type ID')
 			self._checkSubClass(customViewClass, BaseCustomView, 'custom view class')
-			self.customViewClasses[viewTypeId] = customViewClass
+			self.customViewClasses[f'{self.KEY_VIEWS}/{self.KEY_CUSTOM}/{viewTypeId}'] = customViewClass
 
 		########################### Settings ###########################
-		self.settingsClass: Type[BaseSettings] = regData.get('settings', None)
-		self.settingsInstance: BaseSettings | None = None
+		self.settingsClass: Optional[Type[BaseSettings]] = regData.get(self.KEY_SETTINGS, None)
+		self.settingsInstance: Optional[BaseSettings] = None
 		if self.settingsClass is not None:  # optional
-			self._checkSubClass(self.settingsClass, BaseSettings, 'settings class')
+			self._checkSubClass(self.settingsClass, BaseSettings, self.KEY_SETTINGS)
 			self.settingsInstance = self.settingsClass(self.GetID())
 
 		########################### MenuItems ###########################
-		self.menuItemsClass: Type[BaseMenuItems] | None = regData.get('menuitems', None)
-		self.menuItemsInstance: BaseMenuItems | None = None
+		self.menuItemsClass: Optional[Type[BaseMenuItems]] = regData.get(self.KEY_MENUITEMS, None)
+		self.menuItemsInstance: Optional[BaseMenuItems] = None
 		if self.menuItemsClass is not None:  # optional
-			self._checkSubClass(self.menuItemsClass, BaseMenuItems, 'menu items class')
+			self._checkSubClass(self.menuItemsClass, BaseMenuItems, self.KEY_MENUITEMS)
 			self.menuItemsInstance = self.menuItemsClass(self.settingsInstance)
 			
 	def _checkType(self, value: object, expectedType: type, name: str) -> None:
 		if not isinstance(value, expectedType):
 			raise Exception(f'Invalid {name} type for software: {self.id}. Expected {expectedType.__name__}, got {type(value).__name__}')
 		
-	def _checkSubClass(self, value: object, expectedType: type, name: str) -> None:
+	def _checkSubClass(self, value: type, expectedType: type, name: str) -> None:
 		if not issubclass(value, expectedType):
 			raise Exception(f'Invalid {name} class for software: {self.id}. Expected subclass of {expectedType.__name__}, got {value.__name__}')
 
@@ -206,7 +218,9 @@ class SoftwareHandler:
 	
 	def GetDescriptorClass(self, descriptorTypeId: str) -> tuple[BaseQualifier | None, Type[BaseDescriptor] | None]:
 		""" Returns the descriptor class for the given descriptor type ID, e.g. ('BaseQualifier', 'BaseDescriptor') """
-		return self.descriptorClasses.get(self.FetchSoftwareSubID(descriptorTypeId), (None, None))
+		if descTypeId := UID.FetchDataPath(descriptorTypeId):
+			return self.descriptorClasses.get(f'{self.KEY_DESCRIPTORS}/{descTypeId}', (None, None))
+		return None, None
 	
 	def GetTileBuilderClasses(self) -> dict[str, Type[BaseTileBuilder]]:
 		""" Returns a dictionary of tile builder classes registered by the software handler, e.g. {'view_type_id': BaseTileBuilder} """
@@ -214,7 +228,9 @@ class SoftwareHandler:
 	
 	def GetTileBuilderClass(self, viewTypeId: str) -> Type[BaseTileBuilder] | None:
 		""" Returns the tile builder class for the given view type ID, e.g. 'BaseTileBuilder' """
-		return self.tileBuilderClasses.get(self.FetchSoftwareSubID(viewTypeId), None)
+		if viewTypeId := UID.FetchDataPath(viewTypeId):
+			return self.tileBuilderClasses.get(viewTypeId, None)
+		return None
 	
 	def GetTableBuilderClasses(self) -> dict[str, Type[BaseTableBuilder]]:
 		""" Returns a dictionary of table builder classes registered by the software handler, e.g. {'view_type_id': BaseTableBuilder} """
@@ -222,7 +238,9 @@ class SoftwareHandler:
 	
 	def GetTableBuilderClass(self, viewTypeId: str) -> Type[BaseTableBuilder] | None:
 		""" Returns the table builder class for the given view type ID, e.g. 'BaseTableBuilder' """
-		return self.tableBuilderClasses.get(self.FetchSoftwareSubID(viewTypeId), None)
+		if viewTypeId := UID.FetchDataPath(viewTypeId):
+			return self.tableBuilderClasses.get(viewTypeId, None)
+		return None
 	
 	def GetCustomViewClasses(self) -> dict[str, Type[BaseCustomView]]:
 		""" Returns a dictionary of custom view classes registered by the software handler, e.g. {'view_type_id': BaseCustomView} """
@@ -230,7 +248,9 @@ class SoftwareHandler:
 	
 	def GetCustomViewClass(self, viewTypeId: str) -> Type[BaseCustomView] | None:
 		""" Returns the custom view class for the given view type ID, e.g. 'BaseCustomView' """
-		return self.customViewClasses.get(self.FetchSoftwareSubID(viewTypeId), None)
+		if viewTypeId := UID.FetchDataPath(viewTypeId):
+			return self.customViewClasses.get(viewTypeId, None)
+		return None
 	
 	def GetSettings(self) -> BaseSettings | None:
 		""" Returns the settings class registered by the software handler, e.g. 'BaseSettings' or None if not set """
@@ -239,14 +259,6 @@ class SoftwareHandler:
 	def GetMenuItems(self) -> BaseMenuItems | None:
 		""" Returns the menu items class registered by the software handler, e.g. 'BaseMenuItems' or None if not set """
 		return self.menuItemsInstance
-	
-	def FetchSoftwareSubID(self, softwareID: str) -> str:
-		# extracts sub ID from software ID, e.g. 'com.my.plugin#software.example1.my.sub.id' -> 'my.sub.id'
-		softwareID = QAVMPlugin.FetchIDFromUID(softwareID)
-		subID = softwareID[len(self.id):] if softwareID.startswith(self.id) else softwareID
-		if subID.startswith('.'):
-			subID = subID[1:]
-		return subID
 
 class QAVMPlugin:
 	"""
@@ -267,11 +279,11 @@ class QAVMPlugin:
 
 		# PLUGIN_ID and PLUGIN_VERSION are required
 		self.pluginID = getattr(self.module, 'PLUGIN_ID', '')
-		if not QAVMPlugin.ValidateUID(self.pluginID):
+		if not UID.IsPluginIDValid(self.pluginID):
 			raise Exception(f'Invalid or missing PLUGIN_ID for: {self.module.__name__}')
 		
 		self.pluginVersion = getattr(self.module, 'PLUGIN_VERSION', '')
-		if not QAVMPlugin.ValidateVersion(self.pluginVersion):
+		if not QAVMPlugin.IsVersionValid(self.pluginVersion):
 			raise Exception(f'Invalid or missing PLUGIN_VERSION for: {self.module.__name__}')
 		
 		# These are optional
@@ -280,17 +292,17 @@ class QAVMPlugin:
 		self.pluginDeveloper = getattr(self.module, 'PLUGIN_DEVELOPER', 'Unknown')
 		self.pluginWebsite = getattr(self.module, 'PLUGIN_WEBSITE', '')
 
-		self.LoadModuleSoftware()
+		self.LoadPluginSoftware()
 	
-	def LoadModuleSoftware(self) -> None:
-		pluginSoftwareRegisterFunc = getattr(self.module, 'RegisterModuleSoftware', None)
+	def LoadPluginSoftware(self) -> None:
+		pluginSoftwareRegisterFunc = getattr(self.module, 'RegisterPluginSoftware', None)
 		if pluginSoftwareRegisterFunc is None or not callable(pluginSoftwareRegisterFunc):
 			return
 		
 		softwareRegDataList = pluginSoftwareRegisterFunc()
 
 		for softwareRegData in softwareRegDataList:
-			softwareHandler = SoftwareHandler(self, softwareRegData)
+			softwareHandler = SoftwareHandler(softwareRegData)
 
 			if softwareHandler.id in self.softwareHandlers:
 				raise Exception(f'Duplicate software ID found: {self.id}')
@@ -300,6 +312,11 @@ class QAVMPlugin:
 	def GetSoftwareHandlers(self) -> dict[str, SoftwareHandler]:
 		""" Returns a dictionary of software handlers registered by the plugin, e.g. {'software_id': SoftwareHandler} """
 		return self.softwareHandlers
+	
+	def GetSoftwareHandler(self, softwareID: str) -> SoftwareHandler | None:
+		""" Returns the software handler for the given software ID, e.g. 'software.example1' """
+		softwareID = UID.FetchSoftwareID(softwareID)
+		return self.softwareHandlers.get(softwareID, None)
 
 	def GetUID(self) -> str:
 		""" Returns the unique identifier of the plugin, e.g. 'com.example.plugin' """
@@ -336,36 +353,9 @@ class QAVMPlugin:
 	def GetPluginWebsite(self) -> str:
 		""" Returns the website of the plugin (can be empty), e.g. 'https://example.com/plugin' """
 		return self.pluginWebsite
-			
 	
 	@staticmethod
-	def FetchPluginIDFromUID(UID: str) -> str:
-		# extracts plugin ID from UID, e.g. 'com.example.plugin#software_id' -> 'com.example.plugin'
-		if not QAVMPlugin.ValidateUID(UID):
-			raise ValueError(f'Invalid UID format: {UID}')
-		return UID.split('#')[0]
-	
-	@staticmethod
-	def FetchIDFromUID(UID: str) -> str:
-		# extracts ID from UID, e.g. 'com.example.plugin#software_id' -> 'software_id'
-		if not QAVMPlugin.ValidateUID(UID):
-			raise ValueError(f'Invalid UID format: {UID}')
-		return UID.split('#')[1] if '#' in UID else ''
-	
-	@staticmethod
-	def ValidateUID(UID: str) -> bool:
-		# checks id to be in domain-style format
-		pattern = re.compile("(?:[a-z0-9](?:[a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z0-9][a-z0-9]{0,61}[a-z0-9]")
-		return pattern.match(UID) is not None
-	
-	@staticmethod
-	def ValidateID(ID: str) -> bool:
-		# checks id to be in domain-style format + single alphanumrical words
-		pattern = re.compile("(?:[a-z0-9](?:[a-z0-9]{0,61}[a-z0-9]\\.)?)+[a-z0-9][a-z0-9]{0,61}[a-z0-9]")
-		return pattern.match(ID) is not None
-	
-	@staticmethod
-	def ValidateVersion(version: str) -> bool:
+	def IsVersionValid(version: str) -> bool:
 		# version should be in XXX.XXX.XXXX format, where each part can be at least 1 digit long
 		pattern = re.compile("(?:[0-9]{1,3}\\.){2}[0-9]{1,4}")
 		return pattern.match(version) is not None
@@ -435,6 +425,7 @@ class PluginManager:
 		return list(self.plugins.values())  # TODO: rewrite with yield
 	
 	def GetPlugin(self, pluginID: str) -> QAVMPlugin:
+		pluginID = UID.FetchPluginID(pluginID)  # in case UID is passed
 		return self.plugins.get(pluginID, None)
 
 
