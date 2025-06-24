@@ -1,6 +1,7 @@
 import os  # TODO: Get rid of os.path in favor of pathlib
 from pathlib import Path
 from functools import partial
+from typing import Type
 
 from PyQt6.QtCore import Qt, QMargins, QPoint, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QMouseEvent
@@ -13,6 +14,7 @@ from PyQt6.QtWidgets import (
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
+from qavm.manager_workspace import QAVMWorkspace
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu,
@@ -119,6 +121,38 @@ class MyTableWidget(QTableWidget):
 
 		super().mouseDoubleClickEvent(event)
 
+class MyTabWidget(QTabWidget):
+	def __init__(self, parent=None):
+		super().__init__(parent)
+		self._uidToWidget = {}  # uid → QWidget
+
+	def addTabWithUid(self, widget: QWidget, title: str, uid: str):
+		if uid in self._uidToWidget:
+			raise ValueError(f"UID '{uid}' already exists")
+		self._uidToWidget[uid] = widget
+		self.addTab(widget, title)
+
+	def removeTabByUid(self, uid: str):
+		widget = self._uidToWidget.pop(uid, None)
+		if widget is not None:
+			index = self.indexOf(widget)
+			if index != -1:
+				self.removeTab(index)
+
+	def setTabVisibleByUid(self, uid: str, visible: bool):
+		widget = self._uidToWidget.get(uid)
+		if widget:
+			index = self.indexOf(widget)
+			self.tabBar().setTabVisible(index, visible)
+
+	def getTabByUid(self, uid: str) -> QWidget | None:
+		return self._uidToWidget.get(uid)
+
+	def setCurrentTabByUid(self, uid: str):
+		widget = self._uidToWidget.get(uid)
+		if widget:
+			self.setCurrentWidget(widget)
+
 class MainWindow(QMainWindow):
 	def __init__(self, parent: QWidget | None = None) -> None:
 		super(MainWindow, self).__init__(parent)
@@ -128,12 +162,19 @@ class MainWindow(QMainWindow):
 		self.pluginManager: PluginManager = app.GetPluginManager()
 		self.settingsManager: SettingsManager = app.GetSettingsManager()
 		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
-		self.softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
-		self.softwareSettings.tilesUpdateRequired.connect(self.UpdateTilesWidget)
-		self.softwareSettings.tablesUpdateRequired.connect(self.UpdateTableWidget)
 		
-		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
-		self.setWindowTitle(f'QAVM {GetQAVMVersionVariant()}- {softwareHandler.GetName()}')
+		# self.softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
+
+		# self.softwareSettings.tilesUpdateRequired.connect(self.UpdateTilesWidget)
+		# self.softwareSettings.tablesUpdateRequired.connect(self.UpdateTableWidget)
+		
+		# softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
+
+		workspace: QAVMWorkspace = app.GetWorkspace()
+		swHandlers, _ = workspace.GetInvolvedSoftwareHandlers()
+		swTitle: str = ', '.join([f'{sw.GetName()}' for sw in swHandlers])[:50]
+
+		self.setWindowTitle(f'QAVM {GetQAVMVersionVariant()} - [{swTitle}]')
 		self.resize(1420, 840)
 		self.setMinimumSize(350, 250)
 
@@ -153,13 +194,13 @@ class MainWindow(QMainWindow):
 		self.actionExit = QAction("&Exit", self, shortcut=QKeySequence.StandardKey.Quit)
 		self.actionExit.triggered.connect(self.close)
 
-		self.actionPluginSelection = QAction("Select software", self)
-		self.actionPluginSelection.setEnabled(len(self.pluginManager.GetSoftwareHandlers()) > 1)
-		self.actionPluginSelection.triggered.connect(self._switchToPluginSelection)
+		# self.actionPluginSelection = QAction("Select software", self)
+		# self.actionPluginSelection.setEnabled(len(self.pluginManager.GetSoftwareHandlers()) > 1)
+		# self.actionPluginSelection.triggered.connect(self._switchToPluginSelection)
 
-		self.actionRescan = QAction("&Rescan", self)
-		self.actionRescan.setShortcut("Ctrl+F5")
-		self.actionRescan.triggered.connect(self._rescanSoftware)
+		# self.actionRescan = QAction("&Rescan", self)
+		# self.actionRescan.setShortcut("Ctrl+F5")
+		# self.actionRescan.triggered.connect(self._rescanSoftware)
 
 		self.actionAbout = QAction("&About", self)
 		self.actionAbout.triggered.connect(self._showAboutDialog)
@@ -169,10 +210,10 @@ class MainWindow(QMainWindow):
 		menuBar.setNativeMenuBar(True)  # Use native menu bar on macOS
 		
 		fileMenu: QMenu = QMenu("&File", self)
-		fileMenu.addAction(self.actionRescan)
-		fileMenu.addSeparator()
-		fileMenu.addAction(self.actionPluginSelection)
-		fileMenu.addSeparator()
+		# fileMenu.addAction(self.actionRescan)
+		# fileMenu.addSeparator()
+		# fileMenu.addAction(self.actionPluginSelection)
+		# fileMenu.addSeparator()
 		fileMenu.addAction(self.actionExit)
 		menuBar.addMenu(fileMenu)
 		
@@ -183,57 +224,53 @@ class MainWindow(QMainWindow):
 			editMenu.addAction(self.actionPrefs)
 			menuBar.addMenu(editMenu)
 		
-		# viewMenu = QMenu("&View", self)
-		# menuBar.addMenu(viewMenu)
-		
-		switchMenu: QMenu = QMenu("&Switch Workspace", self)
-		switchMenu.addAction(QAction("osx sucks", self))
-		menuBar.addMenu(switchMenu)
-		def populate_switch_menu():
-			switchMenu.clear()
-			swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()  # [pluginID, softwareID, SoftwareHandler]
-			for pluginID, softwareID, softwareHandler in swHandlers:
-				plugin: QAVMPlugin = self.pluginManager.GetPlugin(pluginID)
-				swUID: str = f'{pluginID}#{softwareID}'
-				title: str = f'{softwareHandler.GetName()} [{plugin.GetName()} @ {plugin.GetVersionStr()}] ({swUID})'
-				action = QAction(title, self)
-				action.triggered.connect(partial(self._switchToPluginSelection, swUID))
-				switchMenu.addAction(action)
-		switchMenu.aboutToShow.connect(populate_switch_menu)  # TODO: does this need dynamic update?
+		# switchMenu: QMenu = QMenu("&Switch Workspace", self)
+		# switchMenu.addAction(QAction("osx sucks", self))
+		# menuBar.addMenu(switchMenu)
+		# def populate_switch_menu():
+		# 	switchMenu.clear()
+		# 	swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()  # [pluginID, softwareID, SoftwareHandler]
+		# 	for pluginID, softwareID, softwareHandler in swHandlers:
+		# 		plugin: QAVMPlugin = self.pluginManager.GetPlugin(pluginID)
+		# 		swUID: str = f'{pluginID}#{softwareID}'
+		# 		title: str = f'{softwareHandler.GetName()} [{plugin.GetName()} @ {plugin.GetVersionStr()}] ({swUID})'
+		# 		action = QAction(title, self)
+		# 		action.triggered.connect(partial(self._switchToPluginSelection, swUID))
+		# 		switchMenu.addAction(action)
+		# switchMenu.aboutToShow.connect(populate_switch_menu)  # TODO: does this need dynamic update?
 
-		# TODO: handle case when softwareHandler is None
-		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
-		menuItems: BaseMenuItems = softwareHandler.GetMenuItems()
-		menus = menuItems.GetMenus(self)
-		for menuItemsMenu in menus:
-			if menuItemsMenu is None:
-				continue
-			if isinstance(menuItemsMenu, QMenu):
-				menuBar.addMenu(menuItemsMenu)
-				self.pluginMenuItems.append(menuItemsMenu)
-				continue
-			elif isinstance(menuItemsMenu, QAction):
-				menuBar.addAction(menuItemsMenu)
-				self.pluginMenuItems.append(menuItemsMenu)
-				continue
+		# softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
+		# menuItems: BaseMenuItems = softwareHandler.GetMenuItems()
+		# menus = menuItems.GetMenus(self)
+		# for menuItemsMenu in menus:
+		# 	if menuItemsMenu is None:
+		# 		continue
+		# 	if isinstance(menuItemsMenu, QMenu):
+		# 		menuBar.addMenu(menuItemsMenu)
+		# 		self.pluginMenuItems.append(menuItemsMenu)
+		# 		continue
+		# 	elif isinstance(menuItemsMenu, QAction):
+		# 		menuBar.addAction(menuItemsMenu)
+		# 		self.pluginMenuItems.append(menuItemsMenu)
+		# 		continue
 
-			logger.warning(f"Menu item {menuItemsMenu} is not a valid QMenu or QAction. Skipping.")
+		# 	logger.warning(f"Menu item {menuItemsMenu} is not a valid QMenu or QAction. Skipping.")
 
 		helpMenu: QMenu = QMenu("&Help", self)
 		helpMenu.addAction(self.actionAbout)
 		menuBar.addMenu(helpMenu)
 
-		##################################################################
-		########################## Right Corner ##########################
-		##################################################################
-		if not PlatformMacOS():  # macOS isn't capable of complex things
-			rightCornerMenu = QMenuBar(menuBar)
-			for pluginID, softwareID, softwareHandler in self.pluginManager.GetSoftwareHandlers():
-				swUID: str = f'{pluginID}#{softwareID}'
-				title: str = softwareHandler.GetName()
-				action = QAction(title, self, triggered=partial(self._switchToPluginSelection, swUID))
-				rightCornerMenu.addAction(action)
-			menuBar.setCornerWidget(rightCornerMenu)
+		# ##################################################################
+		# ########################## Right Corner ##########################
+		# ##################################################################
+		# if not PlatformMacOS():  # macOS isn't capable of complex things
+		# 	rightCornerMenu = QMenuBar(menuBar)
+		# 	for pluginID, softwareID, softwareHandler in self.pluginManager.GetSoftwareHandlers():
+		# 		swUID: str = f'{pluginID}#{softwareID}'
+		# 		title: str = softwareHandler.GetName()
+		# 		action = QAction(title, self, triggered=partial(self._switchToPluginSelection, swUID))
+		# 		rightCornerMenu.addAction(action)
+		# 	menuBar.setCornerWidget(rightCornerMenu)
 	
 	def _setupStatusBar(self):
 		self.statusBar = QStatusBar()
@@ -241,26 +278,35 @@ class MainWindow(QMainWindow):
 
 	# TODO: this shouldn't be in constructor!
 	def _setupCentralWidget(self):
-		self.tabsWidget: QTabWidget = QTabWidget()
+		self.tabsWidget: MyTabWidget = MyTabWidget(self)
 		
-		self.UpdateTilesWidget()
-		self.UpdateTableWidget()
-
-		# TODO: handle case when softwareHandler is None
-		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
-		softwareSettings: SoftwareBaseSettings = softwareHandler.GetSettings()
-
-		# TODO: FreeMove view is currently not implemented
-		# contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
-		# tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
-		# self.freeMoveWidget = self._createFreeMoveWidget(self.app.GetSoftwareDescriptions(), tileBuilder, self)
-		# self.tabsWidget.insertTab(2, self.freeMoveWidget, "Free Move")
-
-		for customView, name in softwareHandler.GetCustomViews():
-			if customView is None:
+		app = QApplication.instance()
+		workspace: QAVMWorkspace = app.GetWorkspace()
+		for swHandler, tilesViewsUIDs in workspace.GetTilesViews().items():
+			if not tilesViewsUIDs:
 				continue
-			customTab: BaseCustomView = customView(softwareSettings, self)
-			self.tabsWidget.addTab(customTab, name)
+			swSettings: SoftwareBaseSettings = swHandler.GetSettings()
+			for viewUID in tilesViewsUIDs:
+				self._createTilesView(swHandler, viewUID)
+
+		# self.UpdateTilesWidget()
+		# self.UpdateTableWidget()
+
+		# # TODO: handle case when softwareHandler is None
+		# softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
+		# softwareSettings: SoftwareBaseSettings = softwareHandler.GetSettings()
+
+		# # TODO: FreeMove view is currently not implemented
+		# # contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
+		# # tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
+		# # self.freeMoveWidget = self._createFreeMoveWidget(self.app.GetSoftwareDescriptions(), tileBuilder, self)
+		# # self.tabsWidget.insertTab(2, self.freeMoveWidget, "Free Move")
+
+		# for customView, name in softwareHandler.GetCustomViews():
+		# 	if customView is None:
+		# 		continue
+		# 	customTab: BaseCustomView = customView(softwareSettings, self)
+		# 	self.tabsWidget.addTab(customTab, name)
 
 		self.setCentralWidget(self.tabsWidget)
 
@@ -268,6 +314,22 @@ class MainWindow(QMainWindow):
 		lastOpenedTab: int = self.qavmSettings.GetSetting('last_opened_tab')
 		if lastOpenedTab >= 0 and lastOpenedTab < self.tabsWidget.count():
 			self.tabsWidget.setCurrentIndex(lastOpenedTab)
+
+	def _createTilesView(self, swHandler: SoftwareHandler, viewUID: str):
+		tileBuilderClass: Type[BaseTileBuilder] | None = swHandler.GetTileBuilderClass(viewUID)
+		if tileBuilderClass is None or not issubclass(tileBuilderClass, BaseTileBuilder):
+			return
+		
+		contextMenu: BaseContextMenu = BaseContextMenu(swHandler.GetSettings())
+		tileBuilder: BaseTileBuilder = tileBuilderClass(swHandler.GetSettings(), contextMenu)
+
+		app = QApplication.instance()
+
+		descsMap: dict[str, list[BaseDescriptor]] = app.GetSoftwareDescriptors(swHandler)  # TODO: move out from here, to not iterate unnecessarily over all descriptors
+
+		for descUID, descs in descsMap.items():
+			tilesWidget = self._createTilesWidget(descs, tileBuilder, contextMenu, parent=self)
+			self.tabsWidget.addTabWithUid(tilesWidget, tileBuilder.GetName(), viewUID+descUID)
 
 	def _onTabChanged(self, index: int):
 		self.qavmSettings.SetSetting('last_opened_tab', index)
@@ -466,21 +528,21 @@ class MainWindow(QMainWindow):
 		scrollWidget.setWidget(widget)
 		return scrollWidget
 	
-	def _switchToPluginSelection(self, swUID: str = ''):
-		app = QApplication.instance()
-		# TODO: this should probably has clearer handling
-		self.qavmSettings.SetSelectedSoftwareUID(swUID)
-		app.selectedSoftwareUID = swUID
-		# TODO: storing the setting without being sure that the plugin runs leads to a deadlock (start and crash)
-		self.qavmSettings.Save()
-		self.dialogsManager.ResetPreferencesWindow()
-		self.dialogsManager.GetPluginSelectionWindow().show()
-		self.close()
+	# def _switchToPluginSelection(self, swUID: str = ''):
+	# 	app = QApplication.instance()
+	# 	# TODO: this should probably has clearer handling
+	# 	self.qavmSettings.SetSelectedSoftwareUID(swUID)
+	# 	app.selectedSoftwareUID = swUID
+	# 	# TODO: storing the setting without being sure that the plugin runs leads to a deadlock (start and crash)
+	# 	self.qavmSettings.Save()
+	# 	self.dialogsManager.ResetPreferencesWindow()
+	# 	self.dialogsManager.GetPluginSelectionWindow().show()
+	# 	self.close()
 	
-	def _rescanSoftware(self):
-		app = QApplication.instance()
-		app.ResetSoftwareDescriptions()
-		self.UpdateTilesWidget()
+	# def _rescanSoftware(self):
+	# 	app = QApplication.instance()
+	# 	app.ResetSoftwareDescriptions()
+	# 	self.UpdateTilesWidget()
 
 
 	def _showPreferences(self):

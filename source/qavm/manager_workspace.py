@@ -4,26 +4,45 @@ from PyQt6.QtWidgets import QApplication
 
 class QAVMWorkspace:
 	def __init__(self, data: dict) -> None:
-		self.views: list[str] = data.get('views', [])
+		views: dict = data.get('views', {})
+		if not isinstance(views, dict):
+			raise ValueError("Invalid workspace data: 'views' should be a dictionary.")
+		
+		self.tiles: list[str] = views.get('tiles', [])
+		if not isinstance(self.tiles, list):
+			raise ValueError("Invalid workspace data: 'tiles' should be a list of UIDs.")
+		
+		self.table: list[str] = views.get('table', [])
+		if not isinstance(self.table, list):
+			raise ValueError("Invalid workspace data: 'table' should be a list of UIDs.")
+		
+		self.custom: list[str] = views.get('custom', [])
+		if not isinstance(self.custom, list):
+			raise ValueError("Invalid workspace data: 'custom' should be a list of UIDs.")
+
 		self.menuItems: list[str] = data.get('menuitems', [])
 
 	def IsEmpty(self) -> bool:
 		""" Returns True if the workspace has no views or menu items. """
-		return not self.views and not self.menuItems
+		return not self.tiles and not self.table and not self.custom and not self.menuItems
 	
 	def GetInvolvedPlugins(self) -> tuple[set[QAVMPlugin], set[str]]:
 		""" Returns a set of loaded plugins involved in the workspace views (and a set of plugins that were not found). """
-		app = QApplication.instance()
-		pluginManager: PluginManager = app.GetPluginManager()
 		plugins: set[QAVMPlugin] = set()
 		notFoundPlugins: set[str] = set()
-		for viewUID in self.views:
-			pluginID: str = QAVMPlugin.FetchPluginIDFromUID(viewUID)
-			plugin: QAVMPlugin = pluginManager.GetPlugin(pluginID)
-			if plugin:
-				plugins.add(plugin)
-			else:
-				notFoundPlugins.add(pluginID)
+
+		# TODO: make it more generic (in case new view types are added in the future)
+		tiles, tilesNotFound = self._getInvolvedPluginsUIDs(self.tiles)
+		table, tableNotFound = self._getInvolvedPluginsUIDs(self.table)
+		custom, customNotFound = self._getInvolvedPluginsUIDs(self.custom)
+
+		plugins.update(tiles)
+		plugins.update(table)
+		plugins.update(custom)
+		notFoundPlugins.update(tilesNotFound)
+		notFoundPlugins.update(tableNotFound)
+		notFoundPlugins.update(customNotFound)
+
 		return plugins, notFoundPlugins
 
 	def GetInvolvedSoftwareHandlers(self) -> tuple[set[SoftwareHandler], set[str]]:
@@ -33,3 +52,28 @@ class QAVMWorkspace:
 		for plugin in plugins:
 			softwareHandlers.update(plugin.GetSoftwareHandlers().values())
 		return softwareHandlers, notFoundPlugins
+	
+	def GetTilesViews(self) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
+		""" Returns tiles views in current workspace grouped by software handlers. """
+		tilesViews: dict[SoftwareHandler, list[str]] = {}
+		for viewUID in self.tiles:
+			pluginID: str = QAVMPlugin.FetchPluginIDFromUID(viewUID)
+			if plugin := QApplication.instance().GetPluginManager().GetPlugin(pluginID):
+				for swHandler in plugin.GetSoftwareHandlers().values():
+					if swHandler not in tilesViews:
+						tilesViews[swHandler] = []
+					tilesViews[swHandler].append(viewUID)
+		return tilesViews
+	
+	def _getInvolvedPluginsUIDs(self, uids: list[str]) -> tuple[set[QAVMPlugin], set[str]]:
+		app = QApplication.instance()
+		pluginManager: PluginManager = app.GetPluginManager()
+		plugins: set[QAVMPlugin] = set()
+		notFoundPlugins: set[str] = set()
+		for viewUID in uids:
+			pluginID: str = QAVMPlugin.FetchPluginIDFromUID(viewUID)
+			if plugin := pluginManager.GetPlugin(pluginID):
+				plugins.add(plugin)
+			else:
+				notFoundPlugins.add(pluginID)
+		return plugins, notFoundPlugins

@@ -15,9 +15,7 @@ class DialogsManager:
 	def ShowWorkspace(self, workspace: QAVMWorkspace):
 		print(f'Involved plugins in the workspace: {workspace.GetInvolvedPlugins()}')
 		print(f'Involved software handlers in the workspace: {workspace.GetInvolvedSoftwareHandlers()}')
-		if workspace.IsEmpty():
-			self.GetMainWindow().show()
-		pass
+		self.GetMainWindow().show()
 
 	def GetPluginSelectionWindow(self):
 		if self.selectPluginWindow is None:

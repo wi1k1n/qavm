@@ -389,6 +389,9 @@ class BaseBuilder(QObject):
 		self.contextMenu: BaseContextMenu = contextMenu
 		self.themeData: dict[str, str | None] | None = GetThemeData()
 
+	def GetName(self) -> str:
+		return self.__class__.__name__
+
 class BaseTileBuilder(BaseBuilder):
 	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:
 		return QLabel(str(descriptor.dirPath), parent)

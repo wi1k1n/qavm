@@ -110,7 +110,7 @@ class SoftwareHandler:
 	
 	def GetDescriptorClass(self, descriptorTypeId: str) -> tuple[BaseQualifier | None, Type[BaseDescriptor] | None]:
 		""" Returns the descriptor class for the given descriptor type ID, e.g. ('BaseQualifier', 'BaseDescriptor') """
-		return self.descriptorClasses.get(descriptorTypeId, (None, None))
+		return self.descriptorClasses.get(self.FetchSoftwareSubID(descriptorTypeId), (None, None))
 	
 	def GetTileBuilderClasses(self) -> dict[str, Type[BaseTileBuilder]]:
 		""" Returns a dictionary of tile builder classes registered by the software handler, e.g. {'view_type_id': BaseTileBuilder} """
@@ -118,7 +118,7 @@ class SoftwareHandler:
 	
 	def GetTileBuilderClass(self, viewTypeId: str) -> Type[BaseTileBuilder] | None:
 		""" Returns the tile builder class for the given view type ID, e.g. 'BaseTileBuilder' """
-		return self.tileBuilderClasses.get(viewTypeId, None)
+		return self.tileBuilderClasses.get(self.FetchSoftwareSubID(viewTypeId), None)
 	
 	def GetTableBuilderClasses(self) -> dict[str, Type[BaseTableBuilder]]:
 		""" Returns a dictionary of table builder classes registered by the software handler, e.g. {'view_type_id': BaseTableBuilder} """
@@ -126,7 +126,7 @@ class SoftwareHandler:
 	
 	def GetTableBuilderClass(self, viewTypeId: str) -> Type[BaseTableBuilder] | None:
 		""" Returns the table builder class for the given view type ID, e.g. 'BaseTableBuilder' """
-		return self.tableBuilderClasses.get(viewTypeId, None)
+		return self.tableBuilderClasses.get(self.FetchSoftwareSubID(viewTypeId), None)
 	
 	def GetCustomViewClasses(self) -> dict[str, Type[BaseCustomView]]:
 		""" Returns a dictionary of custom view classes registered by the software handler, e.g. {'view_type_id': BaseCustomView} """
@@ -134,7 +134,7 @@ class SoftwareHandler:
 	
 	def GetCustomViewClass(self, viewTypeId: str) -> Type[BaseCustomView] | None:
 		""" Returns the custom view class for the given view type ID, e.g. 'BaseCustomView' """
-		return self.customViewClasses.get(viewTypeId, None)
+		return self.customViewClasses.get(self.FetchSoftwareSubID(viewTypeId), None)
 	
 	def GetSettings(self) -> BaseSettings | None:
 		""" Returns the settings class registered by the software handler, e.g. 'BaseSettings' or None if not set """
@@ -143,6 +143,14 @@ class SoftwareHandler:
 	def GetMenuItems(self) -> BaseMenuItems | None:
 		""" Returns the menu items class registered by the software handler, e.g. 'BaseMenuItems' or None if not set """
 		return self.menuItemsInstance
+	
+	def FetchSoftwareSubID(self, softwareID: str) -> str:
+		# extracts sub ID from software ID, e.g. 'com.my.plugin#software.example1.my.sub.id' -> 'my.sub.id'
+		softwareID = QAVMPlugin.FetchIDFromUID(softwareID)
+		subID = softwareID[len(self.id):] if softwareID.startswith(self.id) else softwareID
+		if subID.startswith('.'):
+			subID = subID[1:]
+		return subID
 
 class QAVMPlugin:
 	"""

@@ -60,7 +60,7 @@ loggerFileHandler.setLevel(logging.ERROR)
 loggerFileHandler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(loggerFileHandler)
 
-class ExampleQualifier1(BaseQualifier):
+class ExampleQualifierEXE(BaseQualifier):
 	def ProcessSearchPaths(self, searchPaths: list[str]) -> list[str]:
 		# At this point the searchPaths from QAVM preferences can be adjusted.
 		# For example, you can add some default paths to search for the software.
@@ -80,9 +80,9 @@ class ExampleQualifier1(BaseQualifier):
 
 		return True
 	
-class ExampleQualifier2(BaseQualifier):
+class ExampleQualifierPNG(BaseQualifier):
 	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> bool:
-		return currentPath.is_dir() and any(list(currentPath.glob('*.dll')))
+		return currentPath.is_dir() and any(list(currentPath.glob('*.png')))
 
 class ExampleDescriptor1(BaseDescriptor):
 	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
@@ -334,7 +334,7 @@ def RegisterModuleSoftware():
 		# 	'id': 'software.example1',  # this is a unique id under the PLUGIN_ID domain
 		# 	'name': 'Example SW',
 
-		# 	'qualifier': ExampleQualifier1,
+		# 	'qualifier': ExampleQualifierEXE,
 		# 	'descriptor': ExampleDescriptor1,
 		# 	'settings': ExampleSettings,
 		# 	'menuitems': ExampleMenuItems,
@@ -364,11 +364,11 @@ def RegisterModuleSoftware():
 
 			'descriptors': {
 				'desc.type.1': {
-					'qualifier': ExampleQualifier1,
+					'qualifier': ExampleQualifierEXE,
 					'descriptor': ExampleDescriptor1,
 				},
 				'desc.type.2': {
-					'qualifier': ExampleQualifier2,
+					'qualifier': ExampleQualifierPNG,
 					'descriptor': ExampleDescriptor2,
 				}
 			},
@@ -395,7 +395,7 @@ def RegisterModuleSoftware():
 			'name': 'Example SW 2',
 			'descriptors': {
 				'desc.type.1': {
-					'qualifier': ExampleQualifier1,
+					'qualifier': ExampleQualifierEXE,
 					'descriptor': ExampleDescriptor1,
 				},
 			},

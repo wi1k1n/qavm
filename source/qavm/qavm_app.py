@@ -1,5 +1,5 @@
 import argparse
-from typing import List
+from typing import List, Type
 from pathlib import Path
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler
@@ -9,7 +9,10 @@ from qavm.manager_workspace import QAVMWorkspace
 
 import qavm.qavmapi.utils as utils  # TODO: rename to qutils
 import qavm.qavmapi.gui as gui_utils
-from qavm.qavmapi import BaseDescriptor, QualifierIdentificationConfig
+from qavm.qavmapi import (
+	BaseDescriptor, QualifierIdentificationConfig, BaseQualifier, SoftwareBaseSettings,
+
+)
 from qavm.utils_plugin_package import VerifyPlugin
 
 from PyQt6.QtCore import (
@@ -42,7 +45,7 @@ class QAVMApp(QApplication):
 		self.pluginsFolderPaths: set[Path] = {utils.GetDefaultPluginsFolderPath()}
 		self.pluginPaths: set[Path] = set()  # Paths to individual plugins
 		self.builtinPluginPaths: set[Path] = set()  # Paths to built-in plugins (i.e. unpacked plugins)
-		self.softwareDescriptions: list[BaseDescriptor] = None
+		self.softwareDescriptors: dict[SoftwareHandler, dict[str, list[BaseDescriptor]]] = dict()
 
 		self.processArgs(args)
 
@@ -70,12 +73,13 @@ class QAVMApp(QApplication):
 		# else:
 		# 	self.dialogsManager.GetPluginSelectionWindow().show()
 		
-		workspace: QAVMWorkspace = self.qavmSettings.GetWorkspaceLast()
-		if workspace.IsEmpty():
+		self.workspace: QAVMWorkspace = self.qavmSettings.GetWorkspaceLast()
+
+		if self.workspace.IsEmpty():
 			self.dialogsManager.GetPluginSelectionWindow().show()
 		else:
-			self.settingsManager.LoadWorkspaceSoftwareSettings(workspace)
-			self.dialogsManager.ShowWorkspace(workspace)
+			self.settingsManager.LoadWorkspaceSoftwareSettings(self.workspace)
+			self.dialogsManager.ShowWorkspace(self.workspace)
 
 
 	def GetPluginManager(self) -> PluginManager:
@@ -87,6 +91,10 @@ class QAVMApp(QApplication):
 	def GetDialogsManager(self) -> DialogsManager:
 		return self.dialogsManager
 	
+	def GetWorkspace(self) -> QAVMWorkspace:
+		""" Returns the current workspace. """
+		return self.workspace
+	
 	def GetPluginsFolderPaths(self) -> list[Path]:
 		""" Returns a list of paths to the plugins folders (i.e. folder, containing plugin folders). """
 		return list(self.pluginsFolderPaths)
@@ -95,35 +103,39 @@ class QAVMApp(QApplication):
 		""" Returns a set of paths to individual plugins (i.e. a folder, containing the plugin). """
 		return list(self.pluginPaths)
 	
-	def GetSoftwareDescriptions(self) -> list[BaseDescriptor]:
-		if self.softwareDescriptions is None:
-			self.softwareDescriptions = self.ScanSoftware()
-		return self.softwareDescriptions
+	def GetSoftwareDescriptors(self, swHandler: SoftwareHandler) -> dict[str, list[BaseDescriptor]]:
+		if swDescriptors := self.softwareDescriptors.get(swHandler, dict()):
+			return swDescriptors
+		
+		self.softwareDescriptors[swHandler] = self.ScanSoftware(swHandler)
+		return self.softwareDescriptors[swHandler]
 	
-	def ResetSoftwareDescriptions(self) -> None:
-		self.softwareDescriptions = None
+	def ResetSoftwareDescriptors(self) -> None:
+		self.softwareDescriptors = None
 	
-	def ScanSoftware(self) -> list[BaseDescriptor]:
-		qavmSettings = self.settingsManager.GetQAVMSettings()
+	def ScanSoftware(self, swHandler: SoftwareHandler) -> dict[str, list[BaseDescriptor]]:
+		descs: dict[str, list[BaseDescriptor]] = dict()
+		softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings(swHandler)
+		searchPaths: list[Path] = softwareSettings.GetEvaluatedSearchPaths()
+		for descUID, (qualifier, descClass) in swHandler.GetDescriptorClasses().items():
+			MAX_SCAN_DEPTH: int = 1
+			descs[descUID] = self._scanSoftwareDescriptor(qualifier, descClass, softwareSettings, searchPaths, scanDepth=MAX_SCAN_DEPTH)
+		return descs
 
-		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
-		if softwareHandler is None:
-			raise Exception('No software handler found')
-
-		qualifier = softwareHandler.GetQualifier()
-		descriptorClass = softwareHandler.GetDescriptorClass()
-		softwareSettings = softwareHandler.GetSettings()
-
-		searchPaths = softwareSettings.GetEvaluatedSearchPaths()
-		if not searchPaths:
-			searchPaths = []
+	def _scanSoftwareDescriptor(self,
+							 qualifier: BaseQualifier,
+							 descriptorClass: Type[BaseDescriptor],
+							 softwareSettings: SoftwareBaseSettings,
+							 searchPaths: list[Path],
+							 scanDepth: int = 1
+							 ) -> list[BaseDescriptor]:
 		searchPaths = qualifier.ProcessSearchPaths(searchPaths)
-
+		
 		config: QualifierIdentificationConfig = qualifier.GetIdentificationConfig()
 		
-		def getDirListIgnoreError(pathDir: str) -> list[Path]:
+		def getDirListIgnoreError(pathDir: Path) -> list[Path]:
 			try:
-				return [d for d in Path(pathDir).iterdir() if d.is_dir()]
+				return [d for d in pathDir.iterdir() if d.is_dir()]
 			except:
 				# logger.warning(f'Failed to get dir list: {pathDir}')
 				pass
@@ -131,24 +143,20 @@ class QAVMApp(QApplication):
 		
 		softwareDescs: list[BaseDescriptor] = list()
 
-		MAX_DEPTH = 1  # TODO: make this a settings value
 		currentDepthLevel: int = 0
 		searchPathsList = set(searchPaths)
-		while currentDepthLevel < MAX_DEPTH:
+		while currentDepthLevel < scanDepth:
 			subfoldersSearchPathsList = set()
 			for searchPath in searchPathsList:
 				dirs: set[Path] = set(getDirListIgnoreError(searchPath))
 				subdirs: set[str] = set()
-				# for dir in dirs:
 				for dir in sorted(dirs):
 					passed = config.IdentificationMaskPasses(dir)
-					# passed = TryPassFileMask(dir, config)
 					if not passed:
 						subdirs.update(set(getDirListIgnoreError(dir)))
 						continue
 
 					fileContents: dict[str, str | bytes] = config.GetFileContents(dir)
-					# fileContents: dict[str, str | bytes] = GetFileContents(dir, config)
 					if not qualifier.Identify(dir, fileContents):
 						subdirs.update(set(getDirListIgnoreError(dir)))
 						continue

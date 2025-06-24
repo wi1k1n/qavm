@@ -92,14 +92,20 @@ class QAVMGlobalSettings(BaseSettings):
 		# searchSubfoldersDepth
 		# hideOnClose
 		'workspace_last': {
-			'views': [
-				'in.wi1k.tools.qavm.plugin.example#software.example1.view.tiles.1',
-				'in.wi1k.tools.qavm.plugin.example#software.example1.view.tiles.2',
-				'in.wi1k.tools.qavm.plugin.example#software.example1.view.table.1',
-				'in.wi1k.tools.qavm.plugin.example#software.example1.view.table.2',
-				'in.wi1k.tools.qavm.plugin.example#software.example1.view.custom.1',
-				'in.wi1k.tools.qavm.plugin.example#software.example1.view.custom.2',
-			],
+			'views': {
+				'tiles': [
+					'in.wi1k.tools.qavm.plugin.example#software.example1.view.tiles.1',
+					'in.wi1k.tools.qavm.plugin.example#software.example1.view.tiles.2',
+				],
+				'table': [
+					'in.wi1k.tools.qavm.plugin.example#software.example1.view.table.1',
+					'in.wi1k.tools.qavm.plugin.example#software.example1.view.table.2',
+				],
+				'custom': [
+					'in.wi1k.tools.qavm.plugin.example#software.example1.view.custom.1',
+					'in.wi1k.tools.qavm.plugin.example#software.example1.view.custom.2',
+				],
+			},
 			'manuitems': [],
 		},  # the workspace is a dict: {'view': [], 'menuitems': []}, where lists are the list of IDs
 	}
