@@ -58,11 +58,9 @@ class QAVMApp(QApplication):
 			self._verifyBuiltinPlugins(args)
 
 		self.pluginManager = PluginManager(self, self.builtinPluginPaths.union(self.pluginPaths), self.GetPluginsFolderPaths())
-		self.pluginManager.LoadPlugins()
+		self.pluginManager.LoadPlugins()  # TODO: try/except here?
 
-		# self.settingsManager.LoadModuleSettings()
-
-		gui_utils.SetTheme(self.settingsManager.GetQAVMSettings().GetAppTheme())
+		gui_utils.SetTheme(self.settingsManager.GetQAVMSettings().GetAppTheme())  # TODO: move this to the QAVMGlobalSettings class?
 		self.dialogsManager.GetPluginSelectionWindow().show()
 
 	def GetPluginManager(self) -> PluginManager:

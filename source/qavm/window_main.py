@@ -524,9 +524,13 @@ class MainWindow(QMainWindow):
 		pluginLayout = QVBoxLayout(pluginContainer)
 
 		for plugin in self.pluginManager.GetPlugins():
+			pluginVersion: str = plugin.GetVersionStr()
+			pluginVariant: str = plugin.GetPluginVariant()
+			if pluginVariant:
+				pluginVersion += f" ({pluginVariant})"
 			pluginText = (
 				f"<b>Plugin:</b> {plugin.GetName()}"
-				f"<br><b>Version:</b> {plugin.GetVersionStr()}"
+				f"<br><b>Version:</b> {pluginVersion}"
 				f"<br><b>UID:</b> {plugin.GetUID()}"
 				f"<br><b>Executable:</b> <code>{plugin.GetExecutablePath()}</code>"
 				f"<br><b>Developer:</b> {plugin.GetPluginDeveloper()}"

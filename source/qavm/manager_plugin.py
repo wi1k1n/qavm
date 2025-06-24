@@ -152,18 +152,6 @@ class SoftwareHandler(QAVMHandlerNamed):
 	def GetMenuItems(self) -> BaseMenuItems:
 		return self.menuItemsInstance
 
-# class SettingsHandler(QAVMHandlerNamed):
-# 	def __init__(self, plugin, regData) -> None:
-# 		super().__init__(plugin, regData)
-
-# 		self.settingsClass = regData.get('settings', None)
-# 		if not self.settingsClass or not issubclass(self.settingsClass, BaseSettings):
-# 			raise Exception(f'Missing or invalid settings for module: {self.id}')
-# 		self.settingsInstance = self.settingsClass()
-	
-# 	def GetSettings(self) -> BaseSettings:
-# 		return self.settingsInstance
-
 class QAVMPlugin:
 	"""
 	Represents a QAVM plugin.
@@ -191,12 +179,12 @@ class QAVMPlugin:
 			raise Exception(f'Invalid or missing PLUGIN_VERSION for: {self.module.__name__}')
 		
 		# These are optional
+		self.pluginVariant = getattr(self.module, 'PLUGIN_VARIANT', '')
 		self.pluginName = getattr(self.module, 'PLUGIN_NAME', self.pluginPackageName)
 		self.pluginDeveloper = getattr(self.module, 'PLUGIN_DEVELOPER', 'Unknown')
 		self.pluginWebsite = getattr(self.module, 'PLUGIN_WEBSITE', '')
 
 		self.LoadModuleSoftware()
-		# self.LoadModuleSettings()
 	
 	def LoadModuleSoftware(self) -> None:
 		pluginSoftwareRegisterFunc = getattr(self.module, 'RegisterModuleSoftware', None)
@@ -213,50 +201,45 @@ class QAVMPlugin:
 			
 			self.softwareHandlers[softwareHandler.id] = softwareHandler
 	
-	# def LoadModuleSettings(self) -> None:
-	# 	pluginSettingsRegisterFunc = getattr(self.module, 'RegisterModuleSettings', None)
-	# 	if pluginSettingsRegisterFunc is None or not callable(pluginSettingsRegisterFunc):
-	# 		return
-		
-	# 	moduleSettingsRegDataList = pluginSettingsRegisterFunc()
-
-	# 	for moduleSettingsRegData in moduleSettingsRegDataList:
-	# 		moduleSettings = SettingsHandler(self, moduleSettingsRegData)
-			
-	# 		if moduleSettings.id in self.softwareHandlers:
-	# 			raise Exception(f'Duplicate module ID found: {self.id}')
-			
-	# 		self.settingsHandlers[moduleSettings.id] = moduleSettings
+	def GetSoftwareHandlers(self) -> dict[str, SoftwareHandler]:
+		""" Returns a dictionary of software handlers registered by the plugin, e.g. {'software_id': SoftwareHandler} """
+		return self.softwareHandlers
 
 	def GetUID(self) -> str:
+		""" Returns the unique identifier of the plugin, e.g. 'com.example.plugin' """
 		return self.pluginID
 	
 	def GetName(self) -> str:
+		""" Returns the name of the plugin, e.g. 'Example Plugin'. Returns Package name if not set. """
 		return self.pluginName
 	
 	def GetVersionStr(self) -> str:
+		""" Returns the version of the plugin as a string, e.g. '0.1.0' """
 		return self.pluginVersion
 	
 	def GetVersion(self) -> tuple[int, int, int]:
+		""" Returns the version of the plugin as a tuple of integers, e.g. (0, 1, 0) """
 		return tuple(map(int, self.pluginVersion.split('.')))
 
 	def GetPluginPackageName(self) -> str:
+		""" Returns the package name of the plugin (the plugin folder name), e.g. 'example_plugin' """
 		return self.pluginPackageName
 	
 	def GetExecutablePath(self) -> Path:
+		""" Returns the absolute path to the plugin executable file, e.g. '/path/to/plugin/example_plugin.py' """
 		return self.pluginExecutablePath
 	
-	def GetSoftwareHandlers(self) -> dict[str, SoftwareHandler]:
-		return self.softwareHandlers
-	
+	def GetPluginVariant(self) -> str:
+		""" Returns the variant of the plugin (can be empty), e.g. 'Alpha', 'Beta', 'Stable' """
+		return self.pluginVariant
+
 	def GetPluginDeveloper(self) -> str:
+		""" Returns the name of the plugin developer (can be empty), e.g. 'John Doe' """
 		return self.pluginDeveloper
 	
 	def GetPluginWebsite(self) -> str:
+		""" Returns the website of the plugin (can be empty), e.g. 'https://example.com/plugin' """
 		return self.pluginWebsite
-	
-	# def GetSettingsHandlers(self) -> dict[str, SettingsHandler]:
-	# 	return self.settingsHandlers
 			
 	
 	
@@ -366,19 +349,3 @@ class PluginManager:
 	def GetCurrentSoftwareHandler(self) -> SoftwareHandler:
 		qavmSettings = self.app.GetSettingsManager().GetQAVMSettings()
 		return self.GetSoftwareHandler(qavmSettings.GetSelectedSoftwareUID())
-	
-
-	# def GetSettingsHandlers(self) -> list[tuple[str, str, SettingsHandler]]:
-	# 	result: list[tuple[str, str, SettingsHandler]] = []  # [pluginID, moduleID, SettingsHandler]
-	# 	for plugin in self.plugins.values():
-	# 		for moduleID, settingsHandler in plugin.GetSettingsHandlers().items():
-	# 			result.append((plugin.pluginID, moduleID, settingsHandler))
-	# 	return result
-	# def GetSettingsHandler(self, settingsUID: str) -> SettingsHandler:
-	# 	if '#' not in settingsUID:
-	# 		return None
-	# 	pluginUID, moduleID = settingsUID.split('#')
-	# 	plugin = self.GetPlugin(pluginUID)
-	# 	if not plugin:
-	# 		return None
-	# 	return plugin.GetSettingsHandlers().get(moduleID, None)

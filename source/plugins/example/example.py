@@ -2,11 +2,12 @@
 copyright
 """
 
-PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.example'
-PLUGIN_VERSION = '0.1.0'
-PLUGIN_NAME = 'Example Plugin'
-PLUGIN_DEVELOPER = 'Ilya Mazlov (mazlov.i.a@gmail.com)'
-PLUGIN_WEBSITE = 'https://github.com/wi1k1n/qavm'
+PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.example'  # unique plugin id in the domain format, e.g. 'com.example.plugin'
+PLUGIN_VERSION = '0.1.0'  # version in a [0-999].[0-999].[0-999] format, e.g. 0.1.0 (major.minor.patch)
+PLUGIN_VARIANT = ''  # extra (str) information about the plugin version, e.g. 'Alpha'
+PLUGIN_NAME = 'Example Plugin'  # the name of the plugin as it will be displayed in the QAVM
+PLUGIN_DEVELOPER = 'Ilya Mazlov (mazlov.i.a@gmail.com)'  # developer's name or organization
+PLUGIN_WEBSITE = 'https://github.com/wi1k1n/qavm'  # plugin's website or repository URL
 
 import os, logging
 from pathlib import Path

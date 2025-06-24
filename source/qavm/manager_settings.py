@@ -277,18 +277,18 @@ class SettingsManager:
 		self.qavmGlobalSettings: QAVMGlobalSettings = QAVMGlobalSettings('qavm-global')
 		self.softwareSettings: SoftwareBaseSettings = None
 
-		# self.moduleSettings: dict[str, BaseSettings] = dict()
-
 	def GetQAVMSettings(self) -> QAVMGlobalSettings:
+		""" Returns the global QAVM settings. """
 		return self.qavmGlobalSettings
 	
 	def LoadQAVMSettings(self):
+		""" Loads the global QAVM settings. """
 		self.prefsFolderPath.mkdir(parents=True, exist_ok=True)
 		self.qavmGlobalSettings.Load()
 
 	def SaveQAVMSettings(self):
+		""" Saves the global QAVM settings. """
 		self.qavmGlobalSettings.Save()
-	
 
 	def GetSoftwareSettings(self) -> SoftwareBaseSettings:
 		return self.softwareSettings
@@ -304,15 +304,3 @@ class SettingsManager:
 		if not self.softwareSettings:
 			raise Exception('No software settings loaded')
 		self.softwareSettings.Save()
-	
-	# def LoadModuleSettings(self):
-	# 	pluginManager: PluginManager = self.app.GetPluginManager()
-	# 	settingsModules: list[tuple[str, str, SettingsHandler]] = pluginManager.GetSettingsHandlers()  # [pluginID, moduleID, SettingsHandler]
-	# 	for pluginID, settingsID, settingsHandler in settingsModules:
-	# 		moduleSettings: BaseSettings = settingsHandler.GetSettings()
-	# 		moduleSettings.Load()
-	# 		self.moduleSettings[f'{pluginID}#{settingsID}'] = moduleSettings
-	
-	# """ Returns dict of settings modules that are implemented in currently selected plugin: {moduleUID: BaseSettings}. The moduleUID is in form PLUGIN_ID#SettingsModuleID """
-	# def GetModuleSettings(self) -> dict[str, BaseSettings]:
-	# 	return self.moduleSettings
