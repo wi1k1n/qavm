@@ -1,6 +1,6 @@
 import importlib.util, os, re
 from pathlib import Path
-from typing import Type
+from typing import Type, Optional
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu,
@@ -13,6 +13,44 @@ from PyQt6.QtWidgets import QApplication
 import qavm.logs as logs
 logger = logs.logger
 
+class UID:
+	DOMAIN_ID_REGEX = r'[a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)*'
+	DATAPATH_REGEX = r'[a-zA-Z0-9]+(?:/[a-zA-Z0-9]+)*'
+
+	DOMAIN_ID_PATTERN = re.compile(f'^{DOMAIN_ID_REGEX}$')
+	DATAPATH_PATTERN = re.compile(f'^{DATAPATH_REGEX}$')
+	UID_PATTERN = re.compile(f'^{DOMAIN_ID_REGEX}#{DOMAIN_ID_REGEX}#{DATAPATH_REGEX}$')
+
+	@staticmethod
+	def IsPluginIDValid(plugin_id: str) -> bool:
+		return UID.DOMAIN_ID_PATTERN.fullmatch(plugin_id) is not None
+
+	@staticmethod
+	def IsSoftwareIDValid(software_id: str) -> bool:
+		return UID.DOMAIN_ID_PATTERN.fullmatch(software_id) is not None
+
+	@staticmethod
+	def IsDataPathValid(data_path: str) -> bool:
+		return UID.DATAPATH_PATTERN.fullmatch(data_path) is not None
+
+	@staticmethod
+	def IsUIDValid(uid: str) -> bool:
+		return UID.UID_PATTERN.fullmatch(uid) is not None
+
+	@staticmethod
+	def FetchPluginID(uid: str) -> Optional[str]:
+		parts = uid.split('#')
+		return parts[0] if len(parts) == 3 and UID.IsPluginIDValid(parts[0]) else None
+
+	@staticmethod
+	def FetchSoftwareID(uid: str) -> Optional[str]:
+		parts = uid.split('#')
+		return parts[1] if len(parts) == 3 and UID.IsSoftwareIDValid(parts[1]) else None
+
+	@staticmethod
+	def FetchDataPath(uid: str) -> Optional[str]:
+		parts = uid.split('#')
+		return parts[2] if len(parts) == 3 and UID.IsDataPathValid(parts[2]) else None
 
 class SoftwareHandler:
 	def __init__(self, plugin, regData) -> None:
