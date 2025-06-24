@@ -63,14 +63,72 @@ class TestUID(unittest.TestCase):
 			("bad id#software.c4d#view/tiles", None, "software.c4d", "view/tiles"),
 			("com.plugin#bad/id#view/tiles", "com.plugin", None, "view/tiles"),
 			("com.plugin#software.c4d#bad.path", "com.plugin", "software.c4d", None),
-			("onlyonepart", None, None, None),
+			("onlyonepart", "onlyonepart", "onlyonepart", "onlyonepart"),
 			("", None, None, None),
-			("a#b", None, None, None),
+			("a#b", "a", "b", "b"),
 		]
 		for uid, expected_pid, expected_sid, expected_dpath in invalid_cases:
 			self.assertEqual(UID.FetchPluginID(uid), expected_pid)
 			self.assertEqual(UID.FetchSoftwareID(uid), expected_sid)
 			self.assertEqual(UID.FetchDataPath(uid), expected_dpath)
+
+	def test_plugin_software_id_validity(self):
+		valid = [
+			"plugin.id#software.id",
+			"a#b",
+			"plugin#software123"
+		]
+		invalid = [
+			"", "a#", "#b", "#", "plugin#bad/id", "plugin id#software.id"
+		]
+		for uid in valid:
+			self.assertTrue(UID.IsPluginSoftwareIDValid(uid), f"Should be valid: {uid}")
+		for uid in invalid:
+			self.assertFalse(UID.IsPluginSoftwareIDValid(uid), f"Should be invalid: {uid}")
+
+	def test_software_id_data_path_validity(self):
+		valid = [
+			"software.id#view/tiles", "a#b", "soft1#path/to/data"
+		]
+		invalid = [
+			"", "#", "#b", "a#", "soft/id#view", "soft#bad.path"
+		]
+		for uid in valid:
+			self.assertTrue(UID.IsSoftwareIDDataPathValid(uid), f"Should be valid: {uid}")
+		for uid in invalid:
+			self.assertFalse(UID.IsSoftwareIDDataPathValid(uid), f"Should be invalid: {uid}")
+
+	def test_fetch_plugin_software_id(self):
+		cases = [
+			("com.plugin#software.abc#tiles/c4d", "com.plugin#software.abc"),
+			("com.plugin#software.abc", "com.plugin#software.abc"),
+			("com.plugin#bad/id#view", None),
+			("invalid", None),
+		]
+		for uid, expected in cases:
+			self.assertEqual(UID.FetchPluginSoftwareID(uid), expected)
+
+	def test_fetch_software_id_data_path(self):
+		cases = [
+			("com.plugin#software.abc#tiles/c4d", "software.abc#tiles/c4d"),
+			("software.abc#tiles/c4d", "software.abc#tiles/c4d"),
+			("software.abc#bad.path", None),
+			("onlyonepart", None),
+		]
+		for uid, expected in cases:
+			self.assertEqual(UID.FetchSoftwareIDDataPath(uid), expected)
+
+	def test_long_ids(self):
+		long_plugin = "a" * 100 + ".b" * 10
+		long_software = "s1" * 50
+		long_path = "d" * 10 + "/e" * 5
+		uid = f"{long_plugin}#{long_software}#{long_path}"
+		self.assertTrue(UID.IsUIDValid(uid))
+		self.assertEqual(UID.FetchPluginID(uid), long_plugin)
+		self.assertEqual(UID.FetchSoftwareID(uid), long_software)
+		self.assertEqual(UID.FetchDataPath(uid), long_path)
+
+
 
 if __name__ == "__main__":
 	unittest.main()

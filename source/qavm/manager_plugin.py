@@ -12,6 +12,8 @@ from PyQt6.QtWidgets import QApplication
 
 import qavm.logs as logs
 logger = logs.logger
+import re
+from typing import Optional
 
 class UID:
 	DOMAIN_ID_REGEX = r'[a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)*'
@@ -19,38 +21,94 @@ class UID:
 
 	DOMAIN_ID_PATTERN = re.compile(f'^{DOMAIN_ID_REGEX}$')
 	DATAPATH_PATTERN = re.compile(f'^{DATAPATH_REGEX}$')
-	UID_PATTERN = re.compile(f'^{DOMAIN_ID_REGEX}#{DOMAIN_ID_REGEX}#{DATAPATH_REGEX}$')
+	UID_PATTERN = re.compile(f'^({DOMAIN_ID_REGEX})#({DOMAIN_ID_REGEX})#({DATAPATH_REGEX})$')
+	PLUGIN_SOFTWARE_PATTERN = re.compile(f'^({DOMAIN_ID_REGEX})#({DOMAIN_ID_REGEX})$')
+	SOFTWARE_DATAPATH_PATTERN = re.compile(f'^({DOMAIN_ID_REGEX})#({DATAPATH_REGEX})$')
 
 	@staticmethod
 	def IsPluginIDValid(plugin_id: str) -> bool:
+		""" Checks if the plugin ID is valid, e.g. 'com.example.plugin' """
 		return UID.DOMAIN_ID_PATTERN.fullmatch(plugin_id) is not None
 
 	@staticmethod
 	def IsSoftwareIDValid(software_id: str) -> bool:
+		""" Checks if the software ID is valid, e.g. 'software.example1' """
 		return UID.DOMAIN_ID_PATTERN.fullmatch(software_id) is not None
 
 	@staticmethod
 	def IsDataPathValid(data_path: str) -> bool:
+		""" Checks if the data path is valid, e.g. 'view/tiles/c4d' """
 		return UID.DATAPATH_PATTERN.fullmatch(data_path) is not None
 
 	@staticmethod
 	def IsUIDValid(uid: str) -> bool:
+		""" Checks if the UID is valid, e.g. 'com.example.plugin#software.example1#view/tiles/c4d' """
 		return UID.UID_PATTERN.fullmatch(uid) is not None
 
 	@staticmethod
+	def IsPluginSoftwareIDValid(uid: str) -> bool:
+		""" Checks if the UID is a valid Plugin#Software ID, e.g. 'com.example.plugin#software.example1' """
+		return UID.PLUGIN_SOFTWARE_PATTERN.fullmatch(uid) is not None
+
+	@staticmethod
+	def IsSoftwareIDDataPathValid(uid: str) -> bool:
+		""" Checks if the UID is a valid Software#DataPath ID, e.g. 'software.example1#view/tiles/c4d' """
+		return UID.SOFTWARE_DATAPATH_PATTERN.fullmatch(uid) is not None
+
+	@staticmethod
 	def FetchPluginID(uid: str) -> Optional[str]:
+		""" Fetches the plugin ID from a UID string, e.g. 'com.example.plugin#software.example1#view/tiles/c4d' -> 'com.example.plugin' """
 		parts = uid.split('#')
-		return parts[0] if len(parts) == 3 and UID.IsPluginIDValid(parts[0]) else None
+		if len(parts) == 3 and UID.IsPluginIDValid(parts[0]):
+			return parts[0]
+		if len(parts) == 2 and UID.IsPluginIDValid(parts[0]):
+			return parts[0]
+		return uid if UID.IsPluginIDValid(uid) else None
 
 	@staticmethod
 	def FetchSoftwareID(uid: str) -> Optional[str]:
+		""" Fetches the software ID from a UID string, e.g. 'com.example.plugin#software.example1#view/tiles/c4d' -> 'software.example1' """
 		parts = uid.split('#')
-		return parts[1] if len(parts) == 3 and UID.IsSoftwareIDValid(parts[1]) else None
+		if len(parts) == 3 and UID.IsSoftwareIDValid(parts[1]):
+			return parts[1]
+		if len(parts) == 2:
+			# Could be Plugin#Software or Software#DataPath
+			if UID.IsPluginSoftwareIDValid(uid):
+				return parts[1]
+			if UID.IsSoftwareIDDataPathValid(uid):
+				return parts[0]
+		return uid if UID.IsSoftwareIDValid(uid) else None
 
 	@staticmethod
 	def FetchDataPath(uid: str) -> Optional[str]:
+		""" Fetches the data path from a UID string, e.g. 'com.example.plugin#software.example1#view/tiles/c4d' -> 'view/tiles/c4d' """
 		parts = uid.split('#')
-		return parts[2] if len(parts) == 3 and UID.IsDataPathValid(parts[2]) else None
+		if len(parts) == 3 and UID.IsDataPathValid(parts[2]):
+			return parts[2]
+		if len(parts) == 2 and UID.IsSoftwareIDDataPathValid(uid):
+			return parts[1]
+		return uid if UID.IsDataPathValid(uid) else None
+
+	@staticmethod
+	def FetchPluginSoftwareID(uid: str) -> Optional[str]:
+		""" Fetches the Plugin#Software ID from a UID string, e.g. 'com.example.plugin#software.example1#view/tiles/c4d' -> 'com.example.plugin#software.example1' """
+		if UID.IsPluginSoftwareIDValid(uid):
+			return uid
+		parts = uid.split('#')
+		if len(parts) == 3:
+			return f"{parts[0]}#{parts[1]}" if UID.IsPluginIDValid(parts[0]) and UID.IsSoftwareIDValid(parts[1]) else None
+		return None
+
+	@staticmethod
+	def FetchSoftwareIDDataPath(uid: str) -> Optional[str]:
+		""" Fetches the Software#DataPath ID from a UID string, e.g. 'com.example.plugin#software.example1#view/tiles/c4d' -> 'software.example1#view/tiles/c4d' """
+		if UID.IsSoftwareIDDataPathValid(uid):
+			return uid
+		parts = uid.split('#')
+		if len(parts) == 3:
+			return f"{parts[1]}#{parts[2]}" if UID.IsSoftwareIDValid(parts[1]) and UID.IsDataPathValid(parts[2]) else None
+		return None
+
 
 class SoftwareHandler:
 	def __init__(self, plugin, regData) -> None:
