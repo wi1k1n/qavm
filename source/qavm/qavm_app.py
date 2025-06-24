@@ -2,12 +2,11 @@ import argparse
 from typing import List
 from pathlib import Path
 
-import qavm.logs as logs
-logger = logs.logger
-
 from qavm.manager_plugin import PluginManager, SoftwareHandler
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.manager_dialogs import DialogsManager
+from qavm.manager_workspace import QAVMWorkspace
+
 import qavm.qavmapi.utils as utils  # TODO: rename to qutils
 import qavm.qavmapi.gui as gui_utils
 from qavm.qavmapi import BaseDescriptor, QualifierIdentificationConfig
@@ -23,6 +22,8 @@ from PyQt6.QtWidgets import (
 	QApplication, QWidget
 )
 
+import qavm.logs as logs
+logger = logs.logger
 
 # Extensive PyQt tutorial: https://realpython.com/python-menus-toolbars/#building-context-or-pop-up-menus-in-pyqt
 class QAVMApp(QApplication):
@@ -61,7 +62,21 @@ class QAVMApp(QApplication):
 		self.pluginManager.LoadPlugins()  # TODO: try/except here?
 
 		gui_utils.SetTheme(self.settingsManager.GetQAVMSettings().GetAppTheme())  # TODO: move this to the QAVMGlobalSettings class?
-		self.dialogsManager.GetPluginSelectionWindow().show()
+		
+		# selectedSoftwareUID: str = self.qavmSettings.GetSelectedSoftwareUID()
+		# if self.pluginManager.GetSoftwareHandler(selectedSoftwareUID):
+			# self.settingsManager.LoadSoftwareSettings()
+		# 	self.dialogsManager.GetMainWindow().show()
+		# else:
+		# 	self.dialogsManager.GetPluginSelectionWindow().show()
+		
+		workspace: QAVMWorkspace = self.qavmSettings.GetWorkspaceLast()
+		if workspace.IsEmpty():
+			self.dialogsManager.GetPluginSelectionWindow().show()
+		else:
+			self.settingsManager.LoadWorkspaceSoftwareSettings(workspace)
+			self.dialogsManager.ShowWorkspace(workspace)
+
 
 	def GetPluginManager(self) -> PluginManager:
 		return self.pluginManager

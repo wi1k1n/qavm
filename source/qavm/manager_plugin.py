@@ -1,5 +1,6 @@
 import importlib.util, os, re
 from pathlib import Path
+from typing import Type
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu,
@@ -12,45 +13,10 @@ logger = logs.logger
 
 
 class SoftwareHandler:
-	def __init__(self, plugin, regData) -> None:		
-		# self._initRegData(regData)
+	def __init__(self, plugin, regData) -> None:
 		self._initRegDataNew(regData)
 
 	def _initRegDataNew(self, regData: dict) -> None:
-		"""
-		{
-			'id': 'software.example1',  # this is a unique id under the PLUGIN_ID domain
-			'name': 'Example SW',
-
-			'descriptors': {
-				'desc.type.1': {
-					'qualifier': ExampleQualifier1,
-					'descriptor': ExampleDescriptor1,
-				},
-				'desc.type.2': {
-					'qualifier': ExampleQualifier2,
-					'descriptor': ExampleDescriptor2,
-				}
-			},
-			'views': {
-				'tiles': {
-					'view.tiles.1': ExampleTileBuilder1,
-					'view.tiles.2': ExampleTileBuilder2,
-				},
-				'table': {
-					'view.table.1': ExampleTableBuilder1,
-					'view.table.2': ExampleTableBuilder2,
-				},
-				'custom': {
-					'view.custom.1': ExampleCustomView1,
-					'view.custom.2': ExampleCustomView2,
-				}
-			},
-			'settings': ExampleSettings,
-			'menuitems': ExampleMenuItems,
-		}
-		"""
-		
 		########################### ID ###########################
 		self.id: str = regData.get('id', '')
 		self._checkType(self.id, str, 'software ID')
@@ -62,7 +28,7 @@ class SoftwareHandler:
 		self._checkType(self.name, str, 'software name')
 		
 		########################### Descriptors ###########################
-		self.descriptorClasses: dict[str, tuple[BaseQualifier, BaseDescriptor]] = dict()  # descriptorTypeId: (qualifierClass, descriptorClass)
+		self.descriptorClasses: dict[str, tuple[BaseQualifier, Type[BaseDescriptor]]] = dict()  # descriptorTypeId: (qualifierClass, descriptorClass)
 
 		descTypesData: dict = regData.get('descriptors', {})
 		self._checkType(descTypesData, dict, 'descriptors')
@@ -74,12 +40,12 @@ class SoftwareHandler:
 			descriptorClass = descType.get('descriptor', None)
 			self._checkSubClass(descriptorClass, BaseDescriptor, 'descriptor class')
 			
-			self.descriptorClasses[descTypeId] = (qualifierClass, descriptorClass)
+			self.descriptorClasses[descTypeId] = (qualifierClass(), descriptorClass)
 
 		########################### Views ###########################
-		self.tileBuilderClasses: dict[str, BaseTileBuilder] = dict()  # viewTypeId: tileBuilderClass
-		self.tableBuilderClasses: dict[str, BaseTableBuilder] = dict()  # viewTypeId: tableBuilderClass
-		self.customViewClasses: dict[str, BaseCustomView] = dict()  # viewTypeId: customViewClass
+		self.tileBuilderClasses: dict[str, Type[BaseTileBuilder]] = dict()  # viewTypeId: tileBuilderClass
+		self.tableBuilderClasses: dict[str, Type[BaseTableBuilder]] = dict()  # viewTypeId: tableBuilderClass
+		self.customViewClasses: dict[str, Type[BaseCustomView]] = dict()  # viewTypeId: customViewClass
 
 		viewsData: dict = regData.get('views', {})
 		self._checkType(viewsData, dict, 'views')
@@ -106,14 +72,18 @@ class SoftwareHandler:
 			self.customViewClasses[viewTypeId] = customViewClass
 
 		########################### Settings ###########################
-		self.settingsClass: BaseSettings = regData.get('settings', None)
+		self.settingsClass: Type[BaseSettings] = regData.get('settings', None)
+		self.settingsInstance: BaseSettings | None = None
 		if self.settingsClass is not None:  # optional
 			self._checkSubClass(self.settingsClass, BaseSettings, 'settings class')
+			self.settingsInstance = self.settingsClass(self.GetID())
 
 		########################### MenuItems ###########################
-		self.menuItemsClass: BaseMenuItems = regData.get('menuitems', None)
+		self.menuItemsClass: Type[BaseMenuItems] | None = regData.get('menuitems', None)
+		self.menuItemsInstance: BaseMenuItems | None = None
 		if self.menuItemsClass is not None:  # optional
 			self._checkSubClass(self.menuItemsClass, BaseMenuItems, 'menu items class')
+			self.menuItemsInstance = self.menuItemsClass(self.settingsInstance)
 			
 	def _checkType(self, value: object, expectedType: type, name: str) -> None:
 		if not isinstance(value, expectedType):
@@ -123,115 +93,53 @@ class SoftwareHandler:
 		if not issubclass(value, expectedType):
 			raise Exception(f'Invalid {name} class for software: {self.id}. Expected subclass of {expectedType.__name__}, got {value.__name__}')
 
-	# def _initRegData(self, regData: dict) -> None:
-	# 	############################ Settings ############################
-	# 	self.settingsClass = regData.get('settings', None)  # optional
-	# 	if not self.settingsClass:
-	# 		self.settingsClass = SoftwareBaseSettings
-	# 	if not issubclass(self.settingsClass, SoftwareBaseSettings):
-	# 		raise Exception(f'Invalid settings for software: {self.id}')
-	# 	self.settingsInstance = self.settingsClass(self.id)
-
-	# 	############################ Qualifier ###########################
-	# 	self.qualifierClass = regData.get('qualifier', None)
-	# 	if not self.qualifierClass or not issubclass(self.qualifierClass, BaseQualifier):  # required
-	# 		raise Exception(f'Missing or invalid qualifier for software: {self.id}')
-	# 	self.qualifierInstance = self.qualifierClass()
-
-	# 	########################### Descriptor ###########################
-	# 	self.descriptorClass = regData.get('descriptor', None)
-	# 	if not self.descriptorClass or not issubclass(self.descriptorClass, BaseDescriptor):  # required
-	# 		raise Exception(f'Missing or invalid descriptor for software: {self.id}')
-		
-	# 	########################### TileBuilder ##########################
-	# 	self.tileBuilderClass: BaseTileBuilder = BaseTileBuilder
-	# 	self.tileContextMenuClass: BaseContextMenu = BaseContextMenu
-	# 	tileViewData: dict = regData.get('tile_view', {})
-	# 	if tileViewData:
-	# 		if not isinstance(tileViewData, dict):
-	# 			raise Exception(f'Invalid tile view data for software: {self.id}')
-	# 		self.tileBuilderClass: BaseTileBuilder = tileViewData.get('tile_builder', None)
-	# 		if not self.tileBuilderClass:
-	# 			self.tileBuilderClass = BaseTileBuilder
-	# 		if not issubclass(self.tileBuilderClass, BaseTileBuilder):
-	# 			raise Exception(f'Invalid tile builder for software: {self.id}')
-			
-	# 		self.tileContextMenuClass: BaseContextMenu = tileViewData.get('context_menu', None)
-	# 		if not self.tileContextMenuClass:
-	# 			self.tileContextMenuClass = BaseContextMenu
-	# 		if not issubclass(self.tileContextMenuClass, BaseContextMenu):
-	# 			raise Exception(f'Invalid context menu for software: {self.id}')
-		
-	# 	########################## TableBuilder ##########################
-	# 	self.tableBuilderClass: BaseTableBuilder.__class__ = BaseTableBuilder
-	# 	self.tableContextMenuClass: BaseContextMenu = BaseContextMenu
-	# 	tableViewData: dict = regData.get('table_view', {})
-	# 	if tableViewData:
-	# 		if not isinstance(tableViewData, dict):
-	# 			raise Exception(f'Invalid table view data for software: {self.id}')
-	# 		self.tableBuilderClass: BaseTableBuilder = tableViewData.get('table_builder', None)
-	# 		if not self.tableBuilderClass:
-	# 			self.tableBuilderClass = BaseTableBuilder
-	# 		if not issubclass(self.tableBuilderClass, BaseTableBuilder):
-	# 			raise Exception(f'Invalid table builder for software: {self.id}')
-
-	# 		self.tableContextMenuClass: BaseContextMenu = tableViewData.get('context_menu', None)
-	# 		if not self.tableContextMenuClass:
-	# 			self.tableContextMenuClass = BaseContextMenu
-	# 		if not issubclass(self.tableContextMenuClass, BaseContextMenu):
-	# 			raise Exception(f'Invalid context menu for software: {self.id}')
-			
-	# 	########################### CustomViews ##########################
-	# 	self.customViews: list[tuple[BaseCustomView.__class__, str]] = []
-	# 	customViewsData: list[dict] = regData.get('custom_views', [])
-	# 	if customViewsData:
-	# 		if not isinstance(customViewsData, list):
-	# 			raise Exception(f'Invalid custom views data for software: {self.id}')
-	# 		for customViewData in customViewsData:
-	# 			customViewName = customViewData.get('name', None)
-	# 			customViewClass = customViewData.get('view_class', None)
-	# 			if not customViewName or not isinstance(customViewName, str) \
-	# 			or not customViewClass or not issubclass(customViewClass, BaseCustomView):
-	# 				raise Exception(f'Invalid custom view class for software: {self.id}')
-	# 			self.customViews.append((customViewClass, customViewName))
-
-	# 	############################ MenuItems ###########################
-	# 	self.menuItemsClass: BaseMenuItems.__class__ = regData.get('menuitems', None)
-	# 	if self.menuItemsClass is None or not issubclass(self.menuItemsClass, BaseMenuItems):
-	# 		if self.menuItemsClass is not None:
-	# 			logger.warning(f'Invalid menuitems entry for software: {self.id}')
-	# 		self.menuItemsClass = BaseMenuItems
-	# 	self.menuItemsInstance: BaseMenuItems = self.menuItemsClass(self.settingsInstance)
-		
 
 	def GetName(self) -> str:
+		""" Returns the name of the software handler, e.g. 'Example SW' """
 		return self.name
 	
-	def GetDescriptorClass(self) -> BaseDescriptor.__class__:
-		return self.descriptorClass
+	def GetID(self) -> str:
+		""" Returns the unique identifier of the software handler, e.g. 'software.example1' """
+		return self.id
+
+	def GetDescriptorClasses(self) -> dict[str, tuple[BaseQualifier, Type[BaseDescriptor]]]:
+		""" Returns a dictionary of descriptor classes registered by the software handler, e.g. {'descriptor_type_id': (BaseQualifier, BaseDescriptor.__class__)} """
+		return self.descriptorClasses
 	
-	def GetTileBuilderClass(self) -> BaseTileBuilder.__class__:
-		return self.tileBuilderClass
+	def GetDescriptorClass(self, descriptorTypeId: str) -> tuple[BaseQualifier | None, Type[BaseDescriptor] | None]:
+		""" Returns the descriptor class for the given descriptor type ID, e.g. ('BaseQualifier', 'BaseDescriptor') """
+		return self.descriptorClasses.get(descriptorTypeId, (None, None))
 	
-	def GetTileBuilderContextMenuClass(self) -> BaseContextMenu.__class__:
-		return self.tileContextMenuClass
+	def GetTileBuilderClasses(self) -> dict[str, Type[BaseTileBuilder]]:
+		""" Returns a dictionary of tile builder classes registered by the software handler, e.g. {'view_type_id': BaseTileBuilder} """
+		return self.tileBuilderClasses
 	
-	def GetTableBuilderClass(self) -> BaseTableBuilder.__class__:
-		return self.tableBuilderClass
+	def GetTileBuilderClass(self, viewTypeId: str) -> Type[BaseTileBuilder] | None:
+		""" Returns the tile builder class for the given view type ID, e.g. 'BaseTileBuilder' """
+		return self.tileBuilderClasses.get(viewTypeId, None)
 	
-	def GetTableBuilderContextMenuClass(self) -> BaseContextMenu.__class__:
-		return self.tableContextMenuClass
+	def GetTableBuilderClasses(self) -> dict[str, Type[BaseTableBuilder]]:
+		""" Returns a dictionary of table builder classes registered by the software handler, e.g. {'view_type_id': BaseTableBuilder} """
+		return self.tableBuilderClasses
 	
-	def GetQualifier(self) -> BaseQualifier:
-		return self.qualifierInstance
+	def GetTableBuilderClass(self, viewTypeId: str) -> Type[BaseTableBuilder] | None:
+		""" Returns the table builder class for the given view type ID, e.g. 'BaseTableBuilder' """
+		return self.tableBuilderClasses.get(viewTypeId, None)
 	
-	def GetSettings(self) -> SoftwareBaseSettings:
+	def GetCustomViewClasses(self) -> dict[str, Type[BaseCustomView]]:
+		""" Returns a dictionary of custom view classes registered by the software handler, e.g. {'view_type_id': BaseCustomView} """
+		return self.customViewClasses
+	
+	def GetCustomViewClass(self, viewTypeId: str) -> Type[BaseCustomView] | None:
+		""" Returns the custom view class for the given view type ID, e.g. 'BaseCustomView' """
+		return self.customViewClasses.get(viewTypeId, None)
+	
+	def GetSettings(self) -> BaseSettings | None:
+		""" Returns the settings class registered by the software handler, e.g. 'BaseSettings' or None if not set """
 		return self.settingsInstance
 	
-	def GetCustomViews(self) -> list[tuple[BaseCustomView.__class__, str]]:
-		return self.customViews
-	
-	def GetMenuItems(self) -> BaseMenuItems:
+	def GetMenuItems(self) -> BaseMenuItems | None:
+		""" Returns the menu items class registered by the software handler, e.g. 'BaseMenuItems' or None if not set """
 		return self.menuItemsInstance
 
 class QAVMPlugin:
@@ -324,6 +232,19 @@ class QAVMPlugin:
 		return self.pluginWebsite
 			
 	
+	@staticmethod
+	def FetchPluginIDFromUID(UID: str) -> str:
+		# extracts plugin ID from UID, e.g. 'com.example.plugin#software_id' -> 'com.example.plugin'
+		if not QAVMPlugin.ValidateUID(UID):
+			raise ValueError(f'Invalid UID format: {UID}')
+		return UID.split('#')[0]
+	
+	@staticmethod
+	def FetchIDFromUID(UID: str) -> str:
+		# extracts ID from UID, e.g. 'com.example.plugin#software_id' -> 'software_id'
+		if not QAVMPlugin.ValidateUID(UID):
+			raise ValueError(f'Invalid UID format: {UID}')
+		return UID.split('#')[1] if '#' in UID else ''
 	
 	@staticmethod
 	def ValidateUID(UID: str) -> bool:
@@ -420,7 +341,7 @@ class PluginManager:
 		return result
 	
 	def GetSoftwareHandler(self, softwareUID: str) -> SoftwareHandler:
-		if '#' not in softwareUID:
+		if '#' not in softwareUID:  # TODO: make related Validate method
 			return None
 		pluginUID, softwareID = softwareUID.split('#')
 		plugin = self.GetPlugin(pluginUID)

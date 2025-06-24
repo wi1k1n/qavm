@@ -84,11 +84,15 @@ class BaseSettings(QObject):
 	tilesUpdateRequired = pyqtSignal()  # is emitted when settings are changing something that requires tiles to be updated
 	tablesUpdateRequired = pyqtSignal()  # same as tilesUpdateRequired, but for tables
 
-	def __init__(self, prefName: str):
+	def __init__(self, prefFilename: str):
 		super().__init__()
 
 		self.container = self.InitializeContainer()
-		self.prefFilePath: Path = utils.GetPrefsFolderPath() / f'{prefName}.json'
+
+		prefFilenamePath: Path = Path(prefFilename)
+		if not prefFilenamePath.suffix:
+			prefFilenamePath = prefFilenamePath.with_suffix('.json')
+		self.prefFilePath: Path = utils.GetPrefsFolderPath() / f'{str(prefFilenamePath)}'
 
 	def InitializeContainer(self) -> BaseSettingsContainer:
 		""" Initializes the settings container with default values. """

@@ -10,6 +10,8 @@ from PyQt6.QtWidgets import (
 	QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QTabWidget, QSizePolicy, 
 )
 
+from qavm.manager_workspace import QAVMWorkspace
+
 import qavm.qavmapi.utils as utils
 import qavm.qavmapi.gui as gui_utils
 
@@ -89,6 +91,17 @@ class QAVMGlobalSettings(BaseSettings):
 		'search_paths_global': [],
 		# searchSubfoldersDepth
 		# hideOnClose
+		'workspace_last': {
+			'views': [
+				'in.wi1k.tools.qavm.plugin.example#software.example1.view.tiles.1',
+				'in.wi1k.tools.qavm.plugin.example#software.example1.view.tiles.2',
+				'in.wi1k.tools.qavm.plugin.example#software.example1.view.table.1',
+				'in.wi1k.tools.qavm.plugin.example#software.example1.view.table.2',
+				'in.wi1k.tools.qavm.plugin.example#software.example1.view.custom.1',
+				'in.wi1k.tools.qavm.plugin.example#software.example1.view.custom.2',
+			],
+			'manuitems': [],
+		},  # the workspace is a dict: {'view': [], 'menuitems': []}, where lists are the list of IDs
 	}
 
 	def GetSelectedSoftwareUID(self) -> str:
@@ -118,6 +131,9 @@ class QAVMGlobalSettings(BaseSettings):
 			logger.error(f'Search paths must be a list, got {type(paths)}')
 			return
 		self.SetSetting('search_paths_global', paths)
+
+	def GetWorkspaceLast(self) -> QAVMWorkspace:
+		return QAVMWorkspace(self.GetSetting('workspace_last'))
 
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
 		settingsWidget: QWidget = QWidget(parent)
@@ -275,7 +291,7 @@ class SettingsManager:
 		self.prefsFolderPath: Path = prefsFolderPath
 
 		self.qavmGlobalSettings: QAVMGlobalSettings = QAVMGlobalSettings('qavm-global')
-		self.softwareSettings: SoftwareBaseSettings = None
+		self.softwareSettings: dict[SoftwareHandler, SoftwareBaseSettings] = dict()
 
 	def GetQAVMSettings(self) -> QAVMGlobalSettings:
 		""" Returns the global QAVM settings. """
@@ -290,17 +306,28 @@ class SettingsManager:
 		""" Saves the global QAVM settings. """
 		self.qavmGlobalSettings.Save()
 
-	def GetSoftwareSettings(self) -> SoftwareBaseSettings:
-		return self.softwareSettings
+	def GetSoftwareSettings(self, swHandler: SoftwareHandler) -> SoftwareBaseSettings | None:
+		return self.softwareSettings.get(swHandler, None)
 	
-	def LoadSoftwareSettings(self):
-		if not self.qavmGlobalSettings.GetSelectedSoftwareUID():
-			raise Exception('No software selected')
-		softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetCurrentSoftwareHandler()
-		self.softwareSettings = softwareHandler.GetSettings()
-		self.softwareSettings.Load()
+	# def LoadSoftwareSettings(self):
+	# 	if not self.qavmGlobalSettings.GetSelectedSoftwareUID():
+	# 		raise Exception('No software selected')
+	# 	softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetCurrentSoftwareHandler()
+	# 	self.softwareSettings = softwareHandler.GetSettings()
+	# 	self.softwareSettings.Load()
 
-	def SaveSoftwareSettings(self):
-		if not self.softwareSettings:
-			raise Exception('No software settings loaded')
-		self.softwareSettings.Save()
+	# def SaveSoftwareSettings(self):
+	# 	if not self.softwareSettings:
+	# 		raise Exception('No software settings loaded')
+	# 	self.softwareSettings.Save()
+
+	def LoadWorkspaceSoftwareSettings(self, workspace: QAVMWorkspace) -> None:
+		""" Loads the software settings for the workspace views. """
+		if not workspace or workspace.IsEmpty():
+			return
+		sfHandlers, notFoundPlugins = workspace.GetInvolvedSoftwareHandlers()
+		for swHandler in sfHandlers:
+			if not swHandler:
+				continue
+			self.softwareSettings[swHandler] = swHandler.GetSettings()
+			self.softwareSettings[swHandler].Load()
