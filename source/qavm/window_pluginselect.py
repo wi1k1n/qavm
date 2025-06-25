@@ -1,13 +1,16 @@
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QVBoxLayout, QPushButton, QSizePolicy, QMessageBox, QApplication,
-	QTabWidget, QListWidget, QTreeWidget, QTreeWidgetItem, QHBoxLayout, QLabel
+	QTabWidget, QListWidget, QTreeWidget, QTreeWidgetItem, QHBoxLayout, QLabel, QListWidgetItem,
+
 )
 from PyQt6.QtCore import Qt
 from functools import partial
+from typing import Optional
 import sys
 
-from qavm.manager_plugin import PluginManager, QAVMPlugin, SoftwareHandler
+from qavm.manager_plugin import PluginManager, QAVMPlugin, SoftwareHandler, UID
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
+from qavm.manager_workspace import QAVMWorkspace
 import qavm.logs as logs
 
 logger = logs.logger
@@ -28,6 +31,20 @@ class WorkspaceManagerWindow(QMainWindow):
 
 		self.tabWidget = QTabWidget(self)
 		self.setCentralWidget(self.tabWidget)
+
+		swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()
+		wsData: dict = {
+			'views': {'tiles': [], 'table': [], 'custom': []},
+			'menuitems': [],
+		}
+		for pluginID, softwareID, swHandler in swHandlers:
+			pluginSoftwareID: str = f'{pluginID}#{softwareID}'  # TODO: make it a function of UID class
+			wsData['views']['tiles'].extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetTileBuilderClasses().keys()])
+			wsData['views']['table'].extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetTableBuilderClasses().keys()])
+			wsData['views']['custom'].extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetCustomViewClasses().keys()])
+			# TODO: menuitems
+		
+		self.workspace = QAVMWorkspace(wsData)
 
 		self.tabWidget.addTab(self.createPluginsTab(), "Plugins")
 		self.tabWidget.addTab(self.createPresetsTab(), "Presets")
@@ -56,14 +73,24 @@ class WorkspaceManagerWindow(QMainWindow):
 		return tab
 
 	def createPresetsTab(self) -> QWidget:
+		swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()
+		
+		items: list[QListWidgetItem] = []
+		for pluginID, softwareID, swHandler in swHandlers:
+			item: QListWidgetItem = QListWidgetItem(swHandler.GetName())
+			item.setToolTip(f'{pluginID}#{softwareID}')
+			item.setData(Qt.ItemDataRole.UserRole, swHandler)
+			items.append(item)
+
 		tab = QWidget()
 		layout = QHBoxLayout(tab)
 
-		# Left: Presets list
-		self.presetsList = QListWidget()
-		self.presetsList.addItems(["Default", "Everything"])
-		self.presetsList.currentTextChanged.connect(self.updatePresetTree)
-		layout.addWidget(self.presetsList, 1)
+		# Left: Software Handlers list
+		self.swHandlersList = QListWidget()
+		for item in items:
+			self.swHandlersList.addItem(item)
+		self.swHandlersList.currentItemChanged.connect(lambda item: self.updatePresetTree(item.text(), item.data(Qt.ItemDataRole.UserRole)))
+		layout.addWidget(self.swHandlersList, 1)
 
 		# Right: Tree view
 		self.presetsTree = QTreeWidget()
@@ -79,34 +106,49 @@ class WorkspaceManagerWindow(QMainWindow):
 
 		# Tree view for custom workspaces (you can populate this dynamically)
 		self.customTree = QTreeWidget()
-		self.customTree.setHeaderLabels(["Type", "Items"])
+		self.customTree.setHeaderLabels(["ViewType", "View"])
+		self.customTree.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 		layout.addWidget(self.customTree)
 
-		# Example: populate from settings or leave empty
-		# self.populateCustomTree()
+		swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()
+		treeData: dict = dict()  # 
+		for pluginID, softwareID, swHandler in swHandlers:
+			pluginSoftwareID: str = f'{pluginID}#{softwareID}'  # TODO: make it a function of UID class
+
+			swViewsData: dict = dict()
+			swViewsData['tiles'] = [UID.DataPathGetLastPart(viewID) for viewID in swHandler.GetTileBuilderClasses().keys() if viewID]
+			swViewsData['table'] = [UID.DataPathGetLastPart(viewID) for viewID in swHandler.GetTableBuilderClasses().keys() if viewID]
+			swViewsData['custom'] = [UID.DataPathGetLastPart(viewID) for viewID in swHandler.GetCustomViewClasses().keys() if viewID]
+			# TODO: menuitems
+
+			treeData[swHandler.GetName()] = swViewsData
+		
+		for swHandlerName, viewsData in treeData.items():
+			swHandlerItem = QTreeWidgetItem([swHandlerName, ''])
+			self.customTree.addTopLevelItem(swHandlerItem)
+			for viewType, views in viewsData.items():
+				viewTypeItem = QTreeWidgetItem([viewType, ''])
+				for view in views:
+					child = QTreeWidgetItem(['', view])
+					child.setCheckState(0, Qt.CheckState.Unchecked)
+					viewTypeItem.addChild(child)
+				swHandlerItem.addChild(viewTypeItem)
+				viewTypeItem.setExpanded(True)
+			swHandlerItem.setExpanded(True)
+
 
 		return tab
 
-	def updatePresetTree(self, presetName: str):
+	def updatePresetTree(self, presetName: str, swHandler: SoftwareHandler):
 		self.presetsTree.clear()
-
-		presets_data = {
-			'Default': {
-				'views': ['exe', 'png'],
-				'table': ['1'],
-				'custom': ['2'],
-			},
-			'Everything': {
-				'views': ['exe', 'png', 'all'],
-				'table': ['1', '2'],
-				'custom': ['1', '2'],
-			},
+		
+		viewsData: dict = {
+			'tiles': list(swHandler.GetTileBuilderClasses().keys()),
+			'table': list(swHandler.GetTableBuilderClasses().keys()),
+			'custom': list(swHandler.GetCustomViewClasses().keys()),
+			# 'menuitems': [],
 		}
-
-		if presetName not in presets_data:
-			return
-
-		for key, items in presets_data[presetName].items():
+		for key, items in viewsData.items():
 			parent = QTreeWidgetItem([key, ''])
 			for item in items:
 				child = QTreeWidgetItem(['', item])

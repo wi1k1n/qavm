@@ -118,7 +118,9 @@ class UID:
 	@staticmethod
 	def DataPathGetLastPart(dataPath: str) -> Optional[str]:
 		""" Returns the last part of the data path, e.g. 'view/tiles/c4d' -> 'c4d' """
-		return Path(dataPath).name if UID.IsDataPathValid(dataPath) else None
+		if dataPathFetched := UID.FetchDataPath(dataPath):
+			return Path(dataPathFetched).name
+		return None
 
 
 class SoftwareHandler:

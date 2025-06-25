@@ -81,7 +81,6 @@ class QAVMApp(QApplication):
 			self.settingsManager.LoadWorkspaceSoftwareSettings(self.workspace)
 			self.dialogsManager.ShowWorkspace(self.workspace)
 
-
 	def GetPluginManager(self) -> PluginManager:
 		return self.pluginManager
 	

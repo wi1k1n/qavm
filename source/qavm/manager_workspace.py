@@ -64,6 +64,17 @@ class QAVMWorkspace:
 					tilesViews[swHandler].append(viewUID)
 		return tilesViews
 	
+	def AsDict(self) -> dict:
+		""" Returns the workspace data as a dictionary. """
+		return {
+			'views': {
+				'tiles': self.tiles,
+				'table': self.table,
+				'custom': self.custom,
+			},
+			'menuitems': self.menuItems
+		}
+	
 	def _getInvolvedPluginsUIDs(self, uids: list[str]) -> tuple[set[QAVMPlugin], set[str]]:
 		app = QApplication.instance()
 		pluginManager: PluginManager = app.GetPluginManager()

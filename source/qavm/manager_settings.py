@@ -91,23 +91,7 @@ class QAVMGlobalSettings(BaseSettings):
 		'search_paths_global': [],
 		# searchSubfoldersDepth
 		# hideOnClose
-		'workspace_last': {
-			'views': {
-				'tiles': [
-					'in.wi1k.tools.qavm.plugin.example#software.example1#views/tiles/1',
-					'in.wi1k.tools.qavm.plugin.example#software.example1#views/tiles/2',
-				],
-				'table': [
-					'in.wi1k.tools.qavm.plugin.example#software.example1#views/table/1',
-					'in.wi1k.tools.qavm.plugin.example#software.example1#views/table/2',
-				],
-				'custom': [
-					'in.wi1k.tools.qavm.plugin.example#software.example1#views/custom/1',
-					'in.wi1k.tools.qavm.plugin.example#software.example1#views/custom/2',
-				],
-			},
-			'manuitems': [],
-		},  # the workspace is a dict: {'view': [], 'menuitems': []}, where lists are the list of IDs
+		'workspace_last': {},  # the workspace is a dict: {'view': [], 'menuitems': []}, where lists are the list of UIDs
 	}
 
 	# def GetSelectedSoftwareUID(self) -> str:

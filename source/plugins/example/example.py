@@ -369,34 +369,6 @@ class ExampleCustomView2(BaseCustomView):
 
 def RegisterPluginSoftware():
 	return [
-		# {
-		# 	'id': 'software.example1',  # this is a unique id under the PLUGIN_ID domain
-		# 	'name': 'Example SW',
-
-		# 	'qualifier': ExampleQualifierEXE,
-		# 	'descriptor': ExampleDescriptorEXE,
-		# 	'settings': ExampleSettings,
-		# 	'menuitems': ExampleMenuItems,
-		# 	'tile_view': {
-		# 		'tile_builder': ExampleTileBuilder,
-		# 		'context_menu': ExampleContextMenu,
-		# 	},
-		# 	'table_view': {
-		# 		'table_builder': ExampleTableBuilder,
-		# 		'context_menu': ExampleContextMenu,
-		# 	},
-		# 	'custom_views': [
-		# 		{
-		# 			'name': 'My Custom View',
-		# 			'view_class': ExampleCustomView,  # This should be a BaseCustomView subclass
-		# 		},
-		# 		{
-		# 			'name': 'Another Custom View',
-		# 			'view_class': ExampleCustomView,  # This can be the same or different widget
-		# 		}
-		# 	]
-		# },
-		
 		{
 			'id': 'software.example1',  # this is a unique id under the PLUGIN_ID domain
 			'name': 'Example SW',
@@ -454,3 +426,25 @@ def RegisterPluginSoftware():
 			'menuitems': ExampleMenuItems,
 		}
 	]
+
+def RegisterPluginWorkspaces():
+	return {
+		'Default': {
+			'views': [
+				'software.example2#views/tiles/exe',
+				'software.example2#views/tiles/png',
+			],
+		},
+		'EXE/PNG': {
+			'views': [
+				'software.example2#views/tiles/all',
+			],
+		},
+		'Everything': {
+			'views': [
+				'software.example2#views/tiles/exe',
+				'software.example2#views/tiles/png',
+				'software.example2#views/tiles/all',
+			],
+		}
+	}
