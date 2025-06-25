@@ -19,9 +19,9 @@ class TestUID(unittest.TestCase):
 		for pid in invalid_ids:
 			self.assertFalse(UID.IsPluginIDValid(pid), f"Should be invalid: {pid}")
 
-	def test_software_id_validity(self):
-		# Same logic as plugin ID
-		self.test_plugin_id_validity()
+	# def test_software_id_validity(self):
+	# 	# Same logic as plugin ID
+	# 	self.test_plugin_id_validity()
 
 	def test_data_path_validity(self):
 		valid_paths = [

@@ -1,7 +1,7 @@
 import os  # TODO: Get rid of os.path in favor of pathlib
 from pathlib import Path
 from functools import partial
-from typing import Type
+from typing import Type, Optional
 
 from PyQt6.QtCore import Qt, QMargins, QPoint, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QMouseEvent
@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
 	QSizePolicy, QTableView, QTableWidgetSelectionRange, 
 )
 
-from qavm.manager_plugin import PluginManager, SoftwareHandler
+from qavm.manager_plugin import PluginManager, SoftwareHandler, UID
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.manager_workspace import QAVMWorkspace
 
@@ -283,8 +283,6 @@ class MainWindow(QMainWindow):
 		app = QApplication.instance()
 		workspace: QAVMWorkspace = app.GetWorkspace()
 		for swHandler, tilesViewsUIDs in workspace.GetTilesViews().items():
-			if not tilesViewsUIDs:
-				continue
 			for viewUID in tilesViewsUIDs:
 				self._createTilesView(swHandler, viewUID)
 
@@ -322,14 +320,33 @@ class MainWindow(QMainWindow):
 		contextMenu: BaseContextMenu = BaseContextMenu(swHandler.GetSettings())
 		tileBuilder: BaseTileBuilder = tileBuilderClass(swHandler.GetSettings(), contextMenu)
 
-		app = QApplication.instance()
-		descsMap: dict[str, list[BaseDescriptor]] = app.GetSoftwareDescriptors(swHandler)  # TODO: move out from here, to not iterate unnecessarily over all descriptors
+		# TODO: consider having some more understandable scheme for fetching descriptor types from dataPaths
+		descTypes: list[str] = [t for t in map(UID.DataPathGetLastPart, swHandler.GetDescriptorClasses().keys()) if t]
+		descTypes = tileBuilder.GetSupportedDescriptorTypes(descTypes)
+		if not descTypes:
+			return
 
-		for descUID, descs in descsMap.items():
-			tilesWidget = self._createTilesWidget(descs, tileBuilder, contextMenu, parent=self)
-			# self.tabsWidget.addTabWithUid(tilesWidget, tileBuilder.GetName(), viewUID+descUID)
-			self.tabsWidget.insertTab(0, tilesWidget, descUID+':'+tileBuilder.GetName())
-			print(f"Added tiles view for {swHandler.GetName()} with UID {viewUID} and descriptor UID {descUID}")
+		app = QApplication.instance()
+		descsMap: dict[str, list[BaseDescriptor]] = app.GetSoftwareDescriptors(swHandler)  # TODO: check to not iterate unnecessarily over unsupported descriptors
+		
+		descs: list[BaseDescriptor] = []
+		for descUID, descsCur in descsMap.items():
+			descType: Optional[str] = UID.DataPathGetLastPart(descUID)
+			if descType not in descTypes:
+				continue
+
+			descs.extend(tileBuilder.ProcessDescriptors(descType, descsCur))
+
+		if not descs:
+			return
+
+		tilesWidget: QWidget = self._createTilesWidget(descs, tileBuilder, contextMenu, parent=self)
+		if tilesWidget is None:
+			return
+
+		self.tabsWidget.insertTab(0, tilesWidget, tileBuilder.GetName())
+		print(f"Added tiles view for {swHandler.GetName()} with UID {viewUID} and descriptor UID {descUID}")
+		# self.tabsWidget.addTabWithUid(tilesWidget, tileBuilder.GetName(), viewUID+descUID)
 
 	def _onTabChanged(self, index: int):
 		self.qavmSettings.SetSetting('last_opened_tab', index)
@@ -453,7 +470,7 @@ class MainWindow(QMainWindow):
 		
 		self.tabsWidget.setCurrentIndex(currentTabIndex)
 
-	def _createTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, contextMenu: BaseContextMenu, parent: QWidget):
+	def _createTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, contextMenu: BaseContextMenu, parent: QWidget) -> QWidget:
 		tiles: list[QWidget] = list()
 
 		for desc in descs:

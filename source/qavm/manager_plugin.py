@@ -114,6 +114,11 @@ class UID:
 		if len(parts) == 3:
 			return f"{parts[1]}#{parts[2]}" if UID.IsSoftwareIDValid(parts[1]) and UID.IsDataPathValid(parts[2]) else None
 		return None
+	
+	@staticmethod
+	def DataPathGetLastPart(dataPath: str) -> Optional[str]:
+		""" Returns the last part of the data path, e.g. 'view/tiles/c4d' -> 'c4d' """
+		return Path(dataPath).name if UID.IsDataPathValid(dataPath) else None
 
 
 class SoftwareHandler:

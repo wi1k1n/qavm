@@ -84,7 +84,7 @@ class ExampleQualifierPNG(BaseQualifier):
 	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> bool:
 		return currentPath.is_dir() and any(list(currentPath.glob('*.png')))
 
-class ExampleDescriptor1(BaseDescriptor):
+class ExampleDescriptorBase(BaseDescriptor):
 	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
 		super().__init__(dirPath, settings, fileContents)
 		# There's already this info from the BaseDescriptor:
@@ -95,38 +95,52 @@ class ExampleDescriptor1(BaseDescriptor):
 
 		# This class is a representation of a single piece of software, which connects
 		# together different parts of the plugin (e.g. TileBuilder, ContextMenu, etc.)
-		self.execPaths: list[Path] = []
+		self.targetPaths: list[Path] = []
 
 		if self.dirPath.is_dir():
 			if not PlatformWindows():
-				raise NotImplementedError('ExampleDescriptor1 is currently implemented only for Windows platform.')
+				raise NotImplementedError('Not implemented for non-Windows platforms.')
 			
 			# Find the executable file in the directory
-			self.execPaths = list(self.dirPath.glob('*.exe'))
-			if self.execPaths:
-				# Sort out with the following rules and take the first one:
-				# being an .exe file
-				# starting with capital ending with small letter
-				# not having capital letters other than the first one
-				# having space(s) in the middle
-				# being the largest file
-				self.execPaths.sort(key=lambda p: (p.name[0].isupper(), p.name[-1].islower(), p.name.islower(), ' ' in p.name, p.stat().st_size), reverse=True)
+			self.targetPaths = list(self.dirPath.glob(self._getGlobPattern()))
+			if self.targetPaths:
+				self._sortPaths()
 			else:
-				logger.warning(f'No executable files found in {self.dirPath}')
+				logger.warning(f'No target files found in {self.dirPath}')
+
+	def _getGlobPattern(self) -> str:
+		raise NotImplementedError('This method should be implemented in the subclass to return the glob pattern for the descriptor.')
+	
+	def _sortPaths(self):
+		pass
 	
 	def GetExecutablePath(self) -> Path:
-		return self.execPaths[0] if self.execPaths else Path()
+		return self.targetPaths[0] if self.targetPaths else Path()
 	
 	def __str__(self):
-		return f'ExampleDescriptor1: {os.path.basename(self.dirPath)}'
+		return f'{self.__class__.__name__}: {os.path.basename(self.dirPath)}'
 	
 	def __repr__(self):
 		return self.__str__()
-	
-class ExampleDescriptor2(ExampleDescriptor1):
-	pass
 
-class ExampleTileBuilder1(BaseTileBuilder):
+class ExampleDescriptorEXE(ExampleDescriptorBase):
+	def _getGlobPattern(self) -> str:
+		return '*.exe'  # This is the pattern to find executable files in the directory
+	
+	def _sortPaths(self):
+		# Sort out with the following rules and take the first one:
+		# being an .exe file
+		# starting with capital ending with small letter
+		# not having capital letters other than the first one
+		# having space(s) in the middle
+		# being the largest file
+		self.targetPaths.sort(key=lambda p: (p.name[0].isupper(), p.name[-1].islower(), p.name.islower(), ' ' in p.name, p.stat().st_size), reverse=True)
+	
+class ExampleDescriptorPNG(ExampleDescriptorBase):
+	def _getGlobPattern(self) -> str:
+		return '*.png'
+
+class ExampleTileBuilderBoth(BaseTileBuilder):
 	def __init__(self, settings: SoftwareBaseSettings, contextMenu: BaseContextMenu):
 		super().__init__(settings, contextMenu)
 		# From BaseTileBuilder:
@@ -134,7 +148,14 @@ class ExampleTileBuilder1(BaseTileBuilder):
 		# self.contextMenu: BaseContextMenu
 		# self.themeData: dict
 
-	def CreateTileWidget(self, descriptor: ExampleDescriptor1, parent) -> QWidget:
+	def GetName(self) -> str:
+		return 'Example Tiles EXE/PNG'
+	
+	def ProcessDescriptors(self, descriptorType: str, descriptors: list[BaseDescriptor]) -> list[BaseDescriptor]:
+		# This method is called to process the descriptors as an opportunity to filter them.
+		return descriptors
+
+	def CreateTileWidget(self, descriptor: ExampleDescriptorEXE, parent) -> QWidget:
 		descWidget: QWidget = self._createDescWidget(descriptor, parent)
 		
 		isProcessRunning: bool = IsProcessRunning(descriptor.UID)
@@ -143,7 +164,7 @@ class ExampleTileBuilder1(BaseTileBuilder):
 		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, borderColor, isProcessRunning, parent)
 		return animatedBorderWidget
 	
-	def _createDescWidget(self, desc: ExampleDescriptor1, parent: QWidget):
+	def _createDescWidget(self, desc: ExampleDescriptorEXE, parent: QWidget):
 		descWidget = QWidget(parent)
 
 		secondaryDarkColor = self.themeData['secondaryDarkColor']
@@ -154,15 +175,16 @@ class ExampleTileBuilder1(BaseTileBuilder):
 		descLayout.setContentsMargins(margins, margins, margins, margins)
 		descLayout.setSpacing(5)  # space between labels inside tile
 
-		label = QLabel(str(desc.dirPath), parent)
+		pathStr: str = str(desc.targetPaths[0]) if desc.targetPaths else 'No target file'
+		label = QLabel(pathStr, parent)
 		label.setFont(QFont('SblHebrew'))
 		label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 		descLayout.addWidget(label)
 
 		toolTip: str = 'No executables found'
-		if desc.execPaths:
+		if desc.targetPaths:
 			toolTip = 'Executables:\n'
-			toolTip += '\n'.join([f'  {exePath.name}' for exePath in desc.execPaths])
+			toolTip += '\n'.join([f'  {exePath.name}' for exePath in desc.targetPaths])
 		descWidget.setToolTip(toolTip)
 
 		return descWidget
@@ -189,14 +211,28 @@ class ExampleTileBuilder1(BaseTileBuilder):
 
 		return animBorderWidget
 	
-class ExampleTileBuilder2(ExampleTileBuilder1):
-	pass
+class ExampleTileBuilderEXE(ExampleTileBuilderBoth):
+	def GetName(self) -> str:
+		return 'Example Tiles EXE'
+	
+	def GetSupportedDescriptorTypes(self, descriptorTypes: list[str]) -> list[str]:
+		return ['exe']
+
+class ExampleTileBuilderPNG(ExampleTileBuilderBoth):
+	def GetName(self) -> str:
+		return 'Example Tiles PNG'
+	
+	def GetSupportedDescriptorTypes(self, descriptorTypes: list[str]) -> list[str]:
+		return ['png']
 
 class ExampleTableBuilder1(BaseTableBuilder):
+	def GetSupportedDescriptorTypes(self, descriptorTypes: list[str]) -> list[str]:
+		return ['exe']
+	
 	def GetTableCaptions(self) -> list[str]:
 		return ['Folder name', 'Version', 'Path']
 	
-	def GetTableCellValue(self, desc: ExampleDescriptor1, col: int) -> str | QTableWidgetItem:
+	def GetTableCellValue(self, desc: ExampleDescriptorEXE, col: int) -> str | QTableWidgetItem:
 		if col == 0:
 			return desc.dirPath.name
 		if col == 1:
@@ -212,7 +248,10 @@ class ExampleTableBuilder1(BaseTableBuilder):
 		return ''
 	
 class ExampleTableBuilder2(ExampleTableBuilder1):
-	def GetTableCellValue(self, desc: ExampleDescriptor1, col: int) -> str | QTableWidgetItem:
+	def GetSupportedDescriptorTypes(self, descriptorTypes: list[str]) -> list[str]:
+		return ['png']
+	
+	def GetTableCellValue(self, desc: ExampleDescriptorEXE, col: int) -> str | QTableWidgetItem:
 		if col == 0:
 			return '(dll) ' + desc.dirPath.name
 		return super().GetTableCellValue(desc, col)
@@ -265,7 +304,7 @@ class ExampleSettings(SoftwareBaseSettings):
 	# 		self.tablesUpdateRequired.emit()
 
 class ExampleContextMenu(BaseContextMenu):
-	def CreateMenu(self, desc: ExampleDescriptor1) -> QMenu:
+	def CreateMenu(self, desc: ExampleDescriptorEXE) -> QMenu:
 		menu = QMenu()
 
 		titleLabel: QLabel = QLabel(f'{desc.dirPath.name}')
@@ -283,7 +322,7 @@ class ExampleContextMenu(BaseContextMenu):
 
 		return menu
 
-	def _run(self, desc: ExampleDescriptor1, arguments: list[str] = []):
+	def _run(self, desc: ExampleDescriptorEXE, arguments: list[str] = []):
 		StartProcess(desc.UID, desc.GetExecutablePath(), arguments)
 		desc.updated.emit()
 
@@ -335,7 +374,7 @@ def RegisterPluginSoftware():
 		# 	'name': 'Example SW',
 
 		# 	'qualifier': ExampleQualifierEXE,
-		# 	'descriptor': ExampleDescriptor1,
+		# 	'descriptor': ExampleDescriptorEXE,
 		# 	'settings': ExampleSettings,
 		# 	'menuitems': ExampleMenuItems,
 		# 	'tile_view': {
@@ -363,19 +402,20 @@ def RegisterPluginSoftware():
 			'name': 'Example SW',
 
 			'descriptors': {
-				'1': {
+				'exe': {
 					'qualifier': ExampleQualifierEXE,
-					'descriptor': ExampleDescriptor1,
+					'descriptor': ExampleDescriptorEXE,
 				},
-				'2': {
+				'png': {
 					'qualifier': ExampleQualifierPNG,
-					'descriptor': ExampleDescriptor2,
+					'descriptor': ExampleDescriptorPNG,
 				}
 			},
 			'views': {
 				'tiles': {
-					'1': ExampleTileBuilder1,
-					'2': ExampleTileBuilder2,
+					'exe': ExampleTileBuilderEXE,
+					'png': ExampleTileBuilderPNG,
+					'all': ExampleTileBuilderBoth,
 				},
 				'table': {
 					'1': ExampleTableBuilder1,
@@ -396,12 +436,12 @@ def RegisterPluginSoftware():
 			'descriptors': {
 				'1': {
 					'qualifier': ExampleQualifierEXE,
-					'descriptor': ExampleDescriptor1,
+					'descriptor': ExampleDescriptorEXE,
 				},
 			},
 			'views': {
 				'tiles': {
-					'1': ExampleTileBuilder1,
+					'1': ExampleTileBuilderEXE,
 				},
 				'table': {
 					'1': ExampleTableBuilder1,

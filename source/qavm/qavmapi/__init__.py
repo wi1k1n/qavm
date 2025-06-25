@@ -391,6 +391,14 @@ class BaseBuilder(QObject):
 
 	def GetName(self) -> str:
 		return self.__class__.__name__
+	
+	def GetSupportedDescriptorTypes(self, descriptorTypes: list[str]) -> list[str]:
+		""" Returns a list of descriptor types supported by this builder. """
+		return descriptorTypes
+	
+	def ProcessDescriptors(self, descriptorType: str, descriptors: list[BaseDescriptor]) -> list[BaseDescriptor]:
+		""" Prepares a list of descriptors for further elements creation. """
+		return descriptors
 
 class BaseTileBuilder(BaseBuilder):
 	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:
