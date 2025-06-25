@@ -18,7 +18,7 @@ from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu,
-	BaseCustomView, SoftwareBaseSettings, BaseMenuItems, 
+	BaseCustomView, SoftwareBaseSettings, BaseMenuItems, BaseBuilder, 
 )
 from qavm.qavmapi.utils import PlatformMacOS, PlatformWindows, PlatformLinux
 from qavm.utils_gui import FlowLayout
@@ -282,9 +282,18 @@ class MainWindow(QMainWindow):
 		
 		app = QApplication.instance()
 		workspace: QAVMWorkspace = app.GetWorkspace()
+
 		for swHandler, tilesViewsUIDs in workspace.GetTilesViews().items():
 			for viewUID in tilesViewsUIDs:
 				self._createTilesView(swHandler, viewUID)
+
+		for swHandler, tilesViewsUIDs in workspace.GetTableViews().items():
+			for viewUID in tilesViewsUIDs:
+				self._createTableView(swHandler, viewUID)
+
+		for swHandler, customViews in workspace.GetCustomViews().items():
+			for viewUID in customViews:
+				self._createCustomView(swHandler, viewUID)
 
 		# self.UpdateTilesWidget()
 		# self.UpdateTableWidget()
@@ -312,19 +321,13 @@ class MainWindow(QMainWindow):
 		if lastOpenedTab >= 0 and lastOpenedTab < self.tabsWidget.count():
 			self.tabsWidget.setCurrentIndex(lastOpenedTab)
 
-	def _createTilesView(self, swHandler: SoftwareHandler, viewUID: str):
-		tileBuilderClass: Type[BaseTileBuilder] | None = swHandler.GetTileBuilderClass(viewUID)
-		if tileBuilderClass is None or not issubclass(tileBuilderClass, BaseTileBuilder):
-			return
-		
-		contextMenu: BaseContextMenu = BaseContextMenu(swHandler.GetSettings())
-		tileBuilder: BaseTileBuilder = tileBuilderClass(swHandler.GetSettings(), contextMenu)
 
+	def _prepareDescriptors(self, swHandler: SoftwareHandler, viewUID: str, builder: BaseBuilder):
 		# TODO: consider having some more understandable scheme for fetching descriptor types from dataPaths
 		descTypes: list[str] = [t for t in map(UID.DataPathGetLastPart, swHandler.GetDescriptorClasses().keys()) if t]
-		descTypes = tileBuilder.GetSupportedDescriptorTypes(descTypes)
+		descTypes = builder.GetSupportedDescriptorTypes(descTypes)
 		if not descTypes:
-			return
+			return []
 
 		app = QApplication.instance()
 		descsMap: dict[str, list[BaseDescriptor]] = app.GetSoftwareDescriptors(swHandler)  # TODO: check to not iterate unnecessarily over unsupported descriptors
@@ -332,21 +335,45 @@ class MainWindow(QMainWindow):
 		descs: list[BaseDescriptor] = []
 		for descUID, descsCur in descsMap.items():
 			descType: Optional[str] = UID.DataPathGetLastPart(descUID)
-			if descType not in descTypes:
-				continue
+			if descType in descTypes:
+				descs.extend(builder.ProcessDescriptors(descType, descsCur))
 
-			descs.extend(tileBuilder.ProcessDescriptors(descType, descsCur))
-
-		if not descs:
+		return descs
+		
+	def _createTilesView(self, swHandler: SoftwareHandler, viewUID: str):
+		tileBuilderClass: Type[BaseTileBuilder] | None = swHandler.GetTileBuilderClass(viewUID)
+		if tileBuilderClass is None or not issubclass(tileBuilderClass, BaseTileBuilder):
 			return
+		contextMenu: BaseContextMenu = BaseContextMenu(swHandler.GetSettings())
+		tileBuilder: BaseTileBuilder = tileBuilderClass(swHandler.GetSettings(), contextMenu)
+		
+		descs: list[BaseDescriptor] = self._prepareDescriptors(swHandler, viewUID, tileBuilder)
 
-		tilesWidget: QWidget = self._createTilesWidget(descs, tileBuilder, contextMenu, parent=self)
-		if tilesWidget is None:
+		if tilesWidget := self._createTilesWidget(descs, tileBuilder, contextMenu, parent=self):
+			self.tabsWidget.insertTab(0, tilesWidget, tileBuilder.GetName())
+			# self.tabsWidget.addTabWithUid(tilesWidget, tileBuilder.GetName(), viewUID+descUID)
+			
+	def _createTableView(self, swHandler: SoftwareHandler, viewUID: str):
+		tableBuilderClass: Type[BaseTableBuilder] | None = swHandler.GetTableBuilderClass(viewUID)
+		if tableBuilderClass is None or not issubclass(tableBuilderClass, BaseTableBuilder):
 			return
+		contextMenu: BaseContextMenu = BaseContextMenu(swHandler.GetSettings())
+		tableBuilder: BaseTableBuilder = tableBuilderClass(swHandler.GetSettings(), contextMenu)
+		
+		descs: list[BaseDescriptor] = self._prepareDescriptors(swHandler, viewUID, tableBuilder)
 
-		# self.tabsWidget.insertTab(0, tilesWidget, tileBuilder.GetName())
-		print(f"Added tiles view for {swHandler.GetName()} with UID {viewUID} and descriptor UID {descUID}")
-		self.tabsWidget.addTabWithUid(tilesWidget, tileBuilder.GetName(), viewUID+descUID)
+		if tilesWidget := self._createTableWidget(descs, tableBuilder, contextMenu, parent=self):
+			self.tabsWidget.insertTab(0, tilesWidget, tableBuilder.GetName())
+			# self.tabsWidget.addTabWithUid(tilesWidget, tableBuilder.GetName(), viewUID+descUID)
+
+	def _createCustomView(self, swHandler: SoftwareHandler, viewUID: str):
+		customViewClass: Type[BaseCustomView] | None = swHandler.GetCustomViewClass(viewUID)
+		if customViewClass is None or not issubclass(customViewClass, BaseCustomView):
+			return
+		
+		softwareSettings: SoftwareBaseSettings = swHandler.GetSettings()
+		if customViewWidget := customViewClass(softwareSettings, self):
+			self.tabsWidget.insertTab(0, customViewWidget, customViewWidget.GetName())
 
 	def _onTabChanged(self, index: int):
 		self.qavmSettings.SetSetting('last_opened_tab', index)
@@ -452,23 +479,23 @@ class MainWindow(QMainWindow):
 		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
 		tableBuilder.HandleClick(app.GetSoftwareDescriptions()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
 	
-	def UpdateTilesWidget(self):
-		softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
-		contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
-		tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
-		if type(tileBuilder) is BaseTileBuilder:
-			return
+	# def UpdateTilesWidget(self):
+	# 	softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
+	# 	contextMenu: BaseContextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
+	# 	tileBuilder: BaseTileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
+	# 	if type(tileBuilder) is BaseTileBuilder:
+	# 		return
 
-		currentTabIndex: int = self.tabsWidget.currentIndex()
+	# 	currentTabIndex: int = self.tabsWidget.currentIndex()
 
-		if hasattr(self, 'tilesWidget') and self.tilesWidget:
-			self.tilesWidget.deleteLater()
+	# 	if hasattr(self, 'tilesWidget') and self.tilesWidget:
+	# 		self.tilesWidget.deleteLater()
 
-		app = QApplication.instance()
-		self.tilesWidget = self._createTilesWidget(app.GetSoftwareDescriptions(), tileBuilder, contextMenu, self)
-		self.tabsWidget.insertTab(0, self.tilesWidget, "Tiles")
+	# 	app = QApplication.instance()
+	# 	self.tilesWidget = self._createTilesWidget(app.GetSoftwareDescriptions(), tileBuilder, contextMenu, self)
+	# 	self.tabsWidget.insertTab(0, self.tilesWidget, "Tiles")
 		
-		self.tabsWidget.setCurrentIndex(currentTabIndex)
+	# 	self.tabsWidget.setCurrentIndex(currentTabIndex)
 
 	def _createTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, contextMenu: BaseContextMenu, parent: QWidget) -> QWidget:
 		tiles: list[QWidget] = list()

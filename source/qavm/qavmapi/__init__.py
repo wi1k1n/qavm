@@ -423,6 +423,9 @@ class BaseCustomView(QWidget):
 	def __init__(self, settings: SoftwareBaseSettings, parent=None):
 		super().__init__(parent)
 		self.settings: SoftwareBaseSettings = settings
+		
+	def GetName(self) -> str:
+		return self.__class__.__name__
 
 class BaseMenuItems(QObject):
 	def __init__(self, settings: SoftwareBaseSettings):

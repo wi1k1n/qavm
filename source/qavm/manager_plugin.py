@@ -193,16 +193,27 @@ class QAVMWorkspace:
 			softwareHandlers.update(plugin.GetSoftwareHandlers().values())
 		return softwareHandlers, notFoundPlugins
 	
-	def GetTilesViews(self) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
-		""" Returns tiles views in current workspace grouped by software handlers. """
-		tilesViews: dict[SoftwareHandler, list[str]] = {}
-		for viewUID in self.tiles:
+	def _getViews(self, viewUIDs: list[str]) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
+		views: dict[SoftwareHandler, list[str]] = {}
+		for viewUID in viewUIDs:
 			if plugin := QApplication.instance().GetPluginManager().GetPlugin(viewUID):
 				if swHandler := plugin.GetSoftwareHandler(viewUID):
-					if swHandler not in tilesViews:
-						tilesViews[swHandler] = []
-					tilesViews[swHandler].append(viewUID)
-		return tilesViews
+					if swHandler not in views:
+						views[swHandler] = []
+					views[swHandler].append(viewUID)
+		return views
+	
+	def GetTilesViews(self) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
+		""" Returns tiles views in current workspace grouped by software handlers. """
+		return self._getViews(self.tiles)
+	
+	def GetTableViews(self) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
+		""" Returns table views in current workspace grouped by software handlers. """
+		return self._getViews(self.table)
+	
+	def GetCustomViews(self) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
+		""" Returns custom views in current workspace grouped by software handlers. """
+		return self._getViews(self.custom)
 	
 	def AsDict(self) -> dict:
 		""" Returns the workspace data as a dictionary. """

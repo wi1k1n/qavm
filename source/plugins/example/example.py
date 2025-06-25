@@ -225,7 +225,7 @@ class ExampleTileBuilderPNG(ExampleTileBuilderBoth):
 	def GetSupportedDescriptorTypes(self, descriptorTypes: list[str]) -> list[str]:
 		return ['png']
 
-class ExampleTableBuilder1(BaseTableBuilder):
+class ExampleTableBuilderEXE(BaseTableBuilder):
 	def GetSupportedDescriptorTypes(self, descriptorTypes: list[str]) -> list[str]:
 		return ['exe']
 	
@@ -247,7 +247,7 @@ class ExampleTableBuilder1(BaseTableBuilder):
 			return f'{dirTypePrefix}{str(desc.dirPath)}{dirLinkTarget}'
 		return ''
 	
-class ExampleTableBuilder2(ExampleTableBuilder1):
+class ExampleTableBuilderPNG(ExampleTableBuilderEXE):
 	def GetSupportedDescriptorTypes(self, descriptorTypes: list[str]) -> list[str]:
 		return ['png']
 	
@@ -390,8 +390,9 @@ def RegisterPluginSoftware():
 					'all': ExampleTileBuilderBoth,
 				},
 				'table': {
-					'1': ExampleTableBuilder1,
-					'2': ExampleTableBuilder2,
+					'exe': ExampleTableBuilderEXE,
+					'png': ExampleTableBuilderPNG,
+					'both': ExampleTableBuilderEXE,
 				},
 				'custom': {
 					'1': ExampleCustomView1,
@@ -416,7 +417,7 @@ def RegisterPluginSoftware():
 					'1': ExampleTileBuilderEXE,
 				},
 				'table': {
-					'1': ExampleTableBuilder1,
+					'1': ExampleTableBuilderEXE,
 				},
 				'custom': {
 					'1': ExampleCustomView1,
@@ -432,6 +433,8 @@ def RegisterPluginWorkspaces():
 		'Default': [
 			'software.example1#views/tiles/exe',
 			'software.example1#views/tiles/png',
+			'software.example1#views/table/png',
+			'software.example1#views/custom/1',
 		],
 		'EXE/PNG': [
 			'software.example1#views/tiles/all',
