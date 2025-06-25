@@ -2,10 +2,10 @@ import argparse
 from typing import List, Type
 from pathlib import Path
 
-from qavm.manager_plugin import PluginManager, SoftwareHandler
+from qavm.manager_plugin import PluginManager, SoftwareHandler, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.manager_dialogs import DialogsManager
-from qavm.manager_workspace import QAVMWorkspace
+# from qavm.manager_workspace import QAVMWorkspace
 
 import qavm.qavmapi.utils as utils  # TODO: rename to qutils
 import qavm.qavmapi.gui as gui_utils
@@ -91,8 +91,12 @@ class QAVMApp(QApplication):
 		return self.dialogsManager
 	
 	def GetWorkspace(self) -> QAVMWorkspace:
-		""" Returns the current workspace. """
 		return self.workspace
+	
+	def SetWorkspace(self, workspace: QAVMWorkspace) -> None:
+		self.workspace = workspace
+		# self.qavmSettings.SetWorkspaceLast(workspace)
+		# self.settingsManager.SaveWorkspaceSoftwareSettings(workspace)
 	
 	def GetPluginsFolderPaths(self) -> list[Path]:
 		""" Returns a list of paths to the plugins folders (i.e. folder, containing plugin folders). """

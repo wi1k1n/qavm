@@ -8,9 +8,9 @@ from functools import partial
 from typing import Optional
 import sys
 
-from qavm.manager_plugin import PluginManager, QAVMPlugin, SoftwareHandler, UID
+from qavm.manager_plugin import PluginManager, QAVMPlugin, SoftwareHandler, UID, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
-from qavm.manager_workspace import QAVMWorkspace
+# from qavm.manager_workspace import QAVMWorkspace
 import qavm.logs as logs
 
 logger = logs.logger
@@ -33,15 +33,12 @@ class WorkspaceManagerWindow(QMainWindow):
 		self.setCentralWidget(self.tabWidget)
 
 		swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()
-		wsData: dict = {
-			'views': {'tiles': [], 'table': [], 'custom': []},
-			'menuitems': [],
-		}
+		wsData: list[str] = []
 		for pluginID, softwareID, swHandler in swHandlers:
 			pluginSoftwareID: str = f'{pluginID}#{softwareID}'  # TODO: make it a function of UID class
-			wsData['views']['tiles'].extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetTileBuilderClasses().keys()])
-			wsData['views']['table'].extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetTableBuilderClasses().keys()])
-			wsData['views']['custom'].extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetCustomViewClasses().keys()])
+			wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetTileBuilderClasses().keys()])
+			wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetTableBuilderClasses().keys()])
+			wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetCustomViewClasses().keys()])
 			# TODO: menuitems
 		
 		self.workspace = QAVMWorkspace(wsData)
@@ -157,14 +154,23 @@ class WorkspaceManagerWindow(QMainWindow):
 			self.presetsTree.addTopLevelItem(parent)
 			parent.setExpanded(True)
 
-	def selectPlugin(self, swUID: str):
-		# # self.pluginSelected.emit(pluginUID, softwareID)
-		# self.qavmSettings.SetSelectedSoftwareUID(swUID)
+	def selectPlugin(self, pluginSwUID: str):
+		plugin: QAVMPlugin = self.pluginManager.GetPlugin(pluginSwUID)
+		if not plugin:
+			QMessageBox.warning(self, "Plugin Not Found", f"Plugin with UID '{pluginSwUID}' not found.", QMessageBox.StandardButton.Ok)
+			logger.error(f'Plugin with UID {pluginSwUID} not found')
+			return
 		
-		# # this is needed since we don't distinguish between initial load and running "select plugin" action
+		workspace = plugin.GetDefaultWorkspace()
+		
+		self.settingsManager.LoadWorkspaceSoftwareSettings(workspace)
+		self.dialogsManager.ShowWorkspace(workspace)
+
+		
+		# this is needed since we don't distinguish between initial load and running "select plugin" action
 		# self.qavmSettings.Save()  # TODO: doesn't sound super correct
 
-		self.startMainWindow()
+		# self.startMainWindow()
 		self.close()
 
 	def startMainWindow(self):

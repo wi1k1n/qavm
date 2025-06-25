@@ -1,3 +1,4 @@
+from __future__ import annotations
 import importlib.util, os, re
 from pathlib import Path
 from typing import Type, Optional, Any
@@ -9,6 +10,8 @@ from qavm.qavmapi import (
 import qavm.qavmapi.utils as utils
 
 from PyQt6.QtWidgets import QApplication
+
+# from qavm.manager_plugin import QAVMWorkspace
 
 import qavm.logs as logs
 logger = logs.logger
@@ -116,12 +119,113 @@ class UID:
 		return None
 	
 	@staticmethod
+	def DataPathGetParts(dataPath: str) -> list[str]:
+		""" Returns the parts of the data path as a list, e.g. 'view/tiles/c4d' -> ['view', 'tiles', 'c4d'] """
+		if dataPathFetched := UID.FetchDataPath(dataPath):
+			return dataPathFetched.split('/')
+		return []
+	
+	@staticmethod
+	def DataPathGetFirstPart(dataPath: str) -> Optional[str]:
+		""" Returns the first part of the data path, e.g. 'view/tiles/c4d' -> 'view' """
+		if dataPathFetched := UID.FetchDataPath(dataPath):
+			parts = dataPathFetched.split('/')
+			return parts[0] if parts else None
+		return None
+
+	@staticmethod
 	def DataPathGetLastPart(dataPath: str) -> Optional[str]:
 		""" Returns the last part of the data path, e.g. 'view/tiles/c4d' -> 'c4d' """
 		if dataPathFetched := UID.FetchDataPath(dataPath):
-			return Path(dataPathFetched).name
+			parts = dataPathFetched.split('/')
+			return parts[-1] if parts else None
 		return None
 
+class QAVMWorkspace:
+	def __init__(self, data: list[str] = []) -> None:
+		self.tiles: list[str] = []
+		self.table: list[str] = []
+		self.custom: list[str] = []
+		self.menuItems: list[str] = []
+
+		for uid in data:
+			if not isinstance(uid, str):
+				raise ValueError("Invalid workspace data: all view UIDs should be strings.")
+			if dataPath := UID.FetchDataPath(uid):
+				parts: list[str] = UID.DataPathGetParts(dataPath)
+				if len(parts) != 3 or parts[0] not in ('views') or parts[1] not in ('tiles', 'table', 'custom'):
+					raise ValueError(f"Invalid view UID '{uid}'")
+				if parts[1] == 'tiles':
+					self.tiles.append(uid)
+				elif parts[1] == 'table':
+					self.table.append(uid)
+				elif parts[1] == 'custom':
+					self.custom.append(uid)
+
+	def IsEmpty(self) -> bool:
+		""" Returns True if the workspace has no views or menu items. """
+		return not self.tiles and not self.table and not self.custom and not self.menuItems
+	
+	def GetInvolvedPlugins(self) -> tuple[set[QAVMPlugin], set[str]]:
+		""" Returns a set of loaded plugins involved in the workspace views (and a set of plugins that were not found). """
+		plugins: set[QAVMPlugin] = set()
+		notFoundPlugins: set[str] = set()
+
+		# TODO: make it more generic (in case new view types are added in the future)
+		tiles, tilesNotFound = self._getInvolvedPluginsUIDs(self.tiles)
+		table, tableNotFound = self._getInvolvedPluginsUIDs(self.table)
+		custom, customNotFound = self._getInvolvedPluginsUIDs(self.custom)
+
+		plugins.update(tiles)
+		plugins.update(table)
+		plugins.update(custom)
+		notFoundPlugins.update(tilesNotFound)
+		notFoundPlugins.update(tableNotFound)
+		notFoundPlugins.update(customNotFound)
+
+		return plugins, notFoundPlugins
+
+	def GetInvolvedSoftwareHandlers(self) -> tuple[set[SoftwareHandler], set[str]]:
+		""" Returns a set of software handlers involved in the workspace views (and a set of plugins that were not found). """
+		plugins, notFoundPlugins = self.GetInvolvedPlugins()
+		softwareHandlers: set[SoftwareHandler] = set()
+		for plugin in plugins:
+			softwareHandlers.update(plugin.GetSoftwareHandlers().values())
+		return softwareHandlers, notFoundPlugins
+	
+	def GetTilesViews(self) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
+		""" Returns tiles views in current workspace grouped by software handlers. """
+		tilesViews: dict[SoftwareHandler, list[str]] = {}
+		for viewUID in self.tiles:
+			if plugin := QApplication.instance().GetPluginManager().GetPlugin(viewUID):
+				if swHandler := plugin.GetSoftwareHandler(viewUID):
+					if swHandler not in tilesViews:
+						tilesViews[swHandler] = []
+					tilesViews[swHandler].append(viewUID)
+		return tilesViews
+	
+	def AsDict(self) -> dict:
+		""" Returns the workspace data as a dictionary. """
+		return {
+			'views': {
+				'tiles': self.tiles,
+				'table': self.table,
+				'custom': self.custom,
+			},
+			'menuitems': self.menuItems
+		}
+	
+	def _getInvolvedPluginsUIDs(self, uids: list[str]) -> tuple[set[QAVMPlugin], set[str]]:
+		app = QApplication.instance()
+		pluginManager: PluginManager = app.GetPluginManager()
+		plugins: set[QAVMPlugin] = set()
+		notFoundPlugins: set[str] = set()
+		for viewUID in uids:
+			if plugin := pluginManager.GetPlugin(viewUID):
+				plugins.add(plugin)
+			else:
+				notFoundPlugins.add(viewUID)
+		return plugins, notFoundPlugins
 
 class SoftwareHandler:
 	# TODO: should be a unified dataPath accessing scheme (check UID class for IsDataPathValid, etc...)
@@ -203,10 +307,12 @@ class SoftwareHandler:
 			self.menuItemsInstance = self.menuItemsClass(self.settingsInstance)
 			
 	def _checkType(self, value: object, expectedType: type, name: str) -> None:
+		# TODO: move to some plugins utils module
 		if not isinstance(value, expectedType):
 			raise Exception(f'Invalid {name} type for software: {self.id}. Expected {expectedType.__name__}, got {type(value).__name__}')
 		
 	def _checkSubClass(self, value: type, expectedType: type, name: str) -> None:
+		# TODO: move to some plugins utils module
 		if not issubclass(value, expectedType):
 			raise Exception(f'Invalid {name} class for software: {self.id}. Expected subclass of {expectedType.__name__}, got {value.__name__}')
 
@@ -299,14 +405,20 @@ class QAVMPlugin:
 		self.pluginDeveloper = getattr(self.module, 'PLUGIN_DEVELOPER', 'Unknown')
 		self.pluginWebsite = getattr(self.module, 'PLUGIN_WEBSITE', '')
 
-		self.LoadPluginSoftware()
+		# from qavm.manager_workspace import QAVMWorkspace  # TODO: quick-n-dirty import to avoid circular imports
+		self.pluginWorkspaces: list[QAVMWorkspace] = []
+
+		self._loadPluginSoftware()
+		self._loadPluginWorkspaces()
 	
-	def LoadPluginSoftware(self) -> None:
+	def _loadPluginSoftware(self) -> None:
 		pluginSoftwareRegisterFunc = getattr(self.module, 'RegisterPluginSoftware', None)
 		if pluginSoftwareRegisterFunc is None or not callable(pluginSoftwareRegisterFunc):
 			return
 		
 		softwareRegDataList = pluginSoftwareRegisterFunc()
+		if not isinstance(softwareRegDataList, list):
+			raise Exception(f'Invalid software registration data for plugin: {self.pluginID}. Expected a list, got {type(softwareRegDataList).__name__}')
 
 		for softwareRegData in softwareRegDataList:
 			softwareHandler = SoftwareHandler(softwareRegData)
@@ -315,6 +427,33 @@ class QAVMPlugin:
 				raise Exception(f'Duplicate software ID found: {self.id}')
 			
 			self.softwareHandlers[softwareHandler.id] = softwareHandler
+
+	def _loadPluginWorkspaces(self) -> None:
+		pluginWorkspacesRegisterFunc = getattr(self.module, 'RegisterPluginWorkspaces', None)
+		if pluginWorkspacesRegisterFunc is None or not callable(pluginWorkspacesRegisterFunc):
+			return
+		
+		workspaceRegDataList = pluginWorkspacesRegisterFunc()
+		if not isinstance(workspaceRegDataList, dict):  # TODO: use _checkType instead
+			raise Exception(f'Invalid workspace registration data for plugin: {self.pluginID}. Expected a dictionary, got {type(workspaceRegDataList).__name__}')
+		
+		# from qavm.manager_workspace import QAVMWorkspace  # TODO: quick-n-dirty import to avoid circular imports
+
+		for wsName, wsData in workspaceRegDataList.items():
+			if not isinstance(wsData, list):  # TODO: use _checkType instead
+				raise Exception(f'Invalid workspace data for plugin: {self.pluginID}. Expected a list, got {type(wsData).__name__}')
+			if not isinstance(wsName, str) or not wsName:  # TODO: use _checkType instead
+				raise Exception(f'Invalid workspace name for plugin: {self.pluginID}. Expected a non-empty string, got {type(wsName).__name__}')
+			if not wsData:  # empty workspace data
+				continue
+
+			validUIDs = []
+			for uid in wsData:
+				# TODO: make it more robust to handle the full UID format too (and also the dataPath format if there's a single swHandler, etc)
+				if UID.IsSoftwareIDDataPathValid(uid):
+					validUIDs.append(f'{self.pluginID}#{uid}')
+
+			self.pluginWorkspaces.append(QAVMWorkspace(validUIDs))
 	
 	def GetSoftwareHandlers(self) -> dict[str, SoftwareHandler]:
 		""" Returns a dictionary of software handlers registered by the plugin, e.g. {'software_id': SoftwareHandler} """
@@ -324,6 +463,16 @@ class QAVMPlugin:
 		""" Returns the software handler for the given software ID, e.g. 'software.example1' """
 		softwareID = UID.FetchSoftwareID(softwareID)
 		return self.softwareHandlers.get(softwareID, None)
+	
+	def GetWorkspaces(self) -> list[QAVMWorkspace]:
+		""" Returns a list of workspaces registered by the plugin, e.g. [QAVMWorkspace, ...] """
+		return self.pluginWorkspaces
+	
+	def GetDefaultWorkspace(self) -> QAVMWorkspace:
+		""" Returns the default workspace registered by the plugin, e.g. QAVMWorkspace() or None if not set """
+		if self.pluginWorkspaces:
+			return self.pluginWorkspaces[0]
+		return QAVMWorkspace()  # return an empty workspace if no workspaces are registered
 
 	def GetUID(self) -> str:
 		""" Returns the unique identifier of the plugin, e.g. 'com.example.plugin' """

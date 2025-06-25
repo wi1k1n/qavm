@@ -429,22 +429,16 @@ def RegisterPluginSoftware():
 
 def RegisterPluginWorkspaces():
 	return {
-		'Default': {
-			'views': [
-				'software.example2#views/tiles/exe',
-				'software.example2#views/tiles/png',
-			],
-		},
-		'EXE/PNG': {
-			'views': [
-				'software.example2#views/tiles/all',
-			],
-		},
-		'Everything': {
-			'views': [
-				'software.example2#views/tiles/exe',
-				'software.example2#views/tiles/png',
-				'software.example2#views/tiles/all',
-			],
-		}
+		'Default': [
+			'software.example1#views/tiles/exe',
+			'software.example1#views/tiles/png',
+		],
+		'EXE/PNG': [
+			'software.example1#views/tiles/all',
+		],
+		'Everything': [
+			'software.example1#views/tiles/exe',
+			'software.example1#views/tiles/png',
+			'software.example1#views/tiles/all',
+		],
 	}

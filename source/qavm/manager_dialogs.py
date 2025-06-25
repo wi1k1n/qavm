@@ -1,7 +1,10 @@
 from qavm.window_pluginselect import WorkspaceManagerWindow
 from qavm.window_main import MainWindow
 from qavm.window_settings import PreferencesWindow
-from qavm.manager_workspace import QAVMWorkspace
+from qavm.manager_plugin import QAVMWorkspace
+# from qavm.manager_workspace import QAVMWorkspace
+
+from PyQt6.QtWidgets import QApplication
 
 import qavm.logs as logs
 logger = logs.logger
@@ -15,6 +18,8 @@ class DialogsManager:
 	def ShowWorkspace(self, workspace: QAVMWorkspace):
 		print(f'Involved plugins in the workspace: {workspace.GetInvolvedPlugins()}')
 		print(f'Involved software handlers in the workspace: {workspace.GetInvolvedSoftwareHandlers()}')
+		app = QApplication.instance()
+		app.SetWorkspace(workspace)
 		self.GetMainWindow().show()
 
 	def GetPluginSelectionWindow(self):

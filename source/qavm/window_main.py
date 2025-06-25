@@ -12,9 +12,9 @@ from PyQt6.QtWidgets import (
 	QSizePolicy, QTableView, QTableWidgetSelectionRange, 
 )
 
-from qavm.manager_plugin import PluginManager, SoftwareHandler, UID
+from qavm.manager_plugin import PluginManager, SoftwareHandler, UID, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
-from qavm.manager_workspace import QAVMWorkspace
+# from qavm.manager_workspace import QAVMWorkspace
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder, BaseContextMenu,
@@ -344,9 +344,9 @@ class MainWindow(QMainWindow):
 		if tilesWidget is None:
 			return
 
-		self.tabsWidget.insertTab(0, tilesWidget, tileBuilder.GetName())
+		# self.tabsWidget.insertTab(0, tilesWidget, tileBuilder.GetName())
 		print(f"Added tiles view for {swHandler.GetName()} with UID {viewUID} and descriptor UID {descUID}")
-		# self.tabsWidget.addTabWithUid(tilesWidget, tileBuilder.GetName(), viewUID+descUID)
+		self.tabsWidget.addTabWithUid(tilesWidget, tileBuilder.GetName(), viewUID+descUID)
 
 	def _onTabChanged(self, index: int):
 		self.qavmSettings.SetSetting('last_opened_tab', index)
