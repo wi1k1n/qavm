@@ -305,10 +305,9 @@ class SettingsManager:
 	# 	self.softwareSettings = softwareHandler.GetSettings()
 	# 	self.softwareSettings.Load()
 
-	# def SaveSoftwareSettings(self):
-	# 	if not self.softwareSettings:
-	# 		raise Exception('No software settings loaded')
-	# 	self.softwareSettings.Save()
+	def SaveSoftwareSettings(self, swHandler: SoftwareHandler):
+		if swHandler in self.softwareSettings:
+			self.softwareSettings[swHandler].Save()
 
 	def LoadWorkspaceSoftwareSettings(self, workspace: QAVMWorkspace) -> None:
 		""" Loads the software settings for the workspace views. """

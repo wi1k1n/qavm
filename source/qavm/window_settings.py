@@ -29,6 +29,7 @@ class PreferencesWindow(QWidget):
 
 		app = QApplication.instance()
 		self.settingsManager: SettingsManager = app.GetSettingsManager()
+		self.pluginManager: PluginManager = app.GetPluginManager()
 
 		self.contentWidget: QStackedWidget = QStackedWidget(self)
 
@@ -38,9 +39,11 @@ class PreferencesWindow(QWidget):
 		for (name, widget) in self.settingsManager.GetQAVMSettings().CreateWidgets(self.contentWidget):
 			self.AddSettingsEntry(name, widget)
 		
-		swSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
-		for (name, widget) in swSettings.CreateWidgets(self.contentWidget):
-			self.AddSettingsEntry(name, widget)
+		swHandlers = self.pluginManager.GetSoftwareHandlers()
+		for (pluginID, _, swHandler) in swHandlers:
+			if swSettings := self.settingsManager.GetSoftwareSettings(swHandler):
+				for (name, widget) in swSettings.CreateWidgets(self.contentWidget):
+					self.AddSettingsEntry(name, widget)
 		
 		# for mSettings in self.settingsManager.GetModuleSettings().values():
 		# 	self.AddSettingsEntry(mSettings.GetName(), mSettings)
@@ -111,5 +114,9 @@ class PreferencesWindow(QWidget):
 		
 		# Save settings without confirmation for now, until the dirty settings check is implemented
 		self.settingsManager.SaveQAVMSettings()
-		self.settingsManager.SaveSoftwareSettings()
+		
+		swHandlers = self.pluginManager.GetSoftwareHandlers()
+		for (pluginID, _, swHandler) in swHandlers:
+			self.settingsManager.SaveSoftwareSettings(swHandler)
+
 		event.accept()
