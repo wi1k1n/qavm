@@ -25,6 +25,8 @@ class UID:
 	- software.id: e.g. 'software.example1'
 	- data/path: e.g. 'view/tiles/c4d'
 	"""
+
+	# TODO: also allow '-' and '_'
 	DOMAIN_ID_REGEX = r'[a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)*'
 	DATAPATH_REGEX = r'[a-zA-Z0-9]+(?:/[a-zA-Z0-9]+)*'
 
@@ -305,7 +307,7 @@ class SoftwareHandler:
 
 		########################### Settings ###########################
 		self.settingsClass: Optional[Type[BaseSettings]] = regData.get(self.KEY_SETTINGS, None)
-		self.settingsInstance: Optional[BaseSettings] = None
+		self.settingsInstance: Optional[BaseSettings] = None  # TODO: allow to use without settings (fallback to BaseSettings?)
 		if self.settingsClass is not None:  # optional
 			self._checkSubClass(self.settingsClass, BaseSettings, self.KEY_SETTINGS)
 			self.settingsInstance = self.settingsClass(self.GetID())

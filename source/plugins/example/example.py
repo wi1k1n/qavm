@@ -60,6 +60,42 @@ loggerFileHandler.setLevel(logging.ERROR)
 loggerFileHandler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(loggerFileHandler)
 
+
+class SimpleQualifier(BaseQualifier):
+	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> bool:
+		return currentPath.is_dir() and len(list(currentPath.glob('*.*'))) > 0	
+
+class SimpleDescriptor(BaseDescriptor):
+	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
+		super().__init__(dirPath, settings, fileContents)
+
+		self.filesCount: int = len(list(self.dirPath.glob('*.*')))
+		self.foldersCount: int = len(list(self.dirPath.glob('*/')))
+
+class SimpleTableBuilder(BaseTableBuilder):
+	def GetTableCaptions(self) -> list[str]:
+		return ['Files count', 'Folders count', 'Path']
+	
+	def GetTableCellValue(self, desc: SimpleDescriptor, col: int) -> str | QTableWidgetItem:
+		if col == 0:
+			return str(desc.filesCount)
+		if col == 1:
+			return str(desc.foldersCount)
+		if col == 2:
+			dirTypePrefix: str = f'({desc.dirType}) ' if desc.dirType else ''
+			dirLinkTarget: str = ''
+			if desc.dirType == 'S':
+				dirLinkTarget = f' ( → {qutils.GetSymlinkDTarget(desc.dirPath)})'
+			elif desc.dirType == 'J':
+				dirLinkTarget = f' ( → {qutils.GetJunctionTarget(desc.dirPath)})'
+			return f'{dirTypePrefix}{str(desc.dirPath)}{dirLinkTarget}'
+		return ''
+	
+class SimpleSettings(SoftwareBaseSettings):
+	pass
+
+
+
 class ExampleQualifierEXE(BaseQualifier):
 	def ProcessSearchPaths(self, searchPaths: list[str]) -> list[str]:
 		# At this point the searchPaths from QAVM preferences can be adjusted.
@@ -370,6 +406,23 @@ class ExampleCustomView2(BaseCustomView):
 def RegisterPluginSoftware():
 	return [
 		{
+			'id': 'software.simple',
+			'name': 'Simple',
+
+			'descriptors': {
+				'populatedfolders': {
+					'qualifier': SimpleQualifier,
+					'descriptor': SimpleDescriptor,
+				}
+			},
+			'views': {
+				'table': {
+					'1': SimpleTableBuilder,
+				}
+			},
+			'settings': SimpleSettings,
+		},
+		{
 			'id': 'software.example1',  # this is a unique id under the PLUGIN_ID domain
 			'name': 'Example SW',
 
@@ -430,11 +483,14 @@ def RegisterPluginSoftware():
 
 def RegisterPluginWorkspaces():
 	return {
+		# 'Default': [
+		# 	'software.example1#views/tiles/exe',
+		# 	'software.example1#views/tiles/png',
+		# 	'software.example1#views/table/png',
+		# 	'software.example1#views/custom/1',
+		# ],
 		'Default': [
-			'software.example1#views/tiles/exe',
-			'software.example1#views/tiles/png',
-			'software.example1#views/table/png',
-			'software.example1#views/custom/1',
+			'software.simple#views/table/1',
 		],
 		'EXE/PNG': [
 			'software.example1#views/tiles/all',

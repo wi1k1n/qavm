@@ -315,7 +315,6 @@ class SettingsManager:
 			return
 		sfHandlers, notFoundPlugins = workspace.GetInvolvedSoftwareHandlers()
 		for swHandler in sfHandlers:
-			if not swHandler:
-				continue
-			self.softwareSettings[swHandler] = swHandler.GetSettings()
-			self.softwareSettings[swHandler].Load()
+			if swHandler:
+				self.softwareSettings[swHandler] = swHandler.GetSettings()
+				self.softwareSettings[swHandler].Load()

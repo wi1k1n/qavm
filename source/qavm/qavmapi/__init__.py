@@ -354,7 +354,7 @@ class BaseDescriptor(QObject):
 		self.dirType: str = self._retrieveDirType()  # '' - normal dir, 's' - symlink, 'j' - junction
 		self.settings: SoftwareBaseSettings = settings
 	
-	def GetExecutablePath(self) -> Path:
+	def GetExecutablePath(self) -> Path:  # TODO: is this really needed here?
 		return Path()
 
 	def __hash__(self) -> int:
