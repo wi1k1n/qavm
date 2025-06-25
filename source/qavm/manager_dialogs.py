@@ -1,4 +1,4 @@
-from qavm.window_pluginselect import PluginSelectionWindow
+from qavm.window_pluginselect import WorkspaceManagerWindow
 from qavm.window_main import MainWindow
 from qavm.window_settings import PreferencesWindow
 from qavm.manager_workspace import QAVMWorkspace
@@ -8,7 +8,7 @@ logger = logs.logger
 
 class DialogsManager:
 	def __init__(self) -> None:
-		self.selectPluginWindow: PluginSelectionWindow = None
+		self.selectPluginWindow: WorkspaceManagerWindow = None
 		self.mainWindow: MainWindow = None
 		self.windowPrefs: PreferencesWindow = None
 
@@ -19,7 +19,7 @@ class DialogsManager:
 
 	def GetPluginSelectionWindow(self):
 		if self.selectPluginWindow is None:
-			self.selectPluginWindow: PluginSelectionWindow = PluginSelectionWindow()
+			self.selectPluginWindow: WorkspaceManagerWindow = WorkspaceManagerWindow()
 		return self.selectPluginWindow
 	
 	def GetMainWindow(self):

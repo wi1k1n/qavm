@@ -367,9 +367,20 @@ def SetTheme(theme: str) -> None:
 				color: black;
 		}
 		"""
+
+	styleExtraTreeview = """
+		QTreeView::item {
+			padding: 0px 0px;
+			height: 10px;
+		}
+		QTreeView::branch {
+			padding: 0px;
+			margin: 0px;
+		}
+	"""
 		
 	# Append custom style to override scrollbar thickness
-	app.setStyleSheet(app.styleSheet() + styleExtraScrollBar + styleExtraLineEdit)
+	app.setStyleSheet(app.styleSheet() + styleExtraScrollBar + styleExtraLineEdit + styleExtraTreeview)
 
 def GetThemesList() -> list[str]:
 	return list_themes()
