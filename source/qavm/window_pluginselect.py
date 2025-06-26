@@ -161,26 +161,24 @@ class WorkspaceManagerWindow(QMainWindow):
 			return
 		
 		workspace = plugin.GetDefaultWorkspace()
-		
+
 		self.settingsManager.LoadWorkspaceSoftwareSettings(workspace)
+
+		self.qavmSettings.SetWorkspaceLast(workspace)
+		self.qavmSettings.Save()  # TODO: should we save it here?
+
 		self.dialogsManager.ShowWorkspace(workspace)
-
-		
-		# this is needed since we don't distinguish between initial load and running "select plugin" action
-		# self.qavmSettings.Save()  # TODO: doesn't sound super correct
-
-		# self.startMainWindow()
 		self.close()
 
-	def startMainWindow(self):
-		# self.settingsManager.LoadSoftwareSettings()
+	# def startMainWindow(self):
+	# 	# self.settingsManager.LoadSoftwareSettings()
 		
-		# app = QApplication.instance()
-		# app.ResetSoftwareDescriptions()
-		# self.dialogsManager.ResetPreferencesWindow()
-		# self.dialogsManager.ResetMainWindow()
+	# 	# app = QApplication.instance()
+	# 	# app.ResetSoftwareDescriptions()
+	# 	# self.dialogsManager.ResetPreferencesWindow()
+	# 	# self.dialogsManager.ResetMainWindow()
 
-		self.dialogsManager.GetMainWindow().show()
+	# 	self.dialogsManager.GetMainWindow().show()
 
 	# def show(self):
 	# 	# selectedSoftwareUID = self.qavmSettings.GetSelectedSoftwareUID()

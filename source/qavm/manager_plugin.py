@@ -143,7 +143,18 @@ class UID:
 			return parts[-1] if parts else None
 		return None
 
-class QAVMWorkspace:
+# TODO: move this to qavmapi and make use of it
+class SerializableBase(object):
+	def Serialize(self) -> Any:
+		""" Serializes the object to a format suitable for being stored as json. """
+		raise NotImplementedError("Serialize method should be implemented in subclasses.")
+	
+	@staticmethod
+	def Deserialize(data: Any) -> SerializableBase:
+		""" Deserializes the object from json. """
+		raise NotImplementedError("Deserialize method should be implemented in subclasses.")
+
+class QAVMWorkspace(SerializableBase):
 	def __init__(self, data: list[str] = []) -> None:
 		self.tiles: list[str] = []
 		self.table: list[str] = []
@@ -215,6 +226,20 @@ class QAVMWorkspace:
 	def GetMenuItems(self) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
 		""" Returns menu items in current workspace grouped by software handlers. """
 		return self._getItems(self.menuItems)
+	
+	def Serialize(self) -> list[str]:
+		""" Serializes the workspace to a list of view UIDs. """
+		data: list[str] = []
+		data.extend(self.tiles)
+		data.extend(self.table)
+		data.extend(self.custom)
+		data.extend(self.menuItems)
+		return data
+	
+	@staticmethod
+	def Deserialize(data: list[str]) -> QAVMWorkspace:
+		""" Deserializes the workspace from a list of view UIDs. """
+		return QAVMWorkspace(data)
 	
 	def _getItems(self, itemUIDs: list[str]) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [itemUIDs]}
 		items: dict[SoftwareHandler, list[str]] = {}

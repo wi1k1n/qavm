@@ -83,7 +83,7 @@ class ColorButton(QPushButton):
 
 class QAVMGlobalSettings(BaseSettings):
 	CONTAINER_DEFAULTS: dict[str, Any] = {
-		'selected_software_uid': '',
+		# 'selected_software_uid': '',
 		'last_opened_tab': 0,
 		'app_theme': gui_utils.GetDefaultTheme(),
 		'search_paths_global': [],
@@ -104,6 +104,16 @@ class QAVMGlobalSettings(BaseSettings):
 	# def SetSelectedSoftwareUID(self, softwareUID: str) -> None:
 	# 	self.SetSetting('selected_software_uid', softwareUID)
 
+	def GetWorkspaceLast(self) -> QAVMWorkspace:
+		""" Returns the last opened workspace as a dict. """
+		return QAVMWorkspace.Deserialize(self.GetSetting('workspace_last'))
+	
+	def GetWorkspaceLast(self) -> QAVMWorkspace:
+		return QAVMWorkspace(self.GetSetting('workspace_last'))
+	
+	def SetWorkspaceLast(self, workspace: QAVMWorkspace) -> None:
+		self.SetSetting('workspace_last', workspace.Serialize())
+
 	def GetAppTheme(self) -> str:
 		return self.GetSetting('app_theme')
 	
@@ -120,8 +130,6 @@ class QAVMGlobalSettings(BaseSettings):
 			return
 		self.SetSetting('search_paths_global', paths)
 
-	def GetWorkspaceLast(self) -> QAVMWorkspace:
-		return QAVMWorkspace(self.GetSetting('workspace_last'))
 
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
 		settingsWidget: QWidget = QWidget(parent)

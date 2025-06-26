@@ -3,7 +3,9 @@ from qavm.window_main import MainWindow
 from qavm.window_settings import PreferencesWindow
 from qavm.manager_plugin import QAVMWorkspace
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import (
+	QApplication, QWidget, 
+)
 
 import qavm.logs as logs
 logger = logs.logger
@@ -15,11 +17,14 @@ class DialogsManager:
 		self.windowPrefs: PreferencesWindow = None
 
 	def ShowWorkspace(self, workspace: QAVMWorkspace):
-		print(f'Involved plugins in the workspace: {workspace.GetInvolvedPlugins()}')
-		print(f'Involved software handlers in the workspace: {workspace.GetInvolvedSoftwareHandlers()}')
 		app = QApplication.instance()
 		app.SetWorkspace(workspace)
 		self.GetMainWindow().show()
+
+	def ShowWorkspaceManager(self):
+		self.ResetPreferencesWindow()
+		self.ResetMainWindow()
+		self.GetPluginSelectionWindow().show()
 
 	def GetPluginSelectionWindow(self):
 		if self.selectPluginWindow is None:
@@ -31,12 +36,21 @@ class DialogsManager:
 			self.mainWindow: MainWindow = MainWindow()
 		return self.mainWindow
 	
-	def ResetMainWindow(self):
-		self.mainWindow = None
-	
 	def GetPreferencesWindow(self):
 		if self.windowPrefs is None:
 			self.windowPrefs = PreferencesWindow(self.GetMainWindow())
 		return self.windowPrefs
+	
+	def ResetMainWindow(self):
+		self._resetWindow(self.mainWindow)
+		self.mainWindow = None
+
 	def ResetPreferencesWindow(self):
+		self._resetWindow(self.windowPrefs)
 		self.windowPrefs = None
+
+	def _resetWindow(self, window: QWidget):
+		if not window:
+			return
+		window.close()
+		window.deleteLater()

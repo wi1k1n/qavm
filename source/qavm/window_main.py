@@ -186,16 +186,16 @@ class MainWindow(QMainWindow):
 		self._setupCentralWidget()
 
 	def _setupActions(self):
-		self.actionPrefs = QAction(QIcon(":preferences.svg"), "&Preferences", self)
+		self.actionPrefs = QAction("&Preferences", self)
 		self.actionPrefs.setShortcut("Ctrl+E")
 		self.actionPrefs.triggered.connect(self._showPreferences)
 
 		self.actionExit = QAction("&Exit", self, shortcut=QKeySequence.StandardKey.Quit)
 		self.actionExit.triggered.connect(self.close)
 
-		# self.actionPluginSelection = QAction("Select software", self)
-		# self.actionPluginSelection.setEnabled(len(self.pluginManager.GetSoftwareHandlers()) > 1)
-		# self.actionPluginSelection.triggered.connect(self._switchToPluginSelection)
+		self.actionPluginSelection = QAction("Switch Workspace", self)
+		self.actionPluginSelection.setEnabled(len(self.pluginManager.GetSoftwareHandlers()) > 1)
+		self.actionPluginSelection.triggered.connect(self._switchToPluginSelection)
 
 		# self.actionRescan = QAction("&Rescan", self)
 		# self.actionRescan.setShortcut("Ctrl+F5")
@@ -211,17 +211,11 @@ class MainWindow(QMainWindow):
 		fileMenu: QMenu = QMenu("&File", self)
 		# fileMenu.addAction(self.actionRescan)
 		# fileMenu.addSeparator()
-		# fileMenu.addAction(self.actionPluginSelection)
-		# fileMenu.addSeparator()
+		fileMenu.addAction(self.actionPluginSelection)
+		fileMenu.addAction(self.actionPrefs)
+		fileMenu.addSeparator()
 		fileMenu.addAction(self.actionExit)
 		menuBar.addMenu(fileMenu)
-		
-		if PlatformMacOS():  # workaround for stupid macOS menu bar
-			fileMenu.addAction(self.actionPrefs)
-		else:
-			editMenu: QMenu = QMenu("&Edit", self)
-			editMenu.addAction(self.actionPrefs)
-			menuBar.addMenu(editMenu)
 		
 		# switchMenu: QMenu = QMenu("&Switch Workspace", self)
 		# switchMenu.addAction(QAction("osx sucks", self))
@@ -554,16 +548,14 @@ class MainWindow(QMainWindow):
 		scrollWidget.setWidget(widget)
 		return scrollWidget
 	
-	# def _switchToPluginSelection(self, swUID: str = ''):
-	# 	app = QApplication.instance()
-	# 	# TODO: this should probably has clearer handling
-	# 	self.qavmSettings.SetSelectedSoftwareUID(swUID)
-	# 	app.selectedSoftwareUID = swUID
-	# 	# TODO: storing the setting without being sure that the plugin runs leads to a deadlock (start and crash)
-	# 	self.qavmSettings.Save()
-	# 	self.dialogsManager.ResetPreferencesWindow()
-	# 	self.dialogsManager.GetPluginSelectionWindow().show()
-	# 	self.close()
+	def _switchToPluginSelection(self, swUID: str = ''):
+		app = QApplication.instance()
+		app.SetWorkspace(QAVMWorkspace())  # reset the workspace to force workspace manager dialog
+		
+		self.qavmSettings.SetWorkspaceLast(app.GetWorkspace())
+		self.qavmSettings.Save()  # TODO: storing the setting without being sure that the plugin runs leads to a deadlock (start and crash)
+		
+		self.dialogsManager.ShowWorkspaceManager()
 	
 	# def _rescanSoftware(self):
 	# 	app = QApplication.instance()
