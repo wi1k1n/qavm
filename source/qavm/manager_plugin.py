@@ -26,9 +26,8 @@ class UID:
 	- data/path: e.g. 'view/tiles/c4d'
 	"""
 
-	# TODO: also allow '-' and '_'
-	DOMAIN_ID_REGEX = r'[a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)*'
-	DATAPATH_REGEX = r'[a-zA-Z0-9]+(?:/[a-zA-Z0-9]+)*'
+	DOMAIN_ID_REGEX = r'[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*'
+	DATAPATH_REGEX = r'[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*'
 
 	DOMAIN_ID_PATTERN = re.compile(f'^{DOMAIN_ID_REGEX}$')
 	DATAPATH_PATTERN = re.compile(f'^{DATAPATH_REGEX}$')
