@@ -24,16 +24,25 @@ class UID:
 	- plugin.id: e.g. 'com.example.plugin'
 	- software.id: e.g. 'software.example1'
 	- data/path: e.g. 'view/tiles/c4d'
+	Supports wildcard matching (* and ?) in the data path.
 	"""
 
 	DOMAIN_ID_REGEX = r'[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*'
-	DATAPATH_REGEX = r'[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*'
-
+	DATAPATH_REGEX = r'[a-zA-Z0-9_\-\*\?]+(?:/[a-zA-Z0-9_\-\*\?]+)*'
+	
 	DOMAIN_ID_PATTERN = re.compile(f'^{DOMAIN_ID_REGEX}$')
 	DATAPATH_PATTERN = re.compile(f'^{DATAPATH_REGEX}$')
 	UID_PATTERN = re.compile(f'^({DOMAIN_ID_REGEX})#({DOMAIN_ID_REGEX})#({DATAPATH_REGEX})$')
 	PLUGIN_SOFTWARE_PATTERN = re.compile(f'^({DOMAIN_ID_REGEX})#({DOMAIN_ID_REGEX})$')
 	SOFTWARE_DATAPATH_PATTERN = re.compile(f'^({DOMAIN_ID_REGEX})#({DATAPATH_REGEX})$')
+
+	WILDCARD_SAFE_CHARS = r'[a-zA-Z0-9_-]'
+
+	@staticmethod
+	def _wildcard_to_regex(pattern: str) -> str:
+		escaped = re.escape(pattern)
+		regex = escaped.replace(r'\*', '.*').replace(r'\?', '.')
+		return f'^{regex}$'
 
 	@staticmethod
 	def IsPluginIDValid(plugin_id: str) -> bool:
@@ -64,6 +73,12 @@ class UID:
 	def IsSoftwareIDDataPathValid(uid: str) -> bool:
 		""" Checks if the UID is a valid Software#DataPath ID, e.g. 'software.example1#view/tiles/c4d' """
 		return UID.SOFTWARE_DATAPATH_PATTERN.fullmatch(uid) is not None
+
+	@staticmethod
+	def MatchDataPath(pattern: str, path: str) -> bool:
+		"""Checks if a data path matches the wildcard pattern."""
+		regex = re.compile(UID._wildcard_to_regex(pattern))
+		return regex.fullmatch(path) is not None
 
 	@staticmethod
 	def FetchPluginID(uid: str) -> Optional[str]:
@@ -118,14 +133,14 @@ class UID:
 		if len(parts) == 3:
 			return f"{parts[1]}#{parts[2]}" if UID.IsSoftwareIDValid(parts[1]) and UID.IsDataPathValid(parts[2]) else None
 		return None
-	
+
 	@staticmethod
 	def DataPathGetParts(dataPath: str) -> list[str]:
 		""" Returns the parts of the data path as a list, e.g. 'view/tiles/c4d' -> ['view', 'tiles', 'c4d'] """
 		if dataPathFetched := UID.FetchDataPath(dataPath):
 			return dataPathFetched.split('/')
 		return []
-	
+
 	@staticmethod
 	def DataPathGetFirstPart(dataPath: str) -> Optional[str]:
 		""" Returns the first part of the data path, e.g. 'view/tiles/c4d' -> 'view' """
