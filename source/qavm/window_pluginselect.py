@@ -39,7 +39,6 @@ class WorkspaceManagerWindow(QMainWindow):
 			wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetTableBuilderClasses().keys()])
 			wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetCustomViewClasses().keys()])
 			wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetMenuItems().keys()])
-		
 		self.workspace = QAVMWorkspace(wsData)
 
 		self.tabWidget.addTab(self.createPluginsTab(), "Plugins")
@@ -51,20 +50,20 @@ class WorkspaceManagerWindow(QMainWindow):
 		layout = QVBoxLayout(tab)
 
 		swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()
-
-		for pluginID, softwareID, softwareHandler in swHandlers:
-			plugin: QAVMPlugin = self.pluginManager.GetPlugin(pluginID)
-			swUID: str = f'{pluginID}#{softwareID}'
-			button = QPushButton(softwareHandler.GetName())
-			button.setToolTip(
-				f'{plugin.GetName()}'
-				f'\nVersion: {plugin.GetVersionStr()}'
-				f'\nSWUID: {swUID}'
-				f'\nPlugin: {plugin.GetExecutablePath()}'
-			)
-			button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-			button.clicked.connect(partial(self.selectPlugin, swUID))
-			layout.addWidget(button)
+		for plID, swID, swHandler in swHandlers:
+			plugin: QAVMPlugin = self.pluginManager.GetPlugin(plID)
+			# plswID: str = f'{plID}#{swID}'
+			for ws in plugin.GetWorkspaces():
+				button = QPushButton(f'{swHandler.GetName()} - {ws.GetName()}')
+				button.setToolTip(
+					f'{plugin.GetName()}'
+					f'\nVersion: {plugin.GetVersionStr()}'
+					f'\nSoftwareID: {swID}'
+					f'\nPlugin: {plugin.GetExecutablePath()}'
+				)
+				button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+				button.clicked.connect(partial(self.selectWorkspaceButtonClicked, ws))
+				layout.addWidget(button)
 
 		return tab
 
@@ -153,14 +152,14 @@ class WorkspaceManagerWindow(QMainWindow):
 			self.presetsTree.addTopLevelItem(parent)
 			parent.setExpanded(True)
 
-	def selectPlugin(self, pluginSwUID: str):
-		plugin: QAVMPlugin = self.pluginManager.GetPlugin(pluginSwUID)
-		if not plugin:
-			QMessageBox.warning(self, "Plugin Not Found", f"Plugin with UID '{pluginSwUID}' not found.", QMessageBox.StandardButton.Ok)
-			logger.error(f'Plugin with UID {pluginSwUID} not found')
-			return
+	def selectWorkspaceButtonClicked(self, workspace: QAVMWorkspace):
+		# plugin: QAVMPlugin = self.pluginManager.GetPlugin(pluginSwUID)
+		# if not plugin:
+		# 	QMessageBox.warning(self, "Plugin Not Found", f"Plugin with UID '{pluginSwUID}' not found.", QMessageBox.StandardButton.Ok)
+		# 	logger.error(f'Plugin with UID {pluginSwUID} not found')
+		# 	return
 		
-		workspace = plugin.GetDefaultWorkspace()
+		# workspace = plugin.GetDefaultWorkspace()
 
 		self.settingsManager.LoadWorkspaceSoftwareSettings(workspace)
 
@@ -169,37 +168,3 @@ class WorkspaceManagerWindow(QMainWindow):
 
 		self.dialogsManager.ShowWorkspace(workspace)
 		self.close()
-
-	# def startMainWindow(self):
-	# 	# self.settingsManager.LoadSoftwareSettings()
-		
-	# 	# app = QApplication.instance()
-	# 	# app.ResetSoftwareDescriptions()
-	# 	# self.dialogsManager.ResetPreferencesWindow()
-	# 	# self.dialogsManager.ResetMainWindow()
-
-	# 	self.dialogsManager.GetMainWindow().show()
-
-	# def show(self):
-	# 	# selectedSoftwareUID = self.qavmSettings.GetSelectedSoftwareUID()
-	# 	# swHandlers: dict[str, SoftwareHandler] = {f'{pUID}#{sID}': swHandler for pUID, sID, swHandler in self.pluginManager.GetSoftwareHandlers()}  # {softwareUID: SoftwareHandler}
-
-	# 	# if not swHandlers:
-	# 	# 	QMessageBox.warning(self, "No Software Handlers", "No software handlers found. Please install at least one plugin with a software handler.", QMessageBox.StandardButton.Ok)
-	# 	# 	logger.warning('No software handlers found')
-	# 	# 	sys.exit(0)
-
-	# 	# if selectedSoftwareUID and selectedSoftwareUID not in swHandlers:
-	# 	# 	logger.warning(f'Selected software plugin not found: {selectedSoftwareUID}')
-	# 	# 	return super(PluginSelectionWindow, self).show()
-			
-	# 	# if selectedSoftwareUID in swHandlers:
-	# 	# 	logger.info(f'Selected software plugin: {selectedSoftwareUID}')
-	# 	# 	return self.startMainWindow()
-		
-	# 	# if len(swHandlers) == 1:
-	# 	# 	logger.info(f'The only software plugin: {list(swHandlers.keys())[0]}')
-	# 	# 	self.qavmSettings.SetSelectedSoftwareUID(list(swHandlers.keys())[0])
-	# 	# 	return self.startMainWindow()
-
-	# 	super(PluginSelectionWindow, self).show()

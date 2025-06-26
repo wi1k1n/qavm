@@ -155,7 +155,9 @@ class SerializableBase(object):
 		raise NotImplementedError("Deserialize method should be implemented in subclasses.")
 
 class QAVMWorkspace(SerializableBase):
-	def __init__(self, data: list[str] = []) -> None:
+	def __init__(self, data: list[str] = [], name: str = '') -> None:
+		self.name: str = name
+		
 		self.tiles: list[str] = []
 		self.table: list[str] = []
 		self.custom: list[str] = []
@@ -179,6 +181,9 @@ class QAVMWorkspace(SerializableBase):
 						self.custom.append(uid)
 				elif parts[0] == 'menuitems':
 					self.menuItems.append(uid)
+
+	def GetName(self) -> str:
+		return self.name
 
 	def IsEmpty(self) -> bool:
 		""" Returns True if the workspace has no views or menu items. """
@@ -497,7 +502,7 @@ class QAVMPlugin:
 				elif UID.IsUIDValid(uid):
 					validUIDs.append(uid)
 
-			self.pluginWorkspaces.append(QAVMWorkspace(validUIDs))
+			self.pluginWorkspaces.append(QAVMWorkspace(validUIDs, wsName))
 	
 	def GetSoftwareHandlers(self) -> dict[str, SoftwareHandler]:
 		""" Returns a dictionary of software handlers registered by the plugin, e.g. {'software_id': SoftwareHandler} """

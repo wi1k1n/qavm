@@ -89,7 +89,7 @@ class QAVMGlobalSettings(BaseSettings):
 		'search_paths_global': [],
 		# searchSubfoldersDepth
 		# hideOnClose
-		'workspace_last': {},  # the workspace is a dict: {'view': [], 'menuitems': []}, where lists are the list of UIDs
+		'workspace_last': {},
 	}
 
 	# def GetSelectedSoftwareUID(self) -> str:
@@ -111,8 +111,8 @@ class QAVMGlobalSettings(BaseSettings):
 	def GetWorkspaceLast(self) -> QAVMWorkspace:
 		return QAVMWorkspace(self.GetSetting('workspace_last'))
 	
-	def SetWorkspaceLast(self, workspace: QAVMWorkspace) -> None:
-		self.SetSetting('workspace_last', workspace.Serialize())
+	def SetWorkspaceLast(self, workspace: QAVMWorkspace | None) -> None:
+		self.SetSetting('workspace_last', workspace.Serialize() if workspace else {})
 
 	def GetAppTheme(self) -> str:
 		return self.GetSetting('app_theme')

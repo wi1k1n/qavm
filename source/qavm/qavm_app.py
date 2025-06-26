@@ -181,7 +181,7 @@ class QAVMApp(QApplication):
 		if args.extraPluginPath:
 			self.pluginPaths.update({Path(p) for p in args.extraPluginPath})
 
-		self.selectedSoftwareUID = args.selectedSoftwareUID
+		# self.selectedSoftwareUID = args.selectedSoftwareUID
 
 	def _loadVerificationKey(self) -> bytes:
 		try:

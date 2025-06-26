@@ -27,7 +27,7 @@ def ParseArgs() -> argparse.Namespace:
 	parser.add_argument('--pluginsFolder', type=str, help='Path to the plugins folder (Default: %APPDATA%/qavm/plugins)', default=utils.GetDefaultPluginsFolderPath())
 	parser.add_argument('--extraPluginsFolder', type=str, action='append', help='Path to an additional plugins folder (can be used multiple times)', default=[])
 	parser.add_argument('--extraPluginPath', type=str, action='append', help='Path to an additional plugin to load (can be used multiple times)', default=[])
-	parser.add_argument('--selectedSoftwareUID', type=str, help='UID of the selected software (Default: empty)', default='')
+	# parser.add_argument('--selectedSoftwareUID', type=str, help='UID of the selected software (Default: empty)', default='')
 	parser.add_argument('--ignoreBuiltinPlugins', action='store_true', help='Ignore (i.e. don\'t load) the built-in plugins (Default: False)')
 	
 	args = parser.parse_args()
@@ -63,10 +63,10 @@ def main():
 		logger.exception(errorStr)
 
 		# Reset the selected software UID to None to avoid issues with the plugin selection window
-		args.selectedSoftwareUID = None
+		# args.selectedSoftwareUID = None
 		app = QAVMApp(sys.argv, args)
 		qavmSettings = app.GetSettingsManager().GetQAVMSettings()
-		qavmSettings.SetSelectedSoftwareUID('')
+		qavmSettings.SetWorkspaceLast(None)
 		qavmSettings.Save()
 		app.closeAllWindows()
 		
