@@ -36,12 +36,19 @@ class UID:
 	PLUGIN_SOFTWARE_PATTERN = re.compile(f'^({DOMAIN_ID_REGEX})#({DOMAIN_ID_REGEX})$')
 	SOFTWARE_DATAPATH_PATTERN = re.compile(f'^({DOMAIN_ID_REGEX})#({DATAPATH_REGEX})$')
 
-	WILDCARD_SAFE_CHARS = r'[a-zA-Z0-9_-]'
+	WILDCARD_SAFE_CHARS = '[a-zA-Z0-9_\\-/]'
 
 	@staticmethod
-	def _wildcard_to_regex(pattern: str) -> str:
-		escaped = re.escape(pattern)
-		regex = escaped.replace(r'\*', '.*').replace(r'\?', '.')
+	def _datapath_wildcard_to_regex(pattern: str) -> str:
+		"""Convert pattern with * and ? to regex limited to UID-safe characters + slashes."""		
+		regex = ''
+		for char in pattern:
+			if char == '*':
+				regex += f'{UID.WILDCARD_SAFE_CHARS}*'
+			elif char == '?':
+				regex += f'{UID.WILDCARD_SAFE_CHARS}'
+			else:
+				regex += re.escape(char)
 		return f'^{regex}$'
 
 	@staticmethod
@@ -77,7 +84,7 @@ class UID:
 	@staticmethod
 	def MatchDataPath(pattern: str, path: str) -> bool:
 		"""Checks if a data path matches the wildcard pattern."""
-		regex = re.compile(UID._wildcard_to_regex(pattern))
+		regex = re.compile(UID._datapath_wildcard_to_regex(pattern))
 		return regex.fullmatch(path) is not None
 
 	@staticmethod

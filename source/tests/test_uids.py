@@ -16,7 +16,10 @@ class TestUID_Basic(unittest.TestCase):
 		]
 		invalid_ids = [
 			"", ".", "..", "plugin..id", ".plugin", "plugin.", "plugin id", "plugin/id",
-			"plugin*", "plugin?", "plugin.id*", "plugin.id?"
+			"plugin*", "plugin?", "plugin.id*", "plugin.id?",
+			# Unsupported characters
+			"plugin id", "plugin/id", "plugin\\id", "plugin:id", "plugin|id",
+			"plugin<id", "plugin>id", "plugin\"id", "plugin?id", "plugin*id"
 		]
 		for pid in valid_ids:
 			self.assertTrue(UID.IsPluginIDValid(pid), f"Should be valid: {pid}")
@@ -27,10 +30,13 @@ class TestUID_Basic(unittest.TestCase):
 		valid_paths = [
 			"path", "path/sub_path", "a/b-c/d_e", "123/abc_123/456", "tiles/c4d",
 			"some-path/with_under-scores", "path/*", "path/?", "path/*/sub", "path/*_suffix",
-			"path/*/*", "path/?/?", "path/*/sub/*", "path/*_suffix?"
+			"path/*/*", "path/?/?", "path/*/sub/*", "path/*_suffix?", "path?question_mark", "path*asterisk"
 		]
 		invalid_paths = [
 			"", "/", "//", "path//sub", "/start", "end/", "with space", "bad\\slash",
+			# Unsupported characters
+			"with space", "bad\\slash", "path:colon", "path|pipe",
+			"path<less_than", "path>greater_than", "path\"quote",
 		]
 		for path in valid_paths:
 			self.assertTrue(UID.IsDataPathValid(path), f"Should be valid: {path}")
@@ -53,7 +59,17 @@ class TestUID_Basic(unittest.TestCase):
 			"bad/id#c.d#valid/path",            # bad plugin ID
 			"a.b#bad/id#valid/path",            # bad software ID
 			"com.plugin-id#software.abc*#path/t",  # invalid wildcard usage
-			"com.plugin-id#software.abc?#path/?/*"   # invalid wildcard usage
+			"com.plugin-id#software.abc?#path/?/*",   # invalid wildcard usage
+			# Unsupported characters
+			"com.plugin id#software.abc#path/with space",
+			"com.plugin-id#software.abc#path\\with_backslash",
+			"com.plugin-id#software:abc#path/with:colon",
+			"com.plugin-id#software|abc#path/with|pipe",
+			"com.plugin-id#software<abc#path/with<less_than",
+			"com.plugin-id#software>abc#path/with>greater_than",
+			"com.plugin-id#software\"abc#path/with\"quote",
+			"com.plugin-id#software?abc#path/with?question_mark",
+			"com.plugin-id#software*abc#path/with*asterisk"
 		]
 		for uid in valid_uids:
 			self.assertTrue(UID.IsUIDValid(uid), f"Should be valid: {uid}")
@@ -61,12 +77,9 @@ class TestUID_Basic(unittest.TestCase):
 			self.assertFalse(UID.IsUIDValid(uid), f"Should be invalid: {uid}")
 
 	def test_fetch_methods(self):
-		valid_uid = "com.plugin-id#software_name.c4d#view/tiles-c4d"
-		self.assertEqual(UID.FetchPluginID(valid_uid), "com.plugin-id")
-		self.assertEqual(UID.FetchSoftwareID(valid_uid), "software_name.c4d")
-		self.assertEqual(UID.FetchDataPath(valid_uid), "view/tiles-c4d")
+		cases = [
+			("com.plugin-id#software_name.c4d#view/tiles-c4d", "com.plugin-id", "software_name.c4d", "view/tiles-c4d"),
 
-		invalid_cases = [
 			("bad id#software.c4d#view/tiles", None, "software.c4d", "view/tiles"),
 			("com.plugin#bad/id#view/tiles", "com.plugin", None, "view/tiles"),
 			("com.plugin#software.c4d#bad..path", "com.plugin", "software.c4d", None),
@@ -74,12 +87,23 @@ class TestUID_Basic(unittest.TestCase):
 			("", None, None, None),
 			("a#b", "a", "b", "b"),
 			("com.plugin-id#software.abc#path/*", "com.plugin-id", "software.abc", "path/*"),
-			("com.plugin-id#software.abc#path/?", "com.plugin-id", "software.abc", "path/?")
+			("com.plugin-id#software.abc#path/?", "com.plugin-id", "software.abc", "path/?"),
+			# Unsupported characters
+			("com.plugin id#software.abc#path/with space", None, "software.abc", None),  # space in plugin ID doesn't matter for the software ID
+			("com.plugin-id#software.abc#path\\with_backslash", "com.plugin-id", "software.abc", None),
+			("com.plugin-id#software:abc#path/with:colon", "com.plugin-id", None, None),
+			("com.plugin-id#software|abc#path/with|pipe", "com.plugin-id", None, None),
+			("com.plugin-id#software<abc#path/with<less_than", "com.plugin-id", None, None),
+			("com.plugin-id#software>abc#path/with>greater_than", "com.plugin-id", None, None),
+			("com.plugin-id#software\"abc#path/with\"quote", "com.plugin-id", None, None),
+			("com.plugin-id#software?abc#path/with?question_mark", "com.plugin-id", None, "path/with?question_mark"),
+			("com.plugin-id#software*abc#path/with*asterisk", "com.plugin-id", None, "path/with*asterisk")
 		]
-		for uid, expected_pid, expected_sid, expected_dpath in invalid_cases:
-			self.assertEqual(UID.FetchPluginID(uid), expected_pid)
-			self.assertEqual(UID.FetchSoftwareID(uid), expected_sid)
-			self.assertEqual(UID.FetchDataPath(uid), expected_dpath)
+
+		for uid, expected_pid, expected_sid, expected_dpath in cases:
+			self.assertEqual(UID.FetchPluginID(uid), expected_pid, f"Plugin ID mismatch for {uid}")
+			self.assertEqual(UID.FetchSoftwareID(uid), expected_sid, f"Software ID mismatch for {uid}")
+			self.assertEqual(UID.FetchDataPath(uid), expected_dpath, f"Data path mismatch for {uid}")
 
 	def test_plugin_software_id_validity(self):
 		valid = [
@@ -166,6 +190,16 @@ class TestUID_Basic(unittest.TestCase):
 			("path/*", "otherpath/with-dashes"),
 			("path*/*", "path123"),
 			("path/*", "otherpath/with123numbers"),
+			# Unsupported characters
+			("path/*", "path/with space"),
+			("path/*", "path\\with_backslash"),
+			("path/*", "path/with:colon"),
+			("path/*", "path/with|pipe"),
+			("path/*", "path/with<less_than"),
+			("path/*", "path/with>greater_than"),
+			("path/*", "path/with\"quote"),
+			("path/*", "path/with?question_mark"),
+			("path/*", "path/with*asterisk"),
 		]
 
 		for pattern, path in invalid_cases:
