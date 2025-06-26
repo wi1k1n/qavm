@@ -291,7 +291,8 @@ class AnimatedRowGradientDelegate(QStyledItemDelegate):
 
 class RunningDescriptorAnimatedRowGradientDelegate(AnimatedRowGradientDelegate):
 	def IsSpecialPaint(self, descIdx: int):
-		descs = QApplication.instance().GetSoftwareDescriptions()
+		return False  # TODO: temporarily disabled to get rid of crash
+		descs = QApplication.instance().GetSoftwareDescriptors()
 		if descIdx >= len(descs):
 			return False
 		

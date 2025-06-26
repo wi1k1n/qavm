@@ -12,10 +12,10 @@ PLUGIN_WEBSITE = 'https://github.com/wi1k1n/qavm'  # plugin's website or reposit
 import os, logging
 from pathlib import Path
 from functools import partial
-from typing import Any, Iterator
+from typing import Any, Iterator, Optional
 
 from qavm.qavmapi import (
-	BaseQualifier, BaseDescriptor, BaseTileBuilder, SoftwareBaseSettings, BaseTableBuilder, BaseContextMenu,
+	BaseQualifier, BaseDescriptor, BaseTileBuilder, SoftwareBaseSettings, BaseTableBuilder,
 	BaseCustomView,	QualifierIdentificationConfig, BaseSettingsContainer, BaseSettingsEntry,
 	BaseMenuItems, 
 )
@@ -72,7 +72,31 @@ class SimpleDescriptor(BaseDescriptor):
 		self.filesCount: int = len(list(self.dirPath.glob('*.*')))
 		self.foldersCount: int = len(list(self.dirPath.glob('*/')))
 
-class SimpleTableBuilder(BaseTableBuilder):
+class ContextBase(object):
+	def _getContextMenu(self, desc: BaseDescriptor) -> QMenu | None:
+		menu = QMenu()
+
+		titleLabel: QLabel = QLabel(f'{desc.dirPath.name}')
+		titleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		titleLabel.setStyleSheet("font-style: italic;")
+		titleLabel.setContentsMargins(0, 7, 0, 3)
+		titleAction: QWidgetAction = QWidgetAction(menu)
+		titleAction.setDefaultWidget(titleLabel)
+
+		menu.addAction(titleAction)
+		if path := desc.GetExecutablePath():
+			menu.addAction(f'Show "{path.name}"', partial(self._showDescriptor, desc))
+			menu.addSeparator()
+		menu.addAction('Open folder', partial(OpenFolderInExplorer, desc.dirPath))
+
+		return menu
+	
+	def _showDescriptor(self, desc: SimpleDescriptor):
+		# This method can be used to show the descriptor in a custom way, e.g. open a dialog with details.
+		QMessageBox.information(None, 'Descriptor Info', f'Directory: {desc.dirPath}\nFiles: {desc.filesCount}\nFolders: {desc.foldersCount}')
+		desc.updated.emit()
+
+class SimpleTableBuilder(BaseTableBuilder, ContextBase):
 	def GetTableCaptions(self) -> list[str]:
 		return ['Files count', 'Folders count', 'Path']
 	
@@ -90,6 +114,16 @@ class SimpleTableBuilder(BaseTableBuilder):
 				dirLinkTarget = f' ( → {qutils.GetJunctionTarget(desc.dirPath)})'
 			return f'{dirTypePrefix}{str(desc.dirPath)}{dirLinkTarget}'
 		return ''
+	
+	def GetContextMenu(self, desc: BaseDescriptor) -> Optional[QMenu]:
+		return self._getContextMenu(desc)
+	
+class SimpleTileBuilder(BaseTileBuilder, ContextBase):
+	def GetName(self) -> str:
+		return 'Simple Tiles'
+	
+	def GetContextMenu(self, desc: BaseDescriptor) -> Optional[QMenu]:
+		return self._getContextMenu(desc)
 	
 class SimpleSettings(SoftwareBaseSettings):
 	pass
@@ -175,14 +209,39 @@ class ExampleDescriptorEXE(ExampleDescriptorBase):
 class ExampleDescriptorPNG(ExampleDescriptorBase):
 	def _getGlobPattern(self) -> str:
 		return '*.png'
+	
+class ExampleContextMenuBase(object):
+	def _getContextMenu(self, desc: ExampleDescriptorEXE) -> QMenu:
+		menu = QMenu()
 
-class ExampleTileBuilderBoth(BaseTileBuilder):
-	def __init__(self, settings: SoftwareBaseSettings, contextMenu: BaseContextMenu):
-		super().__init__(settings, contextMenu)
+		titleLabel: QLabel = QLabel(f'{desc.dirPath.name}')
+		titleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		titleLabel.setStyleSheet("font-style: italic;")
+		titleLabel.setContentsMargins(0, 7, 0, 3)
+		titleAction: QWidgetAction = QWidgetAction(menu)
+		titleAction.setDefaultWidget(titleLabel)
+
+		menu.addAction(titleAction)
+		if path := desc.GetExecutablePath():
+			menu.addAction(f'Run "{path.name}"', partial(self._run, desc))
+			menu.addSeparator()
+		menu.addAction('Open folder', partial(OpenFolderInExplorer, desc.dirPath))
+
+		return menu
+
+	def _run(self, desc: ExampleDescriptorEXE, arguments: list[str] = []):
+		StartProcess(desc.UID, desc.GetExecutablePath(), arguments)
+		desc.updated.emit()
+
+class ExampleTileBuilderBoth(BaseTileBuilder, ExampleContextMenuBase):
+	def __init__(self, settings: SoftwareBaseSettings):
+		super().__init__(settings)
 		# From BaseTileBuilder:
 		# self.settings: SoftwareBaseSettings
-		# self.contextMenu: BaseContextMenu
 		# self.themeData: dict
+
+	def GetContextMenu(self, desc: BaseDescriptor) -> QMenu | None:
+		return self._getContextMenu(desc)
 
 	def GetName(self) -> str:
 		return 'Example Tiles EXE/PNG'
@@ -339,29 +398,6 @@ class ExampleSettings(SoftwareBaseSettings):
 	# 	if isTableUpdateRequired:
 	# 		self.tablesUpdateRequired.emit()
 
-class ExampleContextMenu(BaseContextMenu):
-	def CreateMenu(self, desc: ExampleDescriptorEXE) -> QMenu:
-		menu = QMenu()
-
-		titleLabel: QLabel = QLabel(f'{desc.dirPath.name}')
-		titleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-		titleLabel.setStyleSheet("font-style: italic;")
-		titleLabel.setContentsMargins(0, 7, 0, 3)
-		titleAction: QWidgetAction = QWidgetAction(menu)
-		titleAction.setDefaultWidget(titleLabel)
-
-		menu.addAction(titleAction)
-		if path := desc.GetExecutablePath():
-			menu.addAction(f'Run "{path.name}"', partial(self._run, desc))
-			menu.addSeparator()
-		menu.addAction('Open folder', partial(OpenFolderInExplorer, desc.dirPath))
-
-		return menu
-
-	def _run(self, desc: ExampleDescriptorEXE, arguments: list[str] = []):
-		StartProcess(desc.UID, desc.GetExecutablePath(), arguments)
-		desc.updated.emit()
-
 class ExampleMenuItems(BaseMenuItems):
 	def GetMenus(self, parent) -> list[QMenu | QAction]:
 		# This method can be used to create custom menus that can be added to the main QAVM window.
@@ -418,6 +454,9 @@ def RegisterPluginSoftware():
 			'views': {
 				'table': {
 					'1': SimpleTableBuilder,
+				},
+				'tiles': {
+					'1': SimpleTileBuilder,
 				}
 			},
 			'settings': SimpleSettings,
@@ -455,42 +494,13 @@ def RegisterPluginSoftware():
 			'settings': ExampleSettings,
 			'menuitems': ExampleMenuItems,
 		},
-
-		{
-			'id': 'software.example2',  # this is a unique id under the PLUGIN_ID domain
-			'name': 'Example SW 2',
-			'descriptors': {
-				'1': {
-					'qualifier': ExampleQualifierEXE,
-					'descriptor': ExampleDescriptorEXE,
-				},
-			},
-			'views': {
-				'tiles': {
-					'1': ExampleTileBuilderEXE,
-				},
-				'table': {
-					'1': ExampleTableBuilderEXE,
-				},
-				'custom': {
-					'1': ExampleCustomView1,
-				}
-			},
-			'settings': ExampleSettings,
-			'menuitems': ExampleMenuItems,
-		}
 	]
 
 def RegisterPluginWorkspaces():
 	return {
-		# 'Default': [
-		# 	'software.example1#views/tiles/exe',
-		# 	'software.example1#views/tiles/png',
-		# 	'software.example1#views/table/png',
-		# 	'software.example1#views/custom/1',
-		# ],
 		'Default': [
 			'software.simple#views/table/1',
+			'software.simple#views/tiles/1',
 		],
 		'EXE/PNG': [
 			'software.example1#views/tiles/all',

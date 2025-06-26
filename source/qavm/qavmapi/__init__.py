@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from functools import partial
 import json
 
@@ -374,19 +374,10 @@ class BaseDescriptor(QObject):
 			dirType = 'J'
 		return dirType
 
-class BaseContextMenu(QObject):
+class BaseBuilder(QObject):
 	def __init__(self, settings: SoftwareBaseSettings):
 		super().__init__()
 		self.settings: SoftwareBaseSettings = settings
-	
-	def CreateMenu(self, desc: BaseDescriptor) -> QMenu:
-		return QMenu()
-
-class BaseBuilder(QObject):
-	def __init__(self, settings: SoftwareBaseSettings, contextMenu: BaseContextMenu):
-		super().__init__()
-		self.settings: SoftwareBaseSettings = settings
-		self.contextMenu: BaseContextMenu = contextMenu
 		self.themeData: dict[str, str | None] | None = GetThemeData()
 
 	def GetName(self) -> str:
@@ -399,6 +390,10 @@ class BaseBuilder(QObject):
 	def ProcessDescriptors(self, descriptorType: str, descriptors: list[BaseDescriptor]) -> list[BaseDescriptor]:
 		""" Prepares a list of descriptors for further elements creation. """
 		return descriptors
+	
+	def GetContextMenu(self, desc: BaseDescriptor) -> Optional[QMenu]:
+		""" Is called when the context menu is requested for a certain descriptor. """
+		return None
 
 class BaseTileBuilder(BaseBuilder):
 	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:

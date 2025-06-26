@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Type, Optional, Any
 
 from qavm.qavmapi import (
-	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder, BaseContextMenu,
+	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder,
 	BaseCustomView, SoftwareBaseSettings, BaseMenuItems, 
 )
 import qavm.qavmapi.utils as utils
@@ -465,6 +465,8 @@ class QAVMPlugin:
 				# TODO: make it more robust to handle the full UID format too (and also the dataPath format if there's a single swHandler, etc)
 				if UID.IsSoftwareIDDataPathValid(uid):
 					validUIDs.append(f'{self.pluginID}#{uid}')
+				elif UID.IsUIDValid(uid):
+					validUIDs.append(uid)
 
 			self.pluginWorkspaces.append(QAVMWorkspace(validUIDs))
 	
