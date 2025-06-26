@@ -38,7 +38,7 @@ class WorkspaceManagerWindow(QMainWindow):
 			wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetTileBuilderClasses().keys()])
 			wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetTableBuilderClasses().keys()])
 			wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetCustomViewClasses().keys()])
-			# TODO: menuitems
+			wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetMenuItems().keys()])
 		
 		self.workspace = QAVMWorkspace(wsData)
 
@@ -115,7 +115,7 @@ class WorkspaceManagerWindow(QMainWindow):
 			swViewsData['tiles'] = [UID.DataPathGetLastPart(viewID) for viewID in swHandler.GetTileBuilderClasses().keys() if viewID]
 			swViewsData['table'] = [UID.DataPathGetLastPart(viewID) for viewID in swHandler.GetTableBuilderClasses().keys() if viewID]
 			swViewsData['custom'] = [UID.DataPathGetLastPart(viewID) for viewID in swHandler.GetCustomViewClasses().keys() if viewID]
-			# TODO: menuitems
+			swViewsData['menuitems'] = [UID.DataPathGetLastPart(viewID) for viewID in swHandler.GetMenuItems().keys() if viewID]
 
 			treeData[swHandler.GetName()] = swViewsData
 		
@@ -142,7 +142,7 @@ class WorkspaceManagerWindow(QMainWindow):
 			'tiles': list(swHandler.GetTileBuilderClasses().keys()),
 			'table': list(swHandler.GetTableBuilderClasses().keys()),
 			'custom': list(swHandler.GetCustomViewClasses().keys()),
-			# 'menuitems': [],
+			'menuitems': list(swHandler.GetMenuItems().keys())
 		}
 		for key, items in viewsData.items():
 			parent = QTreeWidgetItem([key, ''])

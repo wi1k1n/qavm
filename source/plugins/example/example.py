@@ -398,20 +398,20 @@ class ExampleSettings(SoftwareBaseSettings):
 	# 	if isTableUpdateRequired:
 	# 		self.tablesUpdateRequired.emit()
 
-class ExampleMenuItems(BaseMenuItems):
-	def GetMenus(self, parent) -> list[QMenu | QAction]:
-		# This method can be used to create custom menus that can be added to the main QAVM window.
-		# For example, you can create a menu with some actions related to the plugin.
+class ExampleMenuItemBase(BaseMenuItems):
+	def _exampleAction(self, id):
+		QMessageBox.information(None, f'Example Action {id}', f'This is an example action {id} from the Example Plugin.')
+
+class ExampleMenuItem1(ExampleMenuItemBase):
+	def GetMenu(self, parent) -> Optional[QMenu | QAction]:
 		menu = QMenu('Example Plugin', parent)
 		menu.addAction('Example Action 1', partial(self._exampleAction, 1))
 		menu.addAction('Example Action 2', partial(self._exampleAction, 2))
-
-		action = QAction('Example Action 3', parent, triggered=partial(self._exampleAction, 3))
-		
-		return [menu, action]
+		return menu
 	
-	def _exampleAction(self, id):
-		QMessageBox.information(None, f'Example Action {id}', f'This is an example action {id} from the Example Plugin.')
+class ExampleMenuItem2(ExampleMenuItemBase):
+	def GetMenu(self, parent) -> Optional[QMenu | QAction]:
+		return QAction('Example Action 3', parent, triggered=partial(self._exampleAction, 3))
 
 class ExampleCustomView1(BaseCustomView):
 	def __init__(self, settings: SoftwareBaseSettings, parent=None):
@@ -491,8 +491,11 @@ def RegisterPluginSoftware():
 					'2': ExampleCustomView2,
 				}
 			},
+			'menuitems': {
+				'1': ExampleMenuItem1,
+				'2': ExampleMenuItem2,
+			},
 			'settings': ExampleSettings,
-			'menuitems': ExampleMenuItems,
 		},
 	]
 
@@ -500,7 +503,8 @@ def RegisterPluginWorkspaces():
 	return {
 		'Default': [
 			'software.simple#views/table/1',
-			'software.simple#views/tiles/1',
+			'software.simple#views/tiles/1',  # TODO: allow regex here
+			'software.example1#menuitems/1',
 		],
 		'EXE/PNG': [
 			'software.example1#views/tiles/all',

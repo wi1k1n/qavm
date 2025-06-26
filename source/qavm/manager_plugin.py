@@ -155,14 +155,19 @@ class QAVMWorkspace:
 				raise ValueError("Invalid workspace data: all view UIDs should be strings.")
 			if dataPath := UID.FetchDataPath(uid):
 				parts: list[str] = UID.DataPathGetParts(dataPath)
-				if len(parts) != 3 or parts[0] not in ('views') or parts[1] not in ('tiles', 'table', 'custom'):
-					raise ValueError(f"Invalid view UID '{uid}'")
-				if parts[1] == 'tiles':
-					self.tiles.append(uid)
-				elif parts[1] == 'table':
-					self.table.append(uid)
-				elif parts[1] == 'custom':
-					self.custom.append(uid)
+				if not parts:
+					raise ValueError(f"Invalid view UID '{uid}': data path is empty.")
+				if parts[0] == 'views':
+					if len(parts) < 2:
+						raise ValueError(f"Invalid view UID '{uid}': missing view type.")
+					if parts[1] == 'tiles':
+						self.tiles.append(uid)
+					elif parts[1] == 'table':
+						self.table.append(uid)
+					elif parts[1] == 'custom':
+						self.custom.append(uid)
+				elif parts[0] == 'menuitems':
+					self.menuItems.append(uid)
 
 	def IsEmpty(self) -> bool:
 		""" Returns True if the workspace has no views or menu items. """
@@ -195,38 +200,31 @@ class QAVMWorkspace:
 			softwareHandlers.update(plugin.GetSoftwareHandlers().values())
 		return softwareHandlers, notFoundPlugins
 	
-	def _getViews(self, viewUIDs: list[str]) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
-		views: dict[SoftwareHandler, list[str]] = {}
-		for viewUID in viewUIDs:
-			if plugin := QApplication.instance().GetPluginManager().GetPlugin(viewUID):
-				if swHandler := plugin.GetSoftwareHandler(viewUID):
-					if swHandler not in views:
-						views[swHandler] = []
-					views[swHandler].append(viewUID)
-		return views
-	
 	def GetTilesViews(self) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
 		""" Returns tiles views in current workspace grouped by software handlers. """
-		return self._getViews(self.tiles)
+		return self._getItems(self.tiles)
 	
 	def GetTableViews(self) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
 		""" Returns table views in current workspace grouped by software handlers. """
-		return self._getViews(self.table)
+		return self._getItems(self.table)
 	
 	def GetCustomViews(self) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
 		""" Returns custom views in current workspace grouped by software handlers. """
-		return self._getViews(self.custom)
+		return self._getItems(self.custom)
 	
-	def AsDict(self) -> dict:
-		""" Returns the workspace data as a dictionary. """
-		return {
-			'views': {
-				'tiles': self.tiles,
-				'table': self.table,
-				'custom': self.custom,
-			},
-			'menuitems': self.menuItems
-		}
+	def GetMenuItems(self) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
+		""" Returns menu items in current workspace grouped by software handlers. """
+		return self._getItems(self.menuItems)
+	
+	def _getItems(self, itemUIDs: list[str]) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [itemUIDs]}
+		items: dict[SoftwareHandler, list[str]] = {}
+		for itemUID in itemUIDs:
+			if plugin := QApplication.instance().GetPluginManager().GetPlugin(itemUID):
+				if swHandler := plugin.GetSoftwareHandler(itemUID):
+					if swHandler not in items:
+						items[swHandler] = []
+					items[swHandler].append(itemUID)
+		return items
 	
 	def _getInvolvedPluginsUIDs(self, uids: list[str]) -> tuple[set[QAVMPlugin], set[str]]:
 		app = QApplication.instance()
@@ -313,11 +311,14 @@ class SoftwareHandler:
 			self.settingsInstance = self.settingsClass(self.GetID())
 
 		########################### MenuItems ###########################
-		self.menuItemsClass: Optional[Type[BaseMenuItems]] = regData.get(self.KEY_MENUITEMS, None)
-		self.menuItemsInstance: Optional[BaseMenuItems] = None
-		if self.menuItemsClass is not None:  # optional
-			self._checkSubClass(self.menuItemsClass, BaseMenuItems, self.KEY_MENUITEMS)
-			self.menuItemsInstance = self.menuItemsClass(self.settingsInstance)
+		self.menuItems: dict[str, BaseMenuItems] = dict()  # menuItemTypeId: menuItemInstance
+
+		menuItemsData: dict = regData.get(self.KEY_MENUITEMS, {})
+		self._checkType(menuItemsData, dict, self.KEY_MENUITEMS)
+		for menuItemTypeId, menuItemClass in menuItemsData.items():
+			self._checkType(menuItemTypeId, str, 'menu item type ID')
+			self._checkSubClass(menuItemClass, BaseMenuItems, 'menu items class')
+			self.menuItems[f'{self.KEY_MENUITEMS}/{menuItemTypeId}'] = menuItemClass(self.settingsInstance)
 			
 	def _checkType(self, value: object, expectedType: type, name: str) -> None:
 		# TODO: move to some plugins utils module
@@ -382,9 +383,15 @@ class SoftwareHandler:
 		""" Returns the settings class registered by the software handler, e.g. 'BaseSettings' or None if not set """
 		return self.settingsInstance
 	
-	def GetMenuItems(self) -> BaseMenuItems | None:
-		""" Returns the menu items class registered by the software handler, e.g. 'BaseMenuItems' or None if not set """
-		return self.menuItemsInstance
+	def GetMenuItems(self) -> dict[str, BaseMenuItems]:
+		""" Returns a dictionary of menu items registered by the software handler, e.g. {'menu_item_type_id': BaseMenuItems} """
+		return self.menuItems
+	
+	def GetMenuItem(self, menuItemTypeId: str) -> BaseMenuItems | None:
+		""" Returns the menu item for the given menu item type ID, e.g. 'BaseMenuItems' """
+		if menuItemTypeId := UID.FetchDataPath(menuItemTypeId):
+			return self.menuItems.get(menuItemTypeId, None)
+		return None
 
 class QAVMPlugin:
 	"""
@@ -613,7 +620,7 @@ class PluginManager:
 			return None
 		return plugin.GetSoftwareHandlers().get(softwareID, None)
 	
-	def GetCurrentSoftwareHandler(self) -> SoftwareHandler:
-		app = QApplication.instance()
-		qavmSettings = app.GetSettingsManager().GetQAVMSettings()
-		return self.GetSoftwareHandler(qavmSettings.GetSelectedSoftwareUID())
+	# def GetCurrentSoftwareHandler(self) -> SoftwareHandler:
+	# 	app = QApplication.instance()
+	# 	qavmSettings = app.GetSettingsManager().GetQAVMSettings()
+	# 	return self.GetSoftwareHandler(qavmSettings.GetSelectedSoftwareUID())

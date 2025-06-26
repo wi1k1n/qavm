@@ -10,8 +10,8 @@
             "request": "launch",
             "program": "source/qavm.py",
             "args": [
-                "--extraPluginsFolder", "source/plugins",
-                "--extraPluginsFolder", "../qavm-plugins/plugins",
+                "--extraPluginsFolder", "source/plugins", // Example
+                "--extraPluginsFolder", "../qavm-plugins/plugins", // Custom plugins
                 "--ignoreBuiltinPlugins",
             ],
             "console": "integratedTerminal",

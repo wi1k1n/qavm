@@ -422,11 +422,11 @@ class BaseCustomView(QWidget):
 	def GetName(self) -> str:
 		return self.__class__.__name__
 
-class BaseMenuItems(QObject):
+class BaseMenuItems(QObject):  # TODO: rename to BaseMenuItem
 	def __init__(self, settings: SoftwareBaseSettings):
 		super().__init__()
 		self.settings: SoftwareBaseSettings = settings
 
-	def GetMenus(self, parent) -> list[QMenu | QAction]:
-		""" Returns a list of QMenu objects to be added to the main menu. """
-		return []
+	def GetMenu(self, parent) -> Optional[QMenu | QAction]:
+		""" Returns a QMenu or QAction object to be added to the main menu. QActions are not supported on MacOS. """
+		return None

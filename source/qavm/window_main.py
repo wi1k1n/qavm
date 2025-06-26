@@ -238,22 +238,21 @@ class MainWindow(QMainWindow):
 		# 		switchMenu.addAction(action)
 		# switchMenu.aboutToShow.connect(populate_switch_menu)  # TODO: does this need dynamic update?
 
-		# softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
-		# menuItems: BaseMenuItems = softwareHandler.GetMenuItems()
-		# menus = menuItems.GetMenus(self)
-		# for menuItemsMenu in menus:
-		# 	if menuItemsMenu is None:
-		# 		continue
-		# 	if isinstance(menuItemsMenu, QMenu):
-		# 		menuBar.addMenu(menuItemsMenu)
-		# 		self.pluginMenuItems.append(menuItemsMenu)
-		# 		continue
-		# 	elif isinstance(menuItemsMenu, QAction):
-		# 		menuBar.addAction(menuItemsMenu)
-		# 		self.pluginMenuItems.append(menuItemsMenu)
-		# 		continue
+		app = QApplication.instance()
+		workspace: QAVMWorkspace = app.GetWorkspace()
 
-		# 	logger.warning(f"Menu item {menuItemsMenu} is not a valid QMenu or QAction. Skipping.")
+		for swHandler, menuItemsUIDs in workspace.GetMenuItems().items():
+			for menuItemUID in menuItemsUIDs:
+				if menuItem := swHandler.GetMenuItem(menuItemUID):
+					if menu := menuItem.GetMenu(self):
+						if isinstance(menu, QMenu):
+							menuBar.addMenu(menu)
+							self.pluginMenuItems.append(menu)  # for some reason QMenu and QAction need to live in the MainWindow, otherwise Qt gets rid of them
+						elif isinstance(menu, QAction):
+							menuBar.addAction(menu)
+							self.pluginMenuItems.append(menu)  # for some reason QMenu and QAction need to live in the MainWindow, otherwise Qt gets rid of them
+						else:
+							logger.warning(f"Menu item {menu} is not a valid QMenu or QAction. Skipping.")
 
 		helpMenu: QMenu = QMenu("&Help", self)
 		helpMenu.addAction(self.actionAbout)
