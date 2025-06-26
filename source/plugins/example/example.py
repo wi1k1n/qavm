@@ -17,7 +17,7 @@ from typing import Any, Iterator, Optional
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, SoftwareBaseSettings, BaseTableBuilder,
 	BaseCustomView,	QualifierIdentificationConfig, BaseSettingsContainer, BaseSettingsEntry,
-	BaseMenuItems, 
+	BaseMenuItem, 
 )
 from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem, RunningBorderWidget
 
@@ -398,7 +398,7 @@ class ExampleSettings(SoftwareBaseSettings):
 	# 	if isTableUpdateRequired:
 	# 		self.tablesUpdateRequired.emit()
 
-class ExampleMenuItemBase(BaseMenuItems):
+class ExampleMenuItemBase(BaseMenuItem):
 	def _exampleAction(self, id):
 		QMessageBox.information(None, f'Example Action {id}', f'This is an example action {id} from the Example Plugin.')
 

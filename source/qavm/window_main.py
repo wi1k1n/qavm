@@ -17,7 +17,7 @@ from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder,
-	BaseCustomView, SoftwareBaseSettings, BaseMenuItems, BaseBuilder, 
+	BaseCustomView, SoftwareBaseSettings, BaseMenuItem, BaseBuilder, 
 )
 from qavm.qavmapi.utils import PlatformMacOS, PlatformWindows, PlatformLinux
 from qavm.utils_gui import FlowLayout

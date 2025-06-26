@@ -5,7 +5,7 @@ from typing import Type, Optional, Any
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder,
-	BaseCustomView, SoftwareBaseSettings, BaseMenuItems, 
+	BaseCustomView, SoftwareBaseSettings, BaseMenuItem, 
 )
 import qavm.qavmapi.utils as utils
 
@@ -311,13 +311,13 @@ class SoftwareHandler:
 			self.settingsInstance = self.settingsClass(self.GetID())
 
 		########################### MenuItems ###########################
-		self.menuItems: dict[str, BaseMenuItems] = dict()  # menuItemTypeId: menuItemInstance
+		self.menuItems: dict[str, BaseMenuItem] = dict()  # menuItemTypeId: menuItemInstance
 
 		menuItemsData: dict = regData.get(self.KEY_MENUITEMS, {})
 		self._checkType(menuItemsData, dict, self.KEY_MENUITEMS)
 		for menuItemTypeId, menuItemClass in menuItemsData.items():
 			self._checkType(menuItemTypeId, str, 'menu item type ID')
-			self._checkSubClass(menuItemClass, BaseMenuItems, 'menu items class')
+			self._checkSubClass(menuItemClass, BaseMenuItem, 'menu items class')
 			self.menuItems[f'{self.KEY_MENUITEMS}/{menuItemTypeId}'] = menuItemClass(self.settingsInstance)
 			
 	def _checkType(self, value: object, expectedType: type, name: str) -> None:
@@ -383,12 +383,12 @@ class SoftwareHandler:
 		""" Returns the settings class registered by the software handler, e.g. 'BaseSettings' or None if not set """
 		return self.settingsInstance
 	
-	def GetMenuItems(self) -> dict[str, BaseMenuItems]:
-		""" Returns a dictionary of menu items registered by the software handler, e.g. {'menu_item_type_id': BaseMenuItems} """
+	def GetMenuItems(self) -> dict[str, BaseMenuItem]:
+		""" Returns a dictionary of menu items registered by the software handler, e.g. {'menu_item_type_id': BaseMenuItem} """
 		return self.menuItems
 	
-	def GetMenuItem(self, menuItemTypeId: str) -> BaseMenuItems | None:
-		""" Returns the menu item for the given menu item type ID, e.g. 'BaseMenuItems' """
+	def GetMenuItem(self, menuItemTypeId: str) -> BaseMenuItem | None:
+		""" Returns the menu item for the given menu item type ID, e.g. 'BaseMenuItem' """
 		if menuItemTypeId := UID.FetchDataPath(menuItemTypeId):
 			return self.menuItems.get(menuItemTypeId, None)
 		return None
