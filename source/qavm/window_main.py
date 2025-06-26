@@ -14,7 +14,6 @@ from PyQt6.QtWidgets import (
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler, UID, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
-# from qavm.manager_workspace import QAVMWorkspace
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder,

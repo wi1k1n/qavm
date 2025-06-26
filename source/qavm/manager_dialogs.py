@@ -2,7 +2,6 @@ from qavm.window_pluginselect import WorkspaceManagerWindow
 from qavm.window_main import MainWindow
 from qavm.window_settings import PreferencesWindow
 from qavm.manager_plugin import QAVMWorkspace
-# from qavm.manager_workspace import QAVMWorkspace
 
 from PyQt6.QtWidgets import QApplication
 

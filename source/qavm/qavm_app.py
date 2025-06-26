@@ -5,7 +5,6 @@ from pathlib import Path
 from qavm.manager_plugin import PluginManager, SoftwareHandler, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.manager_dialogs import DialogsManager
-# from qavm.manager_workspace import QAVMWorkspace
 
 import qavm.qavmapi.utils as utils  # TODO: rename to qutils
 import qavm.qavmapi.gui as gui_utils

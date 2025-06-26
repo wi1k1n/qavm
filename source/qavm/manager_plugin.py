@@ -418,7 +418,6 @@ class QAVMPlugin:
 		self.pluginDeveloper = getattr(self.module, 'PLUGIN_DEVELOPER', 'Unknown')
 		self.pluginWebsite = getattr(self.module, 'PLUGIN_WEBSITE', '')
 
-		# from qavm.manager_workspace import QAVMWorkspace  # TODO: quick-n-dirty import to avoid circular imports
 		self.pluginWorkspaces: list[QAVMWorkspace] = []
 
 		self._loadPluginSoftware()
@@ -449,8 +448,6 @@ class QAVMPlugin:
 		workspaceRegDataList = pluginWorkspacesRegisterFunc()
 		if not isinstance(workspaceRegDataList, dict):  # TODO: use _checkType instead
 			raise Exception(f'Invalid workspace registration data for plugin: {self.pluginID}. Expected a dictionary, got {type(workspaceRegDataList).__name__}')
-		
-		# from qavm.manager_workspace import QAVMWorkspace  # TODO: quick-n-dirty import to avoid circular imports
 
 		for wsName, wsData in workspaceRegDataList.items():
 			if not isinstance(wsData, list):  # TODO: use _checkType instead

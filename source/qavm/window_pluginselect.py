@@ -10,9 +10,8 @@ import sys
 
 from qavm.manager_plugin import PluginManager, QAVMPlugin, SoftwareHandler, UID, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
-# from qavm.manager_workspace import QAVMWorkspace
-import qavm.logs as logs
 
+import qavm.logs as logs
 logger = logs.logger
 
 

@@ -10,8 +10,6 @@ from PyQt6.QtWidgets import (
 	QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QTabWidget, QSizePolicy, 
 )
 
-# from qavm.manager_workspace import QAVMWorkspace
-
 import qavm.qavmapi.utils as utils
 import qavm.qavmapi.gui as gui_utils
 
