@@ -7,7 +7,7 @@ from PyQt6.QtGui import (
 	QStandardItemModel, QStandardItem,
 )
 
-from qavm.manager_plugin import PluginManager
+from qavm.manager_plugin import PluginManager, QAVMWorkspace
 from qavm.manager_settings import SettingsManager
 
 from qavm.qavmapi import BaseSettings, SoftwareBaseSettings
@@ -51,8 +51,9 @@ class PreferencesWindow(QWidget):
 			self.AddSettingsEntry(name, widget, generalSettingsItem)
 
 		# Group settings by software handler
-		swHandlers = self.pluginManager.GetSoftwareHandlers()
-		for (pluginID, _, swHandler) in swHandlers:
+		workspace: QAVMWorkspace = app.GetWorkspace()
+		swHandlersSet, _ = workspace.GetInvolvedSoftwareHandlers()
+		for swHandler in swHandlersSet:
 			if swSettings := self.settingsManager.GetSoftwareSettings(swHandler):
 				softwareItem = QStandardItem(swHandler.GetName())
 				softwareItem.setEditable(False)
@@ -61,6 +62,8 @@ class PreferencesWindow(QWidget):
 				for (name, widget) in swSettings.CreateWidgets(self.contentWidget):
 					self.AddSettingsEntry(name, widget, softwareItem)
 
+		self.menuWidget.expandAll()
+	
 		minExtraWidth = 20
 		if qutils.PlatformMacOS():
 			minExtraWidth = 40
@@ -92,14 +95,17 @@ class PreferencesWindow(QWidget):
 	def AddSettingsEntry(self, title: str, widget: QWidget, parentItem: QStandardItem):
 		item = QStandardItem(title)
 		item.setEditable(False)
+		item.setData(widget, Qt.ItemDataRole.UserRole)  # Associate the widget with the item
 		parentItem.appendRow(item)
 		self.contentWidget.addWidget(widget)
 
 	def _onMenuSelectionChanged(self, selected, deselected):
-		selectedIndexes = selected.indexes()
-		if selectedIndexes:
-			selectedRow = selectedIndexes[0].row()
-			self.contentWidget.setCurrentIndex(selectedRow)
+		if selectedIndexes := selected.indexes():
+			if item := self.menuModel.itemFromIndex(selectedIndexes[0]):
+				# Find the corresponding widget in the QStackedWidget
+				widgetIndex = self.contentWidget.indexOf(item.data(Qt.ItemDataRole.UserRole))
+				if widgetIndex != -1:
+					self.contentWidget.setCurrentIndex(widgetIndex)
 
 	def keyPressEvent(self, event):
 		if event.key() == Qt.Key.Key_Escape:
