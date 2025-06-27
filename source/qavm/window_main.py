@@ -89,13 +89,13 @@ class MyTableWidget(QTableWidget):
 
 	def mousePressEvent(self, event: QMouseEvent):
 		if event.button() == Qt.MouseButton.LeftButton:
-			print("Left button clicked")
+			# print("Left button clicked")
 			self.clickedLeft.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
 		elif event.button() == Qt.MouseButton.RightButton:
-			print("Right button clicked")
+			# print("Right button clicked")
 			self.clickedRight.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
 		elif event.button() == Qt.MouseButton.MiddleButton:
-			print("Middle button clicked")
+			# print("Middle button clicked")
 			self.clickedMiddle.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
 
 		super().mousePressEvent(event)
@@ -194,7 +194,8 @@ class MainWindow(QMainWindow):
 		self.actionExit.triggered.connect(self.close)
 
 		self.actionPluginSelection = QAction("Switch Workspace", self)
-		self.actionPluginSelection.setEnabled(len(self.pluginManager.GetSoftwareHandlers()) > 1)
+		self.actionPluginSelection.setShortcut("Ctrl+`")
+		# self.actionPluginSelection.setEnabled(len(self.pluginManager.GetSoftwareHandlers()) > 1)
 		self.actionPluginSelection.triggered.connect(self._switchToPluginSelection)
 
 		# self.actionRescan = QAction("&Rescan", self)
@@ -440,14 +441,14 @@ class MainWindow(QMainWindow):
 			return
 		app = QApplication.instance()
 		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
-		tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, True, 0, QApplication.keyboardModifiers())
+		# tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, True, 0, QApplication.keyboardModifiers())
 
 	def _onTableItemClickedMiddle(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
 			return
 		app = QApplication.instance()
 		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
-		tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
+		# tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
 	
 	# def UpdateTilesWidget(self):
 	# 	softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None

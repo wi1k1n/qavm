@@ -18,6 +18,17 @@ from qt_material import apply_stylesheet, get_theme, list_themes
 
 import qavm.qavmapi.utils as qutils
 
+class NumberTableWidgetItem(QTableWidgetItem):
+	def __init__(self, value: int | float, format: str = '{}'):
+		self.value: int | float = value
+		self.format: str = format
+		super().__init__(self.format.format(self.value))
+	
+	def __lt__(self, other):
+		if isinstance(other, NumberTableWidgetItem):
+			return self.value < other.value
+		return super().__lt__(other)
+
 class DateTimeTableWidgetItem(QTableWidgetItem):
 	def __init__(self, date: dt.datetime, format: str):
 		self.date: dt.datetime = date
@@ -27,6 +38,35 @@ class DateTimeTableWidgetItem(QTableWidgetItem):
 	def __lt__(self, other):
 		if isinstance(other, DateTimeTableWidgetItem):
 			return self.date < other.date
+		return super().__lt__(other)
+	
+class PathTableWidgetItem(QTableWidgetItem):
+	def __init__(self, path: Path, showExpandLinks: bool = True):
+		self.path: Path = path
+		if showExpandLinks:
+			dirPrefix: str = ''
+			dirPostfix: str = ''
+			if qutils.IsPathSymlinkF(self.path):
+				dirPrefix = '(S) '
+				if target := qutils.GetSymlinkFTarget(self.path):
+					dirPostfix = f' ( → {target})'
+			elif qutils.IsPathSymlinkD(self.path):
+				dirPrefix = '(L) '
+				if target := qutils.GetSymlinkDTarget(self.path):
+					dirPostfix = f' ( → {target})'
+			elif qutils.IsPathJunction(self.path):
+				dirPrefix = '(J) '
+				if target := qutils.GetJunctionTarget(self.path):
+					dirPostfix = f' ( → {target})'
+			elif qutils.IsPathShortcut(self.path):
+				dirPrefix = '(C) '
+				if target := qutils.GetShortcutTarget(self.path):
+					dirPostfix = f' ( → {target})'
+		super().__init__(f"{dirPrefix}{str(self.path)}{dirPostfix}")
+
+	def __lt__(self, other):
+		if isinstance(other, PathTableWidgetItem):
+			return str(self.path) < str(other.path)
 		return super().__lt__(other)
 
 # Copied from experiments on 26th of June 2024

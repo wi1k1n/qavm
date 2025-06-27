@@ -19,7 +19,10 @@ from qavm.qavmapi import (
 	BaseCustomView,	QualifierIdentificationConfig, BaseSettingsContainer, BaseSettingsEntry,
 	BaseMenuItem, 
 )
-from qavm.qavmapi.gui import StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem, RunningBorderWidget
+from qavm.qavmapi.gui import (
+	StaticBorderWidget, ClickableLabel, DateTimeTableWidgetItem, RunningBorderWidget,
+	NumberTableWidgetItem, PathTableWidgetItem, 
+)
 
 import qavm.qavmapi.utils as qutils
 from qavm.qavmapi.utils import (
@@ -102,17 +105,11 @@ class SimpleTableBuilder(BaseTableBuilder, ContextBase):
 	
 	def GetTableCellValue(self, desc: SimpleDescriptor, col: int) -> str | QTableWidgetItem:
 		if col == 0:
-			return str(desc.filesCount)
+			return NumberTableWidgetItem(desc.filesCount)
 		if col == 1:
-			return str(desc.foldersCount)
+			return NumberTableWidgetItem(desc.foldersCount)
 		if col == 2:
-			dirTypePrefix: str = f'({desc.dirType}) ' if desc.dirType else ''
-			dirLinkTarget: str = ''
-			if desc.dirType == 'S':
-				dirLinkTarget = f' ( → {qutils.GetSymlinkDTarget(desc.dirPath)})'
-			elif desc.dirType == 'J':
-				dirLinkTarget = f' ( → {qutils.GetJunctionTarget(desc.dirPath)})'
-			return f'{dirTypePrefix}{str(desc.dirPath)}{dirLinkTarget}'
+			return PathTableWidgetItem(desc.dirPath)
 		return ''
 	
 	def GetContextMenu(self, desc: BaseDescriptor) -> Optional[QMenu]:

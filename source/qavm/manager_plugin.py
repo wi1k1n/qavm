@@ -687,6 +687,8 @@ class PluginManager:
 			return False
 
 		try:
+			# TODO: poluting the sys.path is not really nice and safe
+			# so better switch to using plugins as modules (with __init__.py) instead
 			pluginDir = str(pluginPath.resolve())
 			sys.path.insert(0, pluginDir)
 
