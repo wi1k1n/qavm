@@ -241,6 +241,7 @@ class SoftwareBaseSettings(BaseSettings):
 ########################### QAVM Plugin: Software ############################
 ##############################################################################
 
+# TODO: add regex-like behavior
 class QualifierIdentificationConfig(object):
 	def __init__(self, 
 			  requiredFileList: list[str | list[str]] = [],
@@ -341,7 +342,7 @@ class BaseQualifier(object):
 		""" Sets the identification mask for the qualifier."""
 		return QualifierIdentificationConfig()
 
-	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> list[str]:
+	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> bool:
 		return True
 
 class BaseDescriptor(QObject):
@@ -367,7 +368,7 @@ class BaseDescriptor(QObject):
 	def __repr__(self):
 		return self.__str__()
 	
-	def _retrieveDirType(self) -> str:  # TODO: make it enum
+	def _retrieveDirType(self) -> str:  # TODO: make it enum (or is it even needed?)
 		dirType = ''
 		if utils.IsPathSymlinkD(self.dirPath):
 			dirType = 'S'

@@ -80,22 +80,24 @@ class SimpleSettings(SoftwareBaseSettings):
 	pass
 
 
-REGISTRATION_DATA = {
-	'id': 'software.simple',
-	'name': 'Example Simple',
+REGISTRATION_DATA = [
+	{
+		'id': 'software.simple',
+		'name': 'Example Simple',
 
-	'descriptors': {
-		'populatedfolders': {
-			'qualifier': SimpleQualifier,
-			'descriptor': SimpleDescriptor,
-		}
-	},
-	'views': {
-		'table': {'default': SimpleTableBuilder},
-		'tiles': {'default': SimpleTileBuilder}
-	},
-	'settings': SimpleSettings,
-}
+		'descriptors': {
+			'populatedfolders': {
+				'qualifier': SimpleQualifier,
+				'descriptor': SimpleDescriptor,
+			}
+		},
+		'views': {
+			'table': {'default': SimpleTableBuilder},
+			'tiles': {'default': SimpleTileBuilder}
+		},
+		'settings': SimpleSettings,
+	}
+]
 WORKSPACES_DATA = {
 	'Simple': ['software.simple#*'],
 }

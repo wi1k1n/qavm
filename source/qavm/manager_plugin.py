@@ -374,11 +374,10 @@ class SoftwareHandler:
 			self.customViewClasses[f'{self.KEY_VIEWS}/{self.KEY_CUSTOM}/{viewTypeId}'] = customViewClass
 
 		########################### Settings ###########################
-		self.settingsClass: Optional[Type[BaseSettings]] = regData.get(self.KEY_SETTINGS, None)
-		self.settingsInstance: Optional[BaseSettings] = None  # TODO: allow to use without settings (fallback to BaseSettings?)
-		if self.settingsClass is not None:  # optional
-			self._checkSubClass(self.settingsClass, BaseSettings, self.KEY_SETTINGS)
-			self.settingsInstance = self.settingsClass(self.GetID())
+		self.settingsInstance: SoftwareBaseSettings = SoftwareBaseSettings(self.GetID())
+		if settingsClass := regData.get(self.KEY_SETTINGS, None):
+			self._checkSubClass(settingsClass, SoftwareBaseSettings, self.KEY_SETTINGS)
+			self.settingsInstance = settingsClass(self.GetID())
 
 		########################### MenuItems ###########################
 		self.menuItems: dict[str, BaseMenuItem] = dict()  # menuItemTypeId: menuItemInstance
@@ -449,7 +448,7 @@ class SoftwareHandler:
 			return self.customViewClasses.get(viewTypeId, None)
 		return None
 	
-	def GetSettings(self) -> BaseSettings | None:
+	def GetSettings(self) -> SoftwareBaseSettings | None:
 		""" Returns the settings class registered by the software handler, e.g. 'BaseSettings' or None if not set """
 		return self.settingsInstance
 	

@@ -16,7 +16,6 @@ from qavm.qavmapi.gui import (
 	StaticBorderWidget, RunningBorderWidget,
 )
 
-import qavm.qavmapi.utils as qutils
 from qavm.qavmapi.utils import (
 	PlatformWindows, OpenFolderInExplorer, StartProcess, IsProcessRunning,
 )
@@ -238,13 +237,7 @@ class ExampleTableBuilderEXE(BaseTableBuilder):
 		if col == 1:
 			return "unknown"
 		if col == 2:
-			dirTypePrefix: str = f'({desc.dirType}) ' if desc.dirType else ''
-			dirLinkTarget: str = ''
-			if desc.dirType == 'S':
-				dirLinkTarget = f' ( → {qutils.GetSymlinkDTarget(desc.dirPath)})'
-			elif desc.dirType == 'J':
-				dirLinkTarget = f' ( → {qutils.GetJunctionTarget(desc.dirPath)})'
-			return f'{dirTypePrefix}{str(desc.dirPath)}{dirLinkTarget}'
+			return PathTableWidgetItem(desc.dirPath)
 		return ''
 	
 class ExampleTableBuilderPNG(ExampleTableBuilderEXE):
@@ -345,42 +338,44 @@ class ExampleCustomView2(BaseCustomView):
 		self.setLayout(layout)
 
 
-REGISTRATION_DATA = {
-	'id': 'software.images',  # this is a unique id under the PLUGIN_ID domain
-	'name': 'Example Images',
+REGISTRATION_DATA = [
+	{
+		'id': 'software.first',  # this is a unique id under the PLUGIN_ID domain
+		'name': 'Example First',
 
-	'descriptors': {
-		'exe': {
-			'qualifier': ExampleQualifierEXE,
-			'descriptor': ExampleDescriptorEXE,
+		'descriptors': {
+			'exe': {
+				'qualifier': ExampleQualifierEXE,
+				'descriptor': ExampleDescriptorEXE,
+			},
+			'png': {
+				'qualifier': ExampleQualifierPNG,
+				'descriptor': ExampleDescriptorPNG,
+			}
 		},
-		'png': {
-			'qualifier': ExampleQualifierPNG,
-			'descriptor': ExampleDescriptorPNG,
-		}
-	},
-	'views': {
-		'tiles': {
-			'exe': ExampleTileBuilderEXE,
-			'png': ExampleTileBuilderPNG,
-			'all': ExampleTileBuilderBoth,
+		'views': {
+			'tiles': {
+				'exe': ExampleTileBuilderEXE,
+				'png': ExampleTileBuilderPNG,
+				'all': ExampleTileBuilderBoth,
+			},
+			'table': {
+				'exe': ExampleTableBuilderEXE,
+				'png': ExampleTableBuilderPNG,
+				'both': ExampleTableBuilderEXE,
+			},
+			'custom': {
+				'1': ExampleCustomView1,
+				'2': ExampleCustomView2,
+			}
 		},
-		'table': {
-			'exe': ExampleTableBuilderEXE,
-			'png': ExampleTableBuilderPNG,
-			'both': ExampleTableBuilderEXE,
+		'menuitems': {
+			'1': ExampleMenuItem1,
+			'2': ExampleMenuItem2,
 		},
-		'custom': {
-			'1': ExampleCustomView1,
-			'2': ExampleCustomView2,
-		}
-	},
-	'menuitems': {
-		'1': ExampleMenuItem1,
-		'2': ExampleMenuItem2,
-	},
-	'settings': ExampleSettings,
-}
+		'settings': ExampleSettings,
+	}
+]
 WORKSPACES_DATA = {
-	'Images': ['software.images#*'],
+	'First': ['software.first#*'],
 }

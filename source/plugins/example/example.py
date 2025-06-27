@@ -18,10 +18,8 @@ Each plugin can implement multiple modules. Modules can be of different types, e
 """
 
 def RegisterPluginSoftware():
-	return [
-		example_simple.REGISTRATION_DATA,
-		example_images.REGISTRATION_DATA,
-	]
+	return example_simple.REGISTRATION_DATA \
+		+ example_images.REGISTRATION_DATA
 
 def RegisterPluginWorkspaces():
 	return {
