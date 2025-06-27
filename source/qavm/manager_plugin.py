@@ -18,6 +18,8 @@ logger = logs.logger
 import re
 from typing import Optional
 
+# TODO: having double # in the full UID was a bad idea. Switch to having different separator symbols.
+# For example, use `:` as a separator between plugin and software IDs, and `#` for software IDs and data paths.
 class UID:
 	"""
 	UIDs are in the format: 'plugin.id#software.id#data/path'
@@ -82,19 +84,18 @@ class UID:
 		return UID.SOFTWARE_DATAPATH_PATTERN.fullmatch(uid) is not None
 
 	@staticmethod
-	def MatchDataPath(pattern: str, path: str) -> bool:
-		"""Checks if a data path matches the wildcard pattern."""
-		regex = re.compile(UID._datapath_wildcard_to_regex(pattern))
-		return regex.fullmatch(path) is not None
-
-	@staticmethod
 	def FetchPluginID(uid: str) -> Optional[str]:
 		""" Fetches the plugin ID from a UID string, e.g. 'com.example.plugin#software.example1#view/tiles/c4d' -> 'com.example.plugin' """
 		parts = uid.split('#')
 		if len(parts) == 3 and UID.IsPluginIDValid(parts[0]):
 			return parts[0]
-		if len(parts) == 2 and UID.IsPluginIDValid(parts[0]):
-			return parts[0]
+		if len(parts) == 2:
+			# Could be Plugin#Software or Software#DataPath
+			if UID.IsPluginSoftwareIDValid(uid):
+				return parts[0]
+			if UID.IsSoftwareIDDataPathValid(uid):
+				return None
+			return None
 		return uid if UID.IsPluginIDValid(uid) else None
 
 	@staticmethod
@@ -140,6 +141,19 @@ class UID:
 		if len(parts) == 3:
 			return f"{parts[1]}#{parts[2]}" if UID.IsSoftwareIDValid(parts[1]) and UID.IsDataPathValid(parts[2]) else None
 		return None
+	
+	@staticmethod
+	def IsDataPathWildcard(dataPath: str) -> bool:
+		""" Checks if the data path contains wildcards (* or ?). """
+		if dPath := UID.FetchDataPath(dataPath):
+			return '*' in dPath or '?' in dPath
+		return False
+
+	@staticmethod
+	def MatchDataPath(pattern: str, path: str) -> bool:
+		"""Checks if a data path matches the wildcard pattern."""
+		regex = re.compile(UID._datapath_wildcard_to_regex(pattern))
+		return regex.fullmatch(path) is not None
 
 	@staticmethod
 	def DataPathGetParts(dataPath: str) -> list[str]:
@@ -187,6 +201,11 @@ class QAVMWorkspace(SerializableBase):
 		for uid in data:
 			if not isinstance(uid, str):
 				raise ValueError("Invalid workspace data: all view UIDs should be strings.")
+
+			plID: str = UID.FetchPluginID(uid)
+			if not plID:
+				raise ValueError(f"Invalid workspace item UID '{uid}': plugin ID is missing or invalid.")
+
 			if dataPath := UID.FetchDataPath(uid):
 				parts: list[str] = UID.DataPathGetParts(dataPath)
 				if not parts:
@@ -479,13 +498,12 @@ class QAVMPlugin:
 		self.pluginWorkspaces: list[QAVMWorkspace] = []
 
 		self._loadPluginSoftware()
-		self._loadPluginWorkspaces()
 	
 	def _loadPluginSoftware(self) -> None:
 		pluginSoftwareRegisterFunc = getattr(self.module, 'RegisterPluginSoftware', None)
 		if pluginSoftwareRegisterFunc is None or not callable(pluginSoftwareRegisterFunc):
 			return
-		
+
 		softwareRegDataList = pluginSoftwareRegisterFunc()
 		if not isinstance(softwareRegDataList, list):
 			raise Exception(f'Invalid software registration data for plugin: {self.pluginID}. Expected a list, got {type(softwareRegDataList).__name__}')
@@ -498,7 +516,7 @@ class QAVMPlugin:
 			
 			self.softwareHandlers[softwareHandler.id] = softwareHandler
 
-	def _loadPluginWorkspaces(self) -> None:
+	def LoadPluginWorkspaces(self) -> None:
 		pluginWorkspacesRegisterFunc = getattr(self.module, 'RegisterPluginWorkspaces', None)
 		if pluginWorkspacesRegisterFunc is None or not callable(pluginWorkspacesRegisterFunc):
 			return
@@ -517,13 +535,49 @@ class QAVMPlugin:
 
 			validUIDs = []
 			for uid in wsData:
-				# TODO: make it more robust to handle the full UID format too (and also the dataPath format if there's a single swHandler, etc)
+				if wildCardExpanded := self._expandWildcardUID(uid):
+					validUIDs.extend(wildCardExpanded)
+					continue
+
 				if UID.IsSoftwareIDDataPathValid(uid):
 					validUIDs.append(f'{self.pluginID}#{uid}')
 				elif UID.IsUIDValid(uid):
 					validUIDs.append(uid)
 
 			self.pluginWorkspaces.append(QAVMWorkspace(validUIDs, wsName))
+
+	def _expandWildcardUID(self, uid: str) -> list[str]:
+		""" Expands a wildcard UID to a list of valid UIDs. """
+		if not UID.IsDataPathWildcard(uid):
+			return []
+		
+		fullWildcardUid: str = uid
+		plID: str = UID.FetchPluginID(uid)
+		if not plID:
+			plID = self.pluginID  # use current plugin ID if not specified
+			fullWildcardUid = f'{plID}#{uid}'
+		
+		pluginManager: PluginManager = QApplication.instance().GetPluginManager()
+		plugin: QAVMPlugin = pluginManager.GetPlugin(plID)
+		if not plugin:
+			logger.warning(f'Plugin not found for workspace item UID: {uid} (plugin ID: {plID})')
+			return []
+
+		validUIDs: list[str] = []
+		for swHandler in plugin.GetSoftwareHandlers().values():
+			allSWHandlerUIDs = [
+				swHandler.GetTileBuilderClasses().keys(),
+				swHandler.GetTableBuilderClasses().keys(),
+				swHandler.GetCustomViewClasses().keys(),
+				swHandler.GetMenuItems().keys()
+			]
+			for uidsList in allSWHandlerUIDs:
+				for itemID in uidsList:
+					fullItemID = f'{plID}#{swHandler.GetID()}#{itemID}'
+					if UID.MatchDataPath(fullWildcardUid, fullItemID):
+						validUIDs.append(fullItemID)
+
+		return validUIDs
 	
 	def GetSoftwareHandlers(self) -> dict[str, SoftwareHandler]:
 		""" Returns a dictionary of software handlers registered by the plugin, e.g. {'software_id': SoftwareHandler} """
@@ -622,6 +676,8 @@ class PluginManager:
 					logger.error(f'Failed to load plugin from path: {pluginPath}')
 					continue
 
+		self.LoadPluginWorkspaces()
+
 	def LoadPluginFromPath(self, pluginPath: Path) -> bool:
 		pluginName = pluginPath.name
 		pluginMainFile = pluginPath/f'{pluginName}.py'
@@ -646,6 +702,11 @@ class PluginManager:
 			logger.exception(f'Failed to load plugin: {pluginMainFile}')
 			return False
 		return True
+	
+	def LoadPluginWorkspaces(self) -> None:
+		# This is done after all plugins are loaded to be able to access all plugins data (e.g. for the wildcard dereferencing)
+		for plugin in self.plugins.values():
+			plugin.LoadPluginWorkspaces()
 	
 	def GetPlugins(self) -> list[QAVMPlugin]:
 		return list(self.plugins.values())  # TODO: rewrite with yield
