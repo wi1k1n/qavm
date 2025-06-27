@@ -45,6 +45,7 @@ class PreferencesWindow(QWidget):
 		# Add general QAVM settings
 		generalSettingsItem = QStandardItem("QAVM")
 		generalSettingsItem.setEditable(False)
+		generalSettingsItem.setFlags(Qt.ItemFlag.ItemIsEnabled)
 		self.menuModel.appendRow(generalSettingsItem)
 
 		for (name, widget) in self.settingsManager.GetQAVMSettings().CreateWidgets(self.contentWidget):
@@ -57,6 +58,7 @@ class PreferencesWindow(QWidget):
 			if swSettings := self.settingsManager.GetSoftwareSettings(swHandler):
 				softwareItem = QStandardItem(swHandler.GetName())
 				softwareItem.setEditable(False)
+				softwareItem.setFlags(Qt.ItemFlag.ItemIsEnabled)
 				self.menuModel.appendRow(softwareItem)
 
 				for (name, widget) in swSettings.CreateWidgets(self.contentWidget):
