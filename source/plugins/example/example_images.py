@@ -13,7 +13,7 @@ from qavm.qavmapi import (
 	BaseCustomView,	QualifierIdentificationConfig, BaseMenuItem, 
 )
 from qavm.qavmapi.gui import (
-	StaticBorderWidget, RunningBorderWidget,
+	StaticBorderWidget, RunningBorderWidget, PathTableWidgetItem, 
 )
 
 from qavm.qavmapi.utils import (
