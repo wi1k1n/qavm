@@ -702,14 +702,14 @@ class PluginManager:
 			logger.info(f'Loaded plugin: {pluginName} @ {plugin.GetVersionStr()} ({plugin.GetUID()})')
 			self.plugins[plugin.pluginID] = plugin
 		
-		except:
-			logger.exception(f'Failed to load plugin: {pluginMainFile}')
+		except Exception as e:
+			logger.exception(f'Failed to load plugin from path: {pluginPath}. Error: {e}')
 			return False
 		
 		finally:
 			if pluginDir in sys.path:
 				sys.path.remove(pluginDir)
-				
+
 		return True
 	
 	def LoadPluginWorkspaces(self) -> None:
