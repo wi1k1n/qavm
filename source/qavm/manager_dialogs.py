@@ -26,6 +26,11 @@ class DialogsManager:
 		self.ResetMainWindow()
 		self.GetPluginSelectionWindow().show()
 
+	def ShowPreferences(self):
+		prefsWindow: QWidget = self.GetPreferencesWindow()
+		prefsWindow.show()
+		prefsWindow.activateWindow()
+
 	def GetPluginSelectionWindow(self):
 		if self.selectPluginWindow is None:
 			self.selectPluginWindow: WorkspaceManagerWindow = WorkspaceManagerWindow()

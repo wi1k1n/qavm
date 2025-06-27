@@ -92,18 +92,6 @@ class QAVMGlobalSettings(BaseSettings):
 		'workspace_last': {},
 	}
 
-	# def GetSelectedSoftwareUID(self) -> str:
-	# 	app = QApplication.instance()
-	# 	if app.selectedSoftwareUID is None:  # That's the way to force no selected software UID
-	# 		return ''
-	# 	if app.selectedSoftwareUID:  # That's the way to force specific software UID
-	# 		return app.selectedSoftwareUID
-	# 	# If it's empty otherwise, get the selected software UID from settings
-	# 	return self.GetSetting('selected_software_uid')
-
-	# def SetSelectedSoftwareUID(self, softwareUID: str) -> None:
-	# 	self.SetSetting('selected_software_uid', softwareUID)
-
 	def GetWorkspaceLast(self) -> QAVMWorkspace:
 		""" Returns the last opened workspace as a dict. """
 		return QAVMWorkspace.Deserialize(self.GetSetting('workspace_last'))
@@ -304,12 +292,13 @@ class SettingsManager:
 	def GetSoftwareSettings(self, swHandler: SoftwareHandler) -> SoftwareBaseSettings | None:
 		return self.softwareSettings.get(swHandler, None)
 	
-	# def LoadSoftwareSettings(self):
-	# 	if not self.qavmGlobalSettings.GetSelectedSoftwareUID():
-	# 		raise Exception('No software selected')
-	# 	softwareHandler: SoftwareHandler = self.app.GetPluginManager().GetCurrentSoftwareHandler()
-	# 	self.softwareSettings = softwareHandler.GetSettings()
-	# 	self.softwareSettings.Load()
+	def LoadSoftwareSettings(self, swHandler: SoftwareHandler) -> bool:
+		""" Loads the software settings for the given software handler. """
+		if settings := swHandler.GetSettings():
+			self.softwareSettings[swHandler] = settings
+			self.softwareSettings[swHandler].Load()
+			return True
+		return False
 
 	def SaveSoftwareSettings(self, swHandler: SoftwareHandler):
 		if swHandler in self.softwareSettings:
@@ -321,6 +310,4 @@ class SettingsManager:
 			return
 		sfHandlers, notFoundPlugins = workspace.GetInvolvedSoftwareHandlers()
 		for swHandler in sfHandlers:
-			if swHandler:
-				self.softwareSettings[swHandler] = swHandler.GetSettings()
-				self.softwareSettings[swHandler].Load()
+			self.LoadSoftwareSettings(swHandler)

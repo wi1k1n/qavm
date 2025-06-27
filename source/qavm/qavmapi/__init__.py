@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 from functools import partial
@@ -81,8 +82,8 @@ class BaseSettings(QObject):
 	settingChanged = pyqtSignal(str, object)  # (settingName, newValue)
 
 	# TODO: these need to be refactored
-	tilesUpdateRequired = pyqtSignal()  # is emitted when settings are changing something that requires tiles to be updated
-	tablesUpdateRequired = pyqtSignal()  # same as tilesUpdateRequired, but for tables
+	# tilesUpdateRequired = pyqtSignal()  # is emitted when settings are changing something that requires tiles to be updated
+	# tablesUpdateRequired = pyqtSignal()  # same as tilesUpdateRequired, but for tables
 
 	def __init__(self, prefFilename: str):
 		super().__init__()
@@ -157,8 +158,8 @@ class SoftwareBaseSettings(BaseSettings):
 		# This is a little dangerous, because the change may come from outside (even when the window is closed),
 		qavmSettings: QAVMSettings = QApplication.instance().GetSettingsManager().GetQAVMSettings()
 		qavmSettings.settingChanged.connect(self._updateSearchPathsEvaluatedWidget)
+		
 		# Hence, need to ensure it's disconnected when the widget is destroyed
-		# qavmSettings.settingChanged.disconnect(self._updateSearchPathsEvaluatedWidget)
 		self.searchPathsWidget.destroyed.connect(partial(qavmSettings.settingChanged.disconnect, self._updateSearchPathsEvaluatedWidget))
 
 		layout.addWidget(self.searchPathsWidget)

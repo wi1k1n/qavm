@@ -1,5 +1,5 @@
 from __future__ import annotations
-import importlib.util, os, re
+import importlib.util, os, re, sys
 from pathlib import Path
 from typing import Type, Optional, Any
 
@@ -687,6 +687,9 @@ class PluginManager:
 			return False
 
 		try:
+			pluginDir = str(pluginPath.resolve())
+			sys.path.insert(0, pluginDir)
+
 			spec = importlib.util.spec_from_file_location(pluginName, pluginMainFile)
 			pluginPyModule = importlib.util.module_from_spec(spec)
 			spec.loader.exec_module(pluginPyModule)
@@ -698,9 +701,15 @@ class PluginManager:
 			
 			logger.info(f'Loaded plugin: {pluginName} @ {plugin.GetVersionStr()} ({plugin.GetUID()})')
 			self.plugins[plugin.pluginID] = plugin
+		
 		except:
 			logger.exception(f'Failed to load plugin: {pluginMainFile}')
 			return False
+		
+		finally:
+			if pluginDir in sys.path:
+				sys.path.remove(pluginDir)
+				
 		return True
 	
 	def LoadPluginWorkspaces(self) -> None:

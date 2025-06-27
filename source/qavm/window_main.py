@@ -188,7 +188,7 @@ class MainWindow(QMainWindow):
 	def _setupActions(self):
 		self.actionPrefs = QAction("&Preferences", self)
 		self.actionPrefs.setShortcut("Ctrl+E")
-		self.actionPrefs.triggered.connect(self._showPreferences)
+		self.actionPrefs.triggered.connect(self.dialogsManager.ShowPreferences)
 
 		self.actionExit = QAction("&Exit", self, shortcut=QKeySequence.StandardKey.Quit)
 		self.actionExit.triggered.connect(self.close)
@@ -406,13 +406,10 @@ class MainWindow(QMainWindow):
 		tableWidget.clickedMiddle.connect(partial(self._onTableItemClickedMiddle, tableWidget, tableBuilder))
 		tableWidget.itemSelectionChanged.connect(partial(self._tableItemFocusBuggedWorkaround, tableWidget))
 
-		# TODO: this sounds like a temp solution
-		# self.tableContextMenus: list[QMenu] = list()
 		def showContextMenu(pos):
 			selectedRowsUnique: set = {idx.row() for idx in tableWidget.selectedIndexes()}
 			currentRow = selectedRowsUnique.pop()
 			descIdx: int = int(tableWidget.item(currentRow, len(headers)).text())
-			# self.tableContextMenus[descIdx].exec(QCursor.pos())
 			if menu := tableBuilder.GetContextMenu(descs[descIdx]):
 				menu.exec(QCursor.pos())
 
@@ -443,14 +440,14 @@ class MainWindow(QMainWindow):
 			return
 		app = QApplication.instance()
 		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
-		tableBuilder.HandleClick(app.GetSoftwareDescriptions()[descIdx], row, col, True, 0, QApplication.keyboardModifiers())
+		tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, True, 0, QApplication.keyboardModifiers())
 
 	def _onTableItemClickedMiddle(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
 			return
 		app = QApplication.instance()
 		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
-		tableBuilder.HandleClick(app.GetSoftwareDescriptions()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
+		tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
 	
 	# def UpdateTilesWidget(self):
 	# 	softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
@@ -561,13 +558,6 @@ class MainWindow(QMainWindow):
 	# 	app = QApplication.instance()
 	# 	app.ResetSoftwareDescriptions()
 	# 	self.UpdateTilesWidget()
-
-
-	def _showPreferences(self):
-		app = QApplication.instance()
-		prefsWindow: QMainWindow = app.GetDialogsManager().GetPreferencesWindow()
-		prefsWindow.show()
-		prefsWindow.activateWindow()
 
 	def _showAboutDialog(self):
 		aboutDialog = QDialog(self)

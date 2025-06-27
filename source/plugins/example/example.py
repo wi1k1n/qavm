@@ -501,17 +501,6 @@ def RegisterPluginSoftware():
 
 def RegisterPluginWorkspaces():
 	return {
-		'Default': [
-			'software.simple#views/table/1',
-			'software.simple#views/tiles/1',  # TODO: allow regex here
-			'software.example1#menuitems/1',
-		],
-		'EXE/PNG': [
-			'software.example1#views/tiles/all',
-		],
-		'Everything': [
-			'software.example1#views/tiles/exe',
-			'software.example1#views/tiles/png',
-			'software.example1#views/tiles/all',
-		],
+		'Everything': ['software.example1#*'],
+		'Simple': ['software.simple#*'],
 	}
