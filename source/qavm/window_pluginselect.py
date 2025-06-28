@@ -149,16 +149,6 @@ class WorkspaceManagerWindow(QMainWindow):
 	# 		parent.setExpanded(True)
 
 	def selectWorkspaceButtonClicked(self, workspace: QAVMWorkspace):
-		# plugin: QAVMPlugin = self.pluginManager.GetPlugin(pluginSwUID)
-		# if not plugin:
-		# 	QMessageBox.warning(self, "Plugin Not Found", f"Plugin with UID '{pluginSwUID}' not found.", QMessageBox.StandardButton.Ok)
-		# 	logger.error(f'Plugin with UID {pluginSwUID} not found')
-		# 	return
-		
-		# workspace = plugin.GetDefaultWorkspace()
-
-		self.settingsManager.LoadWorkspaceSoftwareSettings(workspace)
-
 		self.qavmSettings.SetWorkspaceLast(workspace)
 		self.qavmSettings.Save()  # TODO: should we save it here?
 

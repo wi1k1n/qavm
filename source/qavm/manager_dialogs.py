@@ -18,6 +18,7 @@ class DialogsManager:
 
 	def ShowWorkspace(self, workspace: QAVMWorkspace):
 		app = QApplication.instance()
+		app.GetSettingsManager().LoadWorkspaceSoftwareSettings(workspace)
 		app.SetWorkspace(workspace)
 		self.GetMainWindow().show()
 

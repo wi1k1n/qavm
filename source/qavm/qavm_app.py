@@ -65,19 +65,11 @@ class QAVMApp(QApplication):
 
 		gui_utils.SetTheme(self.settingsManager.GetQAVMSettings().GetAppTheme())  # TODO: move this to the QAVMGlobalSettings class?
 		
-		# selectedSoftwareUID: str = self.qavmSettings.GetSelectedSoftwareUID()
-		# if self.pluginManager.GetSoftwareHandler(selectedSoftwareUID):
-			# self.settingsManager.LoadSoftwareSettings()
-		# 	self.dialogsManager.GetMainWindow().show()
-		# else:
-		# 	self.dialogsManager.GetPluginSelectionWindow().show()
-		
 		self.workspace: QAVMWorkspace = self.qavmSettings.GetWorkspaceLast()
 
 		if self.workspace.IsEmpty():
 			self.dialogsManager.GetPluginSelectionWindow().show()
 		else:
-			self.settingsManager.LoadWorkspaceSoftwareSettings(self.workspace)
 			self.dialogsManager.ShowWorkspace(self.workspace)
 
 	def GetPluginManager(self) -> PluginManager:
@@ -94,8 +86,6 @@ class QAVMApp(QApplication):
 	
 	def SetWorkspace(self, workspace: QAVMWorkspace) -> None:
 		self.workspace = workspace
-		# self.qavmSettings.SetWorkspaceLast(workspace)
-		# self.settingsManager.SaveWorkspaceSoftwareSettings(workspace)
 	
 	def GetPluginsFolderPaths(self) -> list[Path]:
 		""" Returns a list of paths to the plugins folders (i.e. folder, containing plugin folders). """
