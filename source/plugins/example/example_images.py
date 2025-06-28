@@ -88,9 +88,6 @@ class ExampleDescriptorBase(BaseDescriptor):
 	def _sortPaths(self):
 		pass
 	
-	def GetExecutablePath(self) -> Path:
-		return self.targetPaths[0] if self.targetPaths else Path()
-	
 	def __str__(self):
 		return f'{self.__class__.__name__}: {os.path.basename(self.dirPath)}'
 	
@@ -126,16 +123,17 @@ class ExampleContextMenuBase(object):
 		titleAction.setDefaultWidget(titleLabel)
 
 		menu.addAction(titleAction)
-		if path := desc.GetExecutablePath():
-			menu.addAction(f'Run "{path.name}"', partial(self._run, desc))
+		if desc.targetPaths:
+			menu.addAction(f'Run "{desc.targetPaths[0].name}"', partial(self._run, desc))
 			menu.addSeparator()
 		menu.addAction('Open folder', partial(OpenFolderInExplorer, desc.dirPath))
 
 		return menu
 
 	def _run(self, desc: ExampleDescriptorEXE, arguments: list[str] = []):
-		StartProcess(desc.UID, desc.GetExecutablePath(), arguments)
-		desc.updated.emit()
+		if desc.targetPaths:
+			StartProcess(desc.UID, desc.targetPaths[0], arguments)
+			desc.updated.emit()
 
 class ExampleTileBuilderBoth(BaseTileBuilder, ExampleContextMenuBase):
 	def __init__(self, settings: SoftwareBaseSettings):
