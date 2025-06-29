@@ -5,6 +5,7 @@ from pathlib import Path
 from qavm.manager_plugin import PluginManager, SoftwareHandler, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.manager_dialogs import DialogsManager
+from qavm.manager_descriptor_data import DescriptorDataManager
 
 import qavm.qavmapi.utils as utils  # TODO: rename to qutils
 import qavm.qavmapi.gui as gui_utils
@@ -63,6 +64,8 @@ class QAVMApp(QApplication):
 		self.pluginManager: PluginManager = PluginManager(self.builtinPluginPaths.union(self.pluginPaths), self.GetPluginsFolderPaths())
 		self.pluginManager.LoadPlugins()  # TODO: try/except here?
 
+		self.descDataManager: DescriptorDataManager = DescriptorDataManager()
+
 		gui_utils.SetTheme(self.settingsManager.GetQAVMSettings().GetAppTheme())  # TODO: move this to the QAVMGlobalSettings class?
 		
 		self.workspace: QAVMWorkspace = self.qavmSettings.GetWorkspaceLast()
@@ -80,6 +83,9 @@ class QAVMApp(QApplication):
 	
 	def GetDialogsManager(self) -> DialogsManager:
 		return self.dialogsManager
+	
+	def GetDescriptorDataManager(self) -> DescriptorDataManager:
+		return self.descDataManager
 	
 	def GetWorkspace(self) -> QAVMWorkspace:
 		return self.workspace

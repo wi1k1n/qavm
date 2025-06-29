@@ -351,13 +351,17 @@ class BaseDescriptor(QObject):
 
 	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
 		super().__init__()
-		self.UID: str = utils.GetHashString(str(dirPath))
+		self.UID: str = utils.GetHashString(str(dirPath))  # TODO: add here link to plugin and software ID (as the same descriptor can be used in different plugins)
 		self.dirPath: Path = dirPath
 		self.dirType: str = self._retrieveDirType()  # '' - normal dir, 's' - symlink, 'j' - junction
 		self.settings: SoftwareBaseSettings = settings
 
+	def GetUID(self) -> str:
+		""" Returns a unique identifier for the descriptor. """
+		return self.UID
+
 	def __hash__(self) -> int:
-		return hash(str(self.dirPath))
+		return hash(self.GetUID())
 
 	def __str__(self):
 		return 'BaseDescriptor'

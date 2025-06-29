@@ -161,6 +161,7 @@ class MainWindow(QMainWindow):
 		self.pluginManager: PluginManager = app.GetPluginManager()
 		self.settingsManager: SettingsManager = app.GetSettingsManager()
 		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
+		self.descDataManager = app.GetDescriptorDataManager()
 		
 		# self.softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
 
@@ -473,11 +474,13 @@ class MainWindow(QMainWindow):
 
 		def showContextMenu(desc):
 			if menu := tileBuilder.GetContextMenu(desc):
+				menu.addAction(QAction("qavm", self, triggered=lambda: logger.info("qavm action triggered")))
 				menu.exec(QCursor.pos())
 
 		for desc in descs:
 			desc.updated.connect(partial(self._onDescriptorUpdated, desc))
 			tileWidget = tileBuilder.CreateTileWidget(desc, parent)
+			tileWidget.setToolTip('hey')
 			
 			tileWidget.descriptor = desc  # TODO: what-a-heck? make a setter for that
 			tileWidget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)

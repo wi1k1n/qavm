@@ -511,7 +511,7 @@ class QAVMPlugin:
 			softwareHandler = SoftwareHandler(softwareRegData)
 
 			if softwareHandler.id in self.softwareHandlers:
-				raise Exception(f'Duplicate software ID found: {self.id}')
+				raise Exception(f'Duplicate software ID found: {softwareHandler.id}')
 			
 			self.softwareHandlers[softwareHandler.id] = softwareHandler
 
