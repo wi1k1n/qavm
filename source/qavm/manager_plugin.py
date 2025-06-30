@@ -179,6 +179,7 @@ class UID:
 		return None
 
 # TODO: move this to qavmapi and make use of it
+# TODO: use serializable decorator (check experiments/serializable_decorator.py)
 class SerializableBase(object):
 	def Serialize(self) -> Any:
 		""" Serializes the object to a format suitable for being stored as json. """

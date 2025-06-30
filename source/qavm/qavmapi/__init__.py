@@ -355,10 +355,34 @@ class BaseDescriptor(QObject):
 		self.dirPath: Path = dirPath
 		self.dirType: str = self._retrieveDirType()  # '' - normal dir, 's' - symlink, 'j' - junction
 		self.settings: SoftwareBaseSettings = settings
+		
+		# # Descriptor data is loaded from the disk and can be used as a persistent storage for the descriptor.
+		# # The data is expected to be organized as a dictionary of the following structure:
+		# # {
+		# #   '__qavm__': {
+		# # 		'qavm_key_1': 'qavm_data_1',
+		# # 		...
+		# # 	},
+		# #   'software_handler_1': {
+		# # 		'swh1_key_1': 'swh1_data_1',
+		# # 		...
+		# # 	},
+		# #   'software_handler_2': {
+		# # 		'swh2_key_1': 'swh2_data_1',
+		# # 		...
+		# #   ...
+		# # }
+		# self.descData: dict[str, Any] = {'qavm': {}}  # TODO: should this be a BaseDescriptorData class instead?
 
 	def GetUID(self) -> str:
 		""" Returns a unique identifier for the descriptor. """
 		return self.UID
+	
+	# def AttachDescriptorData(self, data: dict[str, Any]) -> None:
+	# 	""" Attaches desc data. More info about desc data is in the class docstring. """
+	# 	if not isinstance(data, dict):
+	# 		return
+	# 	self.descData = data
 
 	def __hash__(self) -> int:
 		return hash(self.GetUID())

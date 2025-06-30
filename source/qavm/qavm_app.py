@@ -6,6 +6,7 @@ from qavm.manager_plugin import PluginManager, SoftwareHandler, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.manager_dialogs import DialogsManager
 from qavm.manager_descriptor_data import DescriptorDataManager
+from qavm.manager_tags import TagsManager
 
 import qavm.qavmapi.utils as utils  # TODO: rename to qutils
 import qavm.qavmapi.gui as gui_utils
@@ -64,7 +65,11 @@ class QAVMApp(QApplication):
 		self.pluginManager: PluginManager = PluginManager(self.builtinPluginPaths.union(self.pluginPaths), self.GetPluginsFolderPaths())
 		self.pluginManager.LoadPlugins()  # TODO: try/except here?
 
-		self.descDataManager: DescriptorDataManager = DescriptorDataManager()
+		self.descDataManager: DescriptorDataManager = DescriptorDataManager(utils.GetQAVMDescriptorDataFilepath())
+		self.descDataManager.LoadData()
+
+		self.tagsManager: TagsManager = TagsManager(utils.GetQAVMTagsDataFilepath(), self.descDataManager)
+		self.tagsManager.LoadTags()
 
 		gui_utils.SetTheme(self.settingsManager.GetQAVMSettings().GetAppTheme())  # TODO: move this to the QAVMGlobalSettings class?
 		
@@ -86,6 +91,9 @@ class QAVMApp(QApplication):
 	
 	def GetDescriptorDataManager(self) -> DescriptorDataManager:
 		return self.descDataManager
+	
+	def GetTagsManager(self) -> TagsManager:
+		return self.tagsManager
 	
 	def GetWorkspace(self) -> QAVMWorkspace:
 		return self.workspace
@@ -158,7 +166,10 @@ class QAVMApp(QApplication):
 					if not qualifier.Identify(dir, fileContents):
 						subdirs.update(set(getDirListIgnoreError(dir)))
 						continue
-					softwareDescs.append(descriptorClass(dir, softwareSettings, fileContents))
+					descriptor: BaseDescriptor = descriptorClass(dir, softwareSettings, fileContents)
+					descData: dict = self.descDataManager.GetDescriptorData(descriptor)
+					# descriptor.AttachDescriptorData(descData)
+					softwareDescs.append(descriptor)
 				subfoldersSearchPathsList.update(subdirs)
 			searchPathsList = subfoldersSearchPathsList
 			currentDepthLevel += 1

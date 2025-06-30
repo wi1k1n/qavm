@@ -292,6 +292,16 @@ def GetQAVMCachePath(create=True) -> Path:
 	if create: CreateDir(path)
 	return path
 
+# TODO: consider having %APPDATA%/qavm/data folder for this type of data
+def GetQAVMDescriptorDataFilepath() -> Path:
+	"""Returns the path to the QAVM descriptor data folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\descdata.json"""
+	return GetQAVMDataPath()/'descdata.json'
+
+# TODO: consider having %APPDATA%/qavm/data folder for this type of data
+def GetQAVMTagsDataFilepath() -> Path:
+	"""Returns the path to the QAVM tags data folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\tagsdata.json"""
+	return GetQAVMDataPath()/'tagsdata.json'
+
 def GetQAVMExecutablePath() -> Path:
 	""" Returns the absolute path to the QAVM executable. For example: qavm\\source\\qavm.py"""
 	if PlatformWindows() or PlatformMacOS():

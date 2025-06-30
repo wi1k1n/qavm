@@ -14,6 +14,8 @@ from PyQt6.QtWidgets import (
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler, UID, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
+from qavm.manager_descriptor_data import DescriptorDataManager
+from qavm.manager_tags import TagsManager, Tag
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder,
@@ -161,7 +163,8 @@ class MainWindow(QMainWindow):
 		self.pluginManager: PluginManager = app.GetPluginManager()
 		self.settingsManager: SettingsManager = app.GetSettingsManager()
 		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
-		self.descDataManager = app.GetDescriptorDataManager()
+		self.descDataManager: DescriptorDataManager = app.GetDescriptorDataManager()
+		self.tagsManager: TagsManager = app.GetTagsManager()
 		
 		# self.softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings()
 
@@ -473,25 +476,71 @@ class MainWindow(QMainWindow):
 		tiles: list[QWidget] = list()
 
 		def showContextMenu(desc):
+			def assignTag(tag: Tag):
+				logger.info(f"Assigning tag {tag.GetName()} to descriptor {desc.GetUID()}")
+				self.tagsManager.AssignTag(desc, tag)
+
 			if menu := tileBuilder.GetContextMenu(desc):
-				menu.addAction(QAction("qavm", self, triggered=lambda: logger.info("qavm action triggered")))
+				# descData = self.descDataManager.GetDescriptorData(desc)
+				# if qavmDD := descData.get('__qavm__', {}):
+				# 	if tagsDD := qavmDD.get('tags', []):
+				# 		menu.addAction(QAction(tagsDD[0], self, triggered=lambda: logger.info("qavm action triggered")))
+				
+				if tags := self.tagsManager.GetTags().values():
+					addTagSubMenu: QMenu = QMenu("Assign Tag", self)
+					for tag in tags:
+						action = QAction(tag.GetName(), self, triggered=partial(assignTag, tag))
+						addTagSubMenu.addAction(action)
+					
+					menu.addSeparator()
+					menu.addMenu(addTagSubMenu)
+				
 				menu.exec(QCursor.pos())
 
 		for desc in descs:
 			desc.updated.connect(partial(self._onDescriptorUpdated, desc))
 			tileWidget = tileBuilder.CreateTileWidget(desc, parent)
-			tileWidget.setToolTip('hey')
 			
-			tileWidget.descriptor = desc  # TODO: what-a-heck? make a setter for that
-			tileWidget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-			tileWidget.customContextMenuRequested.connect(partial(lambda d, p: showContextMenu(d), desc))
+			tileWidgetWithTags = self._wrapWidgetWithTags(tileWidget, parent, desc)
+			
+			tileWidgetWithTags.descriptor = desc  # TODO: what-a-heck? make a setter for that
+			tileWidgetWithTags.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+			tileWidgetWithTags.customContextMenuRequested.connect(partial(lambda d, p: showContextMenu(d), desc))
 
-			tiles.append(tileWidget)
+			tiles.append(tileWidgetWithTags)
 
 		flWidget = self._createFlowLayoutWithFromWidgets(self, tiles)
 		scrollWidget = self._wrapWidgetInScrollArea(flWidget, self)
 
 		return scrollWidget
+	
+	def _wrapWidgetWithTags(self, widget: QWidget, parent: QWidget, desc: BaseDescriptor) -> QWidget:
+		wrapper = QWidget(parent)
+		layout = QVBoxLayout(wrapper)
+		layout.setContentsMargins(0, 0, 0, 0)
+		layout.setSpacing(5)
+
+		layout.addWidget(widget)
+
+		# Create a label for tags
+		tagsLabel = QLabel(wrapper)
+		tagsLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+		tagsLabel.setWordWrap(True)
+		tagsLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+		tagsLabel.setStyleSheet("QLabel { color: gray; font-size: 10px; }")  # Style the tags label
+		
+		descData = self.descDataManager.GetDescriptorData(desc)
+		if qavmDD := descData.get('__qavm__', {}):
+			if tagsDD := qavmDD.get('tags', []):
+				for tagUID in tagsDD:
+					if tag := self.tagsManager.GetTag(tagUID):
+						tagsLabel.setText(f"{tagsLabel.text()} <span style='color: {tag.GetColor()};'>#{tag.GetName()}</span> ")
+
+		tagsLabel.setWordWrap(True)  # Allow word wrapping for the tags label
+		layout.addWidget(tagsLabel)
+		wrapper.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+
+		return wrapper
 	
 	# TODO: this is very similar to UpdateTilesWidget, code duplication
 	def _onDescriptorUpdated(self, desc: BaseDescriptor):
