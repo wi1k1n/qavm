@@ -1,6 +1,7 @@
 from qavm.window_pluginselect import WorkspaceManagerWindow
 from qavm.window_main import MainWindow
 from qavm.window_settings import PreferencesWindow
+from qavm.window_note_editor import NoteEditorDialog
 from qavm.manager_plugin import QAVMWorkspace
 
 from PyQt6.QtWidgets import (

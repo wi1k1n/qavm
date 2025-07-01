@@ -14,7 +14,8 @@ from PyQt6.QtWidgets import (
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler, UID, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
-from qavm.manager_descriptor_data import DescriptorDataManager
+from qavm.window_note_editor import NoteEditorDialog
+from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorData
 from qavm.manager_tags import TagsManager, Tag
 
 from qavm.qavmapi import (
@@ -494,6 +495,9 @@ class MainWindow(QMainWindow):
 					
 					menu.addSeparator()
 					menu.addMenu(addTagSubMenu)
+
+				menu.addSeparator()
+				menu.addAction(QAction("Edit Note", self, triggered=partial(self._showNoteEditorDialog, desc)))
 				
 				menu.exec(QCursor.pos())
 
@@ -502,6 +506,9 @@ class MainWindow(QMainWindow):
 			tileWidget = tileBuilder.CreateTileWidget(desc, parent)
 			
 			tileWidgetWithTags = self._wrapWidgetWithTags(tileWidget, parent, desc)
+
+			descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+			tileWidgetWithTags.setToolTip(descData.note)
 			
 			tileWidgetWithTags.descriptor = desc  # TODO: what-a-heck? make a setter for that
 			tileWidgetWithTags.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -513,6 +520,21 @@ class MainWindow(QMainWindow):
 		scrollWidget = self._wrapWidgetInScrollArea(flWidget, self)
 
 		return scrollWidget
+		
+	def _showNoteEditorDialog(self, desc: BaseDescriptor):
+		"""
+		Open a Note Editor dialog for the given descriptor.
+		This is a placeholder for the actual implementation.
+		"""
+		noteEditor = NoteEditorDialog(self)
+		if noteEditor.exec() == QDialog.DialogCode.Accepted:
+			notes: dict[str, str] = noteEditor.saveChanges()
+			if 'noteText' in notes:
+				descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+				descData.note = notes['noteText']
+				self.descDataManager.SetDescriptorData(desc, descData)
+				self.descDataManager.SaveData()
+	
 	
 	def _wrapWidgetWithTags(self, widget: QWidget, parent: QWidget, desc: BaseDescriptor) -> QWidget:
 		wrapper = QWidget(parent)
@@ -529,12 +551,10 @@ class MainWindow(QMainWindow):
 		tagsLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
 		tagsLabel.setStyleSheet("QLabel { color: gray; font-size: 10px; }")  # Style the tags label
 		
-		descData = self.descDataManager.GetDescriptorData(desc)
-		if qavmDD := descData.get('__qavm__', {}):
-			if tagsDD := qavmDD.get('tags', []):
-				for tagUID in tagsDD:
-					if tag := self.tagsManager.GetTag(tagUID):
-						tagsLabel.setText(f"{tagsLabel.text()} <span style='color: {tag.GetColor()};'>#{tag.GetName()}</span> ")
+		descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+		for tagUID in descData.tags:
+			if tag := self.tagsManager.GetTag(tagUID):
+				tagsLabel.setText(f"{tagsLabel.text()} <span style='color: {tag.GetColor()};'>#{tag.GetName()}</span> ")
 
 		tagsLabel.setWordWrap(True)  # Allow word wrapping for the tags label
 		layout.addWidget(tagsLabel)

@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from qavm.manager_descriptor_data import DescriptorDataManager
+from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorData
 
 from qavm.qavmapi import BaseDescriptor
 
@@ -60,6 +60,13 @@ class TagsManager(object):
 		self.descDataManager: DescriptorDataManager = descDataManager
 
 		self.tags: dict[str, Tag] = dict()  # Using a dict for faster lookups by tag uid
+
+		# TODO: remove this
+		self.tags['tag1'] = Tag('tag1', 'Tag 1', '#FF0000')
+		self.tags['tag2'] = Tag('tag2', 'Tag 2', '#00FF00')
+		self.tags['tag3'] = Tag('tag3', 'Tag 3', '#0000FF')
+		self.tags['tag4'] = Tag('tag4', 'Tag 4', '#FFFF00')
+		self.tags['tag5'] = Tag('tag5', 'Tag 5', '#FF00FF')
 
 	def LoadTags(self) -> None:
 		if not self.tagsDataFilepath.exists():
@@ -120,11 +127,8 @@ class TagsManager(object):
 		if tag.GetUID() not in self.tags:
 			raise ValueError(f'Tag {tag.GetUID()} does not exist in tags manager')
 		
-		descData: dict[str, Any] = self.descDataManager.GetDescriptorData(desc)
-		if qavmData := descData.get('__qavm__', {}):
-			if 'tags' not in qavmData:
-				qavmData['tags'] = []
-			if tag.GetUID() not in qavmData['tags']:
-				qavmData['tags'].append(tag.GetUID())
-				self.descDataManager.SetDescriptorData(desc.GetUID(), descData)
-				self.descDataManager.SaveData()
+		descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+		if tag.GetUID() not in descData.tags:
+			descData.tags.append(tag.GetUID())
+			self.descDataManager.SetDescriptorData(desc, descData)
+			self.descDataManager.SaveData()
