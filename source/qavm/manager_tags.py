@@ -110,13 +110,25 @@ class TagsManager(object):
 		self.tags[tag.GetUID()] = tag
 		self.SaveTags()
 
-	def RemoveTag(self, tag: Tag) -> None:
+	def DeleteTag(self, tag: Tag) -> None:
 		if not isinstance(tag, Tag):
 			raise TypeError(f'Expected Tag, got {type(tag)}')
 		if tag.GetUID() not in self.tags:
 			return
 		del self.tags[tag.GetUID()]
 		self.SaveTags()
+
+	def RemoveTag(self, desc: BaseDescriptor, tag: Tag) -> None:
+		if not isinstance(tag, Tag):
+			raise TypeError(f'Expected Tag, got {type(tag)}')
+		if not isinstance(desc, BaseDescriptor):
+			raise TypeError(f'Expected BaseDescriptor, got {type(desc)}')
+		
+		descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+		if tag.GetUID() in descData.tags:
+			descData.tags.remove(tag.GetUID())
+			self.descDataManager.SetDescriptorData(desc, descData)
+			self.descDataManager.SaveData()
 	
 	def AssignTag(self, desc: BaseDescriptor, tag: Tag) -> None:
 		if not isinstance(desc, BaseDescriptor):

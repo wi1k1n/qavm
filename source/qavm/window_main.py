@@ -480,21 +480,37 @@ class MainWindow(QMainWindow):
 			def assignTag(tag: Tag):
 				logger.info(f"Assigning tag {tag.GetName()} to descriptor {desc.GetUID()}")
 				self.tagsManager.AssignTag(desc, tag)
+			def removeTag(desc: BaseDescriptor, tag: Tag):
+				logger.info(f"Removing tag {tag.GetName()} from descriptor {desc.GetUID()}")
+				self.tagsManager.RemoveTag(desc, tag)
 
 			if menu := tileBuilder.GetContextMenu(desc):
-				# descData = self.descDataManager.GetDescriptorData(desc)
-				# if qavmDD := descData.get('__qavm__', {}):
-				# 	if tagsDD := qavmDD.get('tags', []):
-				# 		menu.addAction(QAction(tagsDD[0], self, triggered=lambda: logger.info("qavm action triggered")))
+				descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+				descTagsUIDs: list[str] = descData.tags
 				
+				addTagSubMenu = None
 				if tags := self.tagsManager.GetTags().values():
 					addTagSubMenu: QMenu = QMenu("Assign Tag", self)
 					for tag in tags:
+						if tag.GetUID() in descTagsUIDs:
+							continue
 						action = QAction(tag.GetName(), self, triggered=partial(assignTag, tag))
 						addTagSubMenu.addAction(action)
 					
+
+				removeTagsSubMenu = None
+				if descTags := [self.tagsManager.GetTag(tagUID) for tagUID in descTagsUIDs if self.tagsManager.GetTag(tagUID)]:
+					removeTagsSubMenu: QMenu = QMenu("Remove Tag", self)
+					for tag in descTags:
+						action = QAction(tag.GetName(), self, triggered=partial(removeTag, desc, tag))
+						removeTagsSubMenu.addAction(action)
+
+				if addTagSubMenu or removeTagsSubMenu:	
 					menu.addSeparator()
+				if addTagSubMenu:
 					menu.addMenu(addTagSubMenu)
+				if removeTagsSubMenu:
+					menu.addMenu(removeTagsSubMenu)
 
 				menu.addSeparator()
 				menu.addAction(QAction("Edit Note", self, triggered=partial(self._showNoteEditorDialog, desc)))
