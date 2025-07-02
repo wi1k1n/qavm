@@ -526,14 +526,10 @@ class MainWindow(QMainWindow):
 		Open a Note Editor dialog for the given descriptor.
 		This is a placeholder for the actual implementation.
 		"""
-		noteEditor = NoteEditorDialog(self)
+		noteEditor = NoteEditorDialog(desc, self)
 		if noteEditor.exec() == QDialog.DialogCode.Accepted:
-			notes: dict[str, str] = noteEditor.saveChanges()
-			if 'noteText' in notes:
-				descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
-				descData.note = notes['noteText']
-				self.descDataManager.SetDescriptorData(desc, descData)
-				self.descDataManager.SaveData()
+			# TODO: Emit signal to update descriptor in views
+			pass
 	
 	
 	def _wrapWidgetWithTags(self, widget: QWidget, parent: QWidget, desc: BaseDescriptor) -> QWidget:
