@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 from functools import partial
-import json
+import json, enum
 
 from PyQt6.QtCore import (
 	pyqtSignal, QObject, Qt, 
@@ -241,9 +241,16 @@ class SoftwareBaseSettings(BaseSettings):
 ########################### QAVM Plugin: Software ############################
 ##############################################################################
 
+class QIConfigTargetType(enum.Enum):
+	""" Enum for the target type of the qualifier identification config. """
+	FILE = 1
+	DIR = 2
+	ALL = FILE | DIR
+
 # TODO: add regex-like behavior
 class QualifierIdentificationConfig(object):
-	def __init__(self, 
+	def __init__(self,
+			  targetType: QIConfigTargetType = QIConfigTargetType.DIR,
 			  requiredFileList: list[str | list[str]] = [],
 			  requiredDirList: list[str | list[str]] = [],
 			  negativeFileList: list[str] = [],
@@ -251,6 +258,8 @@ class QualifierIdentificationConfig(object):
 			  fileContentsList: list[tuple[str, bool, int]] = []):
 		"""
 		QualifierIdentificationConfig is used to define the identification mask for the qualifier.
+		- targetType: QIConfigTargetType, defines the type of the target (file, dir or both)
+		# arguments below are only if targetType is QIConfigTargetType.DIR is included
 		- requiredFileList: list of files that MUST be present in the directory
 		- requiredDirList: list of directories that MUST be present in the directory
 		- negativeFileList: list of files that MUST NOT be present in the directory
@@ -261,6 +270,7 @@ class QualifierIdentificationConfig(object):
 		For example, the following requiredFileList: ['file1.txt', ['file2.txt', 'file3.txt']]
 		will match both ['file1.txt', 'file2.txt'] and ['file1.txt', 'file3.txt']
 		"""
+		self.targetType: QIConfigTargetType = targetType  # type of the target (file, dir or both)
 		self.requiredFileList = requiredFileList or []  # list of files that MUST be present
 		self.requiredDirList = requiredDirList or []  # list of directories that MUST be present
 		self.negativeFileList = negativeFileList or []  # list of files that MUST NOT be present
@@ -268,6 +278,8 @@ class QualifierIdentificationConfig(object):
 
 		self.fileContentsList = fileContentsList or []  # list of files to be read from the disk: tuples: (filename, isBinary, lengthLimit)
 
+	def SetTargetType(self, targetType: QIConfigTargetType):
+		self.targetType = targetType
 	def SetRequiredFileList(self, fileList: list[str | list[str]]):
 		self.requiredFileList = fileList
 	def SetRequiredDirList(self, dirList: list[str | list[str]]):
@@ -279,6 +291,8 @@ class QualifierIdentificationConfig(object):
 	def SetFileContentsList(self, fileContentsList: list[tuple[str, bool, int]]):
 		self.fileContentsList = fileContentsList
 	
+	def GetTargetType(self) -> QIConfigTargetType:
+		return self.targetType
 	def GetRequiredFileList(self) -> list[str | list[str]]:
 		return self.requiredFileList
 	def GetRequiredDirList(self) -> list[str | list[str]]:
@@ -290,31 +304,38 @@ class QualifierIdentificationConfig(object):
 	def GetFileContentsList(self) -> list[tuple[str, bool, int]]:
 		return self.fileContentsList
 	
-	def IdentificationMaskPasses(self, dirPath: Path) -> bool:
-		""" Checks if the directory path passes the file mask defined in this config. """
-		for file in self.requiredFileList:
-			if isinstance(file, list):
-				if not any((dirPath / f).is_file() for f in file):
+	def IdentificationMaskPasses(self, path: Path) -> bool:
+		""" Checks if the path matches the identification mask. """
+		if (self.targetType.value & QIConfigTargetType.FILE.value) == QIConfigTargetType.FILE.value:
+			if path.is_file():
+				return True
+		
+		if (self.targetType.value & QIConfigTargetType.DIR.value) == QIConfigTargetType.DIR.value:
+			for file in self.requiredFileList:
+				if isinstance(file, list):
+					if not any((path / f).is_file() for f in file):
+						return False
+				elif not (path / file).is_file():
 					return False
-			elif not (dirPath / file).is_file():
-				return False
-		
-		for folder in self.requiredDirList:
-			if isinstance(folder, list):
-				if not any((dirPath / f).is_dir() for f in folder):
-					return False
-			elif not (dirPath / folder).is_dir():
-				return False
-		
-		for file in self.negativeFileList:
-			if (dirPath / file).is_file():
-				return False
-		
-		for folder in self.negativeDirList:
-			if (dirPath / folder).is_dir():
-				return False
 			
-		return True
+			for folder in self.requiredDirList:
+				if isinstance(folder, list):
+					if not any((path / f).is_dir() for f in folder):
+						return False
+				elif not (path / folder).is_dir():
+					return False
+			
+			for file in self.negativeFileList:
+				if (path / file).is_file():
+					return False
+			
+			for folder in self.negativeDirList:
+				if (path / folder).is_dir():
+					return False
+				
+			return True
+		
+		return False
 	
 	def GetFileContents(self, dirPath: Path) -> dict[str, str | bytes]:
 		""" Reads the files from the disk and returns their contents as a dictionary. """
@@ -349,6 +370,7 @@ class BaseDescriptor(QObject):
 	""" Base class for software descriptors. Descriptor is used to represent the software among other plugin parts, such as TileBuilder, TableBuilder, ContextMenu, etc. """
 	updated = pyqtSignal()
 
+	# TODO: rename dirPath to path, as now it also can be a file
 	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
 		super().__init__()
 		self.UID: str = utils.GetHashString(str(dirPath))  # TODO: add here link to plugin and software ID (as the same descriptor can be used in different plugins)
@@ -424,7 +446,12 @@ class BaseBuilder(QObject):
 
 class BaseTileBuilder(BaseBuilder):
 	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:
+		""" Creates a tile widget for the descriptor. """
 		return QLabel(str(descriptor.dirPath), parent)
+	
+	def UpdateTileWidget(self, descriptor: BaseDescriptor, widget: QWidget) -> QWidget:
+		""" Updates the tile widget with the descriptor data. """
+		return widget
 
 class BaseTableBuilder(BaseBuilder):	
 	def GetTableCaptions(self) -> list[str]:

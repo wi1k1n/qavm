@@ -143,7 +143,13 @@ class QAVMApp(QApplication):
 			try:
 				return [d for d in pathDir.iterdir() if d.is_dir()]
 			except:
-				# logger.warning(f'Failed to get dir list: {pathDir}')
+				pass
+			return list()
+		
+		def getDirItemsListIgnoreError(pathDir: Path) -> list[Path]:
+			try:
+				return [d for d in pathDir.iterdir()]
+			except:
 				pass
 			return list()
 		
@@ -154,22 +160,25 @@ class QAVMApp(QApplication):
 		while currentDepthLevel < scanDepth:
 			subfoldersSearchPathsList = set()
 			for searchPath in searchPathsList:
-				dirs: set[Path] = set(getDirListIgnoreError(searchPath))
+				items: set[Path] = set(getDirItemsListIgnoreError(searchPath))
 				subdirs: set[str] = set()
-				for dir in sorted(dirs):
-					passed = config.IdentificationMaskPasses(dir)
+				for item in sorted(items):
+					passed = config.IdentificationMaskPasses(item)
 					if not passed:
-						subdirs.update(set(getDirListIgnoreError(dir)))
+						if currentDepthLevel < scanDepth - 1 and item.is_dir():  # skip unnecessary iteration due to depth limit
+							subdirs.update(set(getDirListIgnoreError(item)))
 						continue
 
-					fileContents: dict[str, str | bytes] = config.GetFileContents(dir)
-					if not qualifier.Identify(dir, fileContents):
-						subdirs.update(set(getDirListIgnoreError(dir)))
+					fileContents: dict[str, str | bytes] = config.GetFileContents(item)
+					if not qualifier.Identify(item, fileContents):
+						if currentDepthLevel < scanDepth - 1 and item.is_dir():  # skip unnecessary iteration due to depth limit
+							subdirs.update(set(getDirListIgnoreError(item)))
 						continue
-					descriptor: BaseDescriptor = descriptorClass(dir, softwareSettings, fileContents)
-					descData: dict = self.descDataManager.GetDescriptorData(descriptor)
+					descriptor: BaseDescriptor = descriptorClass(item, softwareSettings, fileContents)
+					# descData: dict = self.descDataManager.GetDescriptorData(descriptor)
 					# descriptor.AttachDescriptorData(descData)
 					softwareDescs.append(descriptor)
+
 				subfoldersSearchPathsList.update(subdirs)
 			searchPathsList = subfoldersSearchPathsList
 			currentDepthLevel += 1

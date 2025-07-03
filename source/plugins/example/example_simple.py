@@ -7,6 +7,7 @@ from typing import Optional
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, SoftwareBaseSettings, BaseTableBuilder,
+	QualifierIdentificationConfig, QIConfigTargetType,
 )
 from qavm.qavmapi.gui import (
 	NumberTableWidgetItem, PathTableWidgetItem, 
@@ -20,7 +21,7 @@ from PyQt6.QtWidgets import (
 
 class SimpleQualifier(BaseQualifier):
 	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> bool:
-		return currentPath.is_dir() and len(list(currentPath.glob('*.*'))) > 0	
+		return currentPath.is_dir() and len(list(currentPath.glob('*.*'))) > 0
 
 class SimpleDescriptor(BaseDescriptor):
 	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
@@ -83,7 +84,7 @@ class SimpleSettings(SoftwareBaseSettings):
 REGISTRATION_DATA = [
 	{
 		'id': 'software.simple',
-		'name': 'Example Simple',
+		'name': '(Example) Simple',
 
 		'descriptors': {
 			'populatedfolders': {

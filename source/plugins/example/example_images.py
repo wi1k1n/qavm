@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, SoftwareBaseSettings, BaseTableBuilder,
-	BaseCustomView,	QualifierIdentificationConfig, BaseMenuItem, 
+	BaseCustomView,	QualifierIdentificationConfig, BaseMenuItem, QIConfigTargetType, 
 )
 from qavm.qavmapi.gui import (
 	StaticBorderWidget, RunningBorderWidget, PathTableWidgetItem, 
@@ -40,9 +40,6 @@ class ExampleQualifierEXE(BaseQualifier):
 		# For example, you can add some default paths to search for the software.
 		return searchPaths
 	
-	def GetIdentificationConfig(self) -> QualifierIdentificationConfig:
-		return super().GetIdentificationConfig()
-	
 	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> bool:
 		if not currentPath.is_dir():
 			return False
@@ -55,8 +52,11 @@ class ExampleQualifierEXE(BaseQualifier):
 		return True
 	
 class ExampleQualifierPNG(BaseQualifier):
+	def GetIdentificationConfig(self) -> QualifierIdentificationConfig:
+		return QualifierIdentificationConfig(targetType=QIConfigTargetType.FILE)
+	
 	def Identify(self, currentPath: Path, fileContents: dict[str, str | bytes]) -> bool:
-		return currentPath.is_dir() and any(list(currentPath.glob('*.png')))
+		return currentPath.suffix.lower() == '.png'
 
 class ExampleDescriptorBase(BaseDescriptor):
 	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
@@ -339,7 +339,7 @@ class ExampleCustomView2(BaseCustomView):
 REGISTRATION_DATA = [
 	{
 		'id': 'software.first',  # this is a unique id under the PLUGIN_ID domain
-		'name': 'Example First',
+		'name': '(Example) First',
 
 		'descriptors': {
 			'exe': {
@@ -376,4 +376,8 @@ REGISTRATION_DATA = [
 ]
 WORKSPACES_DATA = {
 	'First': ['software.first#*'],
+	'PNG': [
+		'software.first#views/tiles/png',
+		'software.first#views/table/png',
+	],
 }
