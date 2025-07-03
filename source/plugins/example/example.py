@@ -2,6 +2,7 @@
 copyright
 """
 import example_simple
+import example_all
 import example_images
 
 PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.example'  # unique plugin id in the domain format, e.g. 'com.example.plugin'
@@ -19,10 +20,12 @@ Each plugin can implement multiple modules. Modules can be of different types, e
 
 def RegisterPluginSoftware():
 	return example_simple.REGISTRATION_DATA \
+		+ example_all.REGISTRATION_DATA \
 		+ example_images.REGISTRATION_DATA
 
 def RegisterPluginWorkspaces():
 	return {
 		**example_simple.WORKSPACES_DATA,
+		**example_all.WORKSPACES_DATA,
 		**example_images.WORKSPACES_DATA,
 	}
