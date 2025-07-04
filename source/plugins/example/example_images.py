@@ -24,11 +24,14 @@ from PyQt6.QtCore import (
 	Qt, QSize,
 )
 from PyQt6.QtGui import (
-	QFont, QColor, QAction,
+	QFont, QColor, QAction, QPixmap, QIcon, QCursor, 
 )
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QVBoxLayout, QMessageBox, QTableWidgetItem,
-	QMenu, QWidgetAction, QLayout, QTabWidget
+	QMenu, QWidgetAction, QLayout, QTabWidget, QFormLayout, QSpinBox,
+	QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
+	QTableWidgetItem, QTableWidgetItem, QTableWidgetItem, QTableWidgetItem,
+	QSlider, QTableWidgetItem, 
 )
 
 from utils import GetLogger
@@ -132,10 +135,28 @@ class ExampleTileBuilderImages(BaseTileBuilder, ExampleContextMenuBase):
 
 		# pathStr: str = str(desc.targetPaths[0]) if desc.targetPaths else 'No target file'
 		resStr: str = f'{desc.imageResolution[0]}x{desc.imageResolution[1]}' if desc.imageResolution else 'unknown'
-		label = QLabel(f'{desc.dirPath.name}<br>{desc.fileSize / 1024:.1f} KB<br>Resolution: {resStr}', parent)
-		label.setFont(QFont('SblHebrew'))
-		label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-		descLayout.addWidget(label)
+		lblName = QLabel(f'{desc.dirPath.name}', parent)
+		# lblName.setFont(QFont('SblHebrew'))
+		lblName.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+		pxmImage: QPixmap | None = QPixmap(str(desc.dirPath))
+		if pxmImage.isNull():
+			pxmImage = None
+		
+		lblDescription = QLabel(f'{desc.fileSize / 1024:.1f} KB<br>Resolution: {resStr}', parent)
+
+		descLayout.addWidget(lblName)
+		if pxmImage:
+			lblImage = QLabel(parent)
+			lblImage.setPixmap(pxmImage.scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+			lblImage.setAlignment(Qt.AlignmentFlag.AlignCenter)
+			descLayout.addWidget(lblImage)
+		else:
+			lblImage = QLabel('Image not found', parent)
+			lblImage.setAlignment(Qt.AlignmentFlag.AlignCenter)
+			lblImage.setStyleSheet("color: red;")
+			descLayout.addWidget(lblImage)
+		descLayout.addWidget(lblDescription)
 
 		# toolTip: str = 'No executables found'
 		# if desc.targetPaths:
@@ -189,7 +210,7 @@ class ExampleTableBuilderImages(BaseTableBuilder):
 
 class ExampleSettingsImages(SoftwareBaseSettings):
 	CONTAINER_DEFAULTS: dict[str, Any] = {
-		'myExampleSetting': 'default value',  # Example setting
+		'tile_size': 50,  # default tile size in pixels
 	}
 
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
@@ -200,12 +221,40 @@ class ExampleSettingsImages(SoftwareBaseSettings):
 			tabsWidget.addTab(commonSettingsWidgets[0][1], commonSettingsWidgets[0][0])
 
 		# Add more tabs if needed
-		exampleSettingsWidget: QWidget = QLabel('This is an example settings tab.', parent)
+		exampleSettingsWidget: QWidget = self._createSettingsWidget(parent)
 		tabsWidget.addTab(exampleSettingsWidget, 'Example Settings')
 
 		return [
 			('Example', tabsWidget),
 		]
+	
+	def _createSettingsWidget(self, parent: QWidget) -> QWidget:
+		settingsWidget = QWidget(parent)
+		layout = QFormLayout(settingsWidget)
+		layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+		layout.setContentsMargins(10, 10, 10, 10)
+
+		self.tileSizeLabel = QLabel('Tile Size (px): NaN', settingsWidget)
+		tileSize: int = self.GetSetting('tile_size')
+
+		def tileSizeSliderUpdated(newValue: int):
+			self.SetSetting('tile_size', newValue)
+			self.tileSizeLabel.setText(f'Tile Size (px): {newValue}')
+		tileSizeSliderUpdated(tileSize)
+
+		tileSizeSlider = QSlider(Qt.Orientation.Horizontal, settingsWidget)
+		tileSizeSlider.setMinimum(20)
+		tileSizeSlider.setMaximum(200)
+		tileSizeSlider.setValue(tileSize)
+		tileSizeSlider.setTickPosition(QSlider.TickPosition.TicksBelow)
+		tileSizeSlider.setTickInterval(10)
+		tileSizeSlider.setSingleStep(5)
+		tileSizeSlider.valueChanged.connect(tileSizeSliderUpdated)
+		tileSizeSlider.setToolTip('Adjust the size of the image tiles in pixels')
+
+		layout.addRow(self.tileSizeLabel, tileSizeSlider)
+
+		return settingsWidget
 
 REGISTRATION_DATA = [
 	{
