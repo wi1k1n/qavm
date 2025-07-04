@@ -13,7 +13,7 @@ from qavm.qavmapi import (
 	BaseCustomView,	QualifierIdentificationConfig, BaseMenuItem, QIConfigTargetType, 
 )
 from qavm.qavmapi.gui import (
-	StaticBorderWidget, RunningBorderWidget, PathTableWidgetItem, 
+	StaticBorderWidget, RunningBorderWidget, PathTableWidgetItem, NumberTableWidgetItem, 
 )
 
 from qavm.qavmapi.utils import (
@@ -131,8 +131,8 @@ class ExampleTileBuilderImages(BaseTileBuilder, ExampleContextMenuBase):
 		descLayout.setSpacing(5)  # space between labels inside tile
 
 		# pathStr: str = str(desc.targetPaths[0]) if desc.targetPaths else 'No target file'
-		pathStr: str = "MYPATH"
-		label = QLabel(pathStr, parent)
+		resStr: str = f'{desc.imageResolution[0]}x{desc.imageResolution[1]}' if desc.imageResolution else 'unknown'
+		label = QLabel(f'{desc.dirPath.name}<br>{desc.fileSize / 1024:.1f} KB<br>Resolution: {resStr}', parent)
 		label.setFont(QFont('SblHebrew'))
 		label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 		descLayout.addWidget(label)
@@ -173,14 +173,17 @@ class ExampleTableBuilderImages(BaseTableBuilder):
 		return '(Example) Table Images'
 	
 	def GetTableCaptions(self) -> list[str]:
-		return ['Folder name', 'Version', 'Path']
+		return ['Name', 'Size', 'Resolution', 'Path']
 	
 	def GetTableCellValue(self, desc: ExampleDescriptorImages, col: int) -> str | QTableWidgetItem:
 		if col == 0:
 			return desc.dirPath.name
-		if col == 1:
-			return "unknown"
-		if col == 2:
+		elif col == 1:
+			# return f'{desc.fileSize / 1024:.1f} KB'
+			return NumberTableWidgetItem(desc.fileSize / 1024, '{} KB')
+		elif col == 2:
+			return f'{desc.imageResolution[0]}x{desc.imageResolution[1]}' if desc.imageResolution else 'unknown'
+		elif col == 3:
 			return PathTableWidgetItem(desc.dirPath)
 		return ''
 
