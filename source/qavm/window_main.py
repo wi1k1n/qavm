@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
 from qavm.manager_plugin import PluginManager, SoftwareHandler, UID, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.window_note_editor import NoteEditorDialog
+from qavm.widget_tiles import TilesWidget
 from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorData
 from qavm.manager_tags import TagsManager, Tag
 
@@ -332,9 +333,10 @@ class MainWindow(QMainWindow):
 		
 		descs: list[BaseDescriptor] = self._prepareDescriptors(swHandler, viewUID, tileBuilder)
 
-		if tilesWidget := self._createTilesWidget(descs, tileBuilder, parent=self):
-			self.tabsWidget.insertTab(0, tilesWidget, tileBuilder.GetName())
-			# self.tabsWidget.addTabWithUid(tilesWidget, tileBuilder.GetName(), viewUID+descUID)
+		if tilesView := TilesWidget(descs, tileBuilder, parent=self):
+			tileBuilder.updateTileRequired.connect(partial(self._updateTilesWidget, descs, tileBuilder))
+			self.tabsWidget.insertTab(0, tilesView, tileBuilder.GetName())
+			# self.tabsWidget.addTabWithUid(tilesView, tileBuilder.GetName(), viewUID+descUID)
 			
 	def _createTableView(self, swHandler: SoftwareHandler, viewUID: str):
 		tableBuilderClass: Type[BaseTableBuilder] | None = swHandler.GetTableBuilderClass(viewUID)
@@ -360,6 +362,10 @@ class MainWindow(QMainWindow):
 	def _onTabChanged(self, index: int):
 		self.qavmSettings.SetSetting('last_opened_tab', index)
 		self.qavmSettings.Save()  # TODO: should save now or later once per all changes?
+
+	def _updateTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder):
+		for desc in descs:
+			tileBuilder.UpdateTileWidget()
 	
 	# def UpdateTableWidget(self):
 	# 	softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
@@ -518,7 +524,7 @@ class MainWindow(QMainWindow):
 				menu.exec(QCursor.pos())
 
 		for desc in descs:
-			desc.updated.connect(partial(self._onDescriptorUpdated, desc))
+			# desc.updated.connect(partial(self._onDescriptorUpdated, desc))
 			tileWidget = tileBuilder.CreateTileWidget(desc, parent)
 			
 			tileWidgetWithTags = self._wrapWidgetWithTags(tileWidget, parent, desc)
@@ -574,41 +580,41 @@ class MainWindow(QMainWindow):
 
 		return wrapper
 	
-	# TODO: this is very similar to UpdateTilesWidget, code duplication
-	def _onDescriptorUpdated(self, desc: BaseDescriptor):
-		if not hasattr(self, 'tilesWidget'):
-			return
+	# # TODO: this is very similar to UpdateTilesWidget, code duplication
+	# def _onDescriptorUpdated(self, desc: BaseDescriptor):
+	# 	if not hasattr(self, 'tilesWidget'):
+	# 		return
 		
-		scrollArea = self.tilesWidget
-		flWidget = scrollArea.widget()
-		if not flWidget or not isinstance(flWidget.layout(), FlowLayout):
-			return
+	# 	scrollArea = self.tilesWidget
+	# 	flWidget = scrollArea.widget()
+	# 	if not flWidget or not isinstance(flWidget.layout(), FlowLayout):
+	# 		return
 
-		flowLayout: FlowLayout = flWidget.layout()
+	# 	flowLayout: FlowLayout = flWidget.layout()
 
-		for i in range(flowLayout.count()):
-			widget = flowLayout.itemAt(i).widget()
-			if getattr(widget, 'descriptor', None) == desc:
-				# Remove old widget
-				flowLayout.removeWidget(widget)
-				widget.deleteLater()
+	# 	for i in range(flowLayout.count()):
+	# 		widget = flowLayout.itemAt(i).widget()
+	# 		if getattr(widget, 'descriptor', None) == desc:
+	# 			# Remove old widget
+	# 			flowLayout.removeWidget(widget)
+	# 			widget.deleteLater()
 
-				# Create and insert new tile
-				softwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
-				contextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
-				tileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
+	# 			# Create and insert new tile
+	# 			softwareHandler = self.pluginManager.GetSoftwareHandler(self.qavmSettings.GetSelectedSoftwareUID())
+	# 			contextMenu = softwareHandler.GetTileBuilderContextMenuClass()(softwareHandler.GetSettings())
+	# 			tileBuilder = softwareHandler.GetTileBuilderClass()(softwareHandler.GetSettings(), contextMenu)
 
-				newTile = tileBuilder.CreateTileWidget(desc, self)
-				newTile.descriptor = desc
-				newTile.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-				menu = contextMenu.CreateMenu(desc)
-				newTile.customContextMenuRequested.connect(partial(lambda m, p: m.exec(QCursor.pos()), menu))
+	# 			newTile = tileBuilder.CreateTileWidget(desc, self)
+	# 			newTile.descriptor = desc
+	# 			newTile.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+	# 			menu = contextMenu.CreateMenu(desc)
+	# 			newTile.customContextMenuRequested.connect(partial(lambda m, p: m.exec(QCursor.pos()), menu))
 
-				# Optional: keep tiles sorted or in original order
-				flowLayout.insertWidget(i, newTile)
-				break
+	# 			# Optional: keep tiles sorted or in original order
+	# 			flowLayout.insertWidget(i, newTile)
+	# 			break
 
-		self.tableWidget.update()
+	# 	self.tableWidget.update()
 
 
 	def _createFlowLayoutWithFromWidgets(self, parent, widgets: list[QWidget]):

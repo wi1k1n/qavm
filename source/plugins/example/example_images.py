@@ -107,6 +107,8 @@ class ExampleTileBuilderImages(BaseTileBuilder, ExampleContextMenuBase):
 		# self.settings: SoftwareBaseSettings
 		# self.themeData: dict
 
+		self.settings.settingChanged.connect(self._onSettingsChanged)
+
 	def GetContextMenu(self, desc: ExampleDescriptorImages) -> QMenu | None:
 		return self._getContextMenu(desc)
 	
@@ -121,6 +123,9 @@ class ExampleTileBuilderImages(BaseTileBuilder, ExampleContextMenuBase):
 
 		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, borderColor, isProcessRunning, parent)
 		return animatedBorderWidget
+	
+	def UpdateTileWidget(self, descriptor: BaseDescriptor, widget: QWidget) -> QWidget:
+		return widget
 	
 	def _createDescWidget(self, desc: ExampleDescriptorImages, parent: QWidget):
 		descWidget = QWidget(parent)
@@ -188,6 +193,9 @@ class ExampleTileBuilderImages(BaseTileBuilder, ExampleContextMenuBase):
 
 		return animBorderWidget
 
+	def _onSettingsChanged(self, settingName: str, newValue: Any):
+		if settingName == 'tile_size':
+			self.updateTileRequired.emit()
 
 class ExampleTableBuilderImages(BaseTableBuilder):
 	def GetName(self) -> str:
