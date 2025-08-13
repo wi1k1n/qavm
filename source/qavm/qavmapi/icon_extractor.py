@@ -130,7 +130,7 @@ Version: 1.0
 """Uses 7zip prepared by daemondevin: https://github.com/daemondevin/7-ZipPortable"""
 
 from pathlib import Path
-import subprocess, re, shutil, imghdr
+import subprocess, re, shutil
 from subprocess import CompletedProcess
 from typing import List, Tuple, Optional
 
@@ -178,6 +178,21 @@ def find_icons_in_exe(path_7zip: Path, exe_path: Path) -> List[Tuple[str, int]]:
 	icon_files.sort(key=lambda entry: entry[1], reverse=True)
 	return icon_files
 
+def guess_image_extension(path: Path) -> str | None:
+    with open(path, "rb") as f:
+        header = f.read(16)
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if header.startswith(b"\xff\xd8"):
+        return "jpeg"
+    if header.startswith(b"GIF87a") or header.startswith(b"GIF89a"):
+        return "gif"
+    if header.startswith(b"BM"):
+        return "bmp"
+    if header.startswith(b"\x00\x00\x01\x00"):
+        return "ico"
+    return None
+
 def extract_icon_from_exe(path_7zip: Path, exe_path: Path, inner_icon_file_path: str, output_dir_path: Path) -> Optional[Path]:
 	"""Extract an icon from an executable file.
 
@@ -205,7 +220,7 @@ def extract_icon_from_exe(path_7zip: Path, exe_path: Path, inner_icon_file_path:
 	extracted_file_path: Path = output_dir_path / Path(inner_icon_file_path).name
 	if extracted_file_path.suffix.lower() == "":
 		print("\t\t\t- Guessing file extension from file header.")
-		extension: str = imghdr.what(extracted_file_path)
+		extension: str | None = guess_image_extension(extracted_file_path)
 		if extension:
 			extracted_file_path = extracted_file_path.rename(extracted_file_path.with_suffix(f".{extension}"))
 		else:
