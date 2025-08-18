@@ -14,10 +14,13 @@ from PyQt6.QtWidgets import (
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler, UID, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
-from qavm.window_note_editor import NoteEditorDialog
 from qavm.widget_tiles import TilesWidget
 from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorData
 from qavm.manager_tags import TagsManager, Tag
+
+from qavm.window_note_editor import NoteEditorDialog
+from qavm.window_about import AboutDialog
+from qavm.widget_table import MyTableWidget
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder,
@@ -31,99 +34,6 @@ import qavm.logs as logs
 logger = logs.logger
 
 # TODO: wtf, rename it please!
-class MyTableViewHeader(QHeaderView):
-	def __init__(self, orientation, parent=None):
-		super().__init__(orientation, parent)
-		self.setSortIndicatorShown(True)
-		self.setSortIndicator(0, Qt.SortOrder.AscendingOrder)
-		self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-		self.customContextMenuRequested.connect(self._showContextMenu)
-		self.setSectionsMovable(True)
-
-		self._mousePressedPos = None
-		self._mousePressedSection = -1
-
-	def _showContextMenu(self, pos: QPoint):
-		menu = QMenu(self)
-
-		tableWidget = self.parent()
-		if not isinstance(tableWidget, QTableWidget):
-			return
-
-		columnCount = tableWidget.columnCount() - 1  # Exclude the last column (descIdx)
-		for col in range(columnCount):
-			header_label = tableWidget.horizontalHeaderItem(col).text()
-			action = QAction(header_label, menu)
-			action.setCheckable(True)
-			action.setChecked(not tableWidget.isColumnHidden(col))
-			action.toggled.connect(lambda checked, col=col: tableWidget.setColumnHidden(col, not checked))
-			menu.addAction(action)
-   
-		menu.exec(self.mapToGlobal(pos))
-  
-	def mousePressEvent(self, event):
-		if event.button() == Qt.MouseButton.LeftButton:
-			self._mousePressedPos = event.pos()
-			self._mousePressedSection = self.logicalIndexAt(self._mousePressedPos)
-		super().mousePressEvent(event)
-		
-	def mouseReleaseEvent(self, event):
-		if event.button() == Qt.MouseButton.LeftButton:
-			releasedSection = self.logicalIndexAt(event.pos())
-			if (
-				releasedSection == self._mousePressedSection
-				and (event.pos() - self._mousePressedPos).manhattanLength() < 4
-			):
-				currentOrder = self.sortIndicatorOrder()
-				if releasedSection != self.sortIndicatorSection() or currentOrder == Qt.SortOrder.AscendingOrder:
-					self.setSortIndicator(releasedSection, Qt.SortOrder.DescendingOrder)
-				else:
-					self.setSortIndicator(releasedSection, Qt.SortOrder.AscendingOrder)
-				# self.sectionClicked.emit(releasedSection)  # Emit the signal for the section clicked
-		super().mouseReleaseEvent(event)
-			
-# TODO: wtf, rename it please!
-class MyTableWidget(QTableWidget):
-	clickedLeft = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
-	clickedRight = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
-	clickedMiddle = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
-	doubleClickedLeft = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
-	doubleClickedRight = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
-	doubleClickedMiddle = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
-
-	def mousePressEvent(self, event: QMouseEvent):
-		if event.button() == Qt.MouseButton.LeftButton:
-			# print("Left button clicked")
-			self.clickedLeft.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
-		elif event.button() == Qt.MouseButton.RightButton:
-			# print("Right button clicked")
-			self.clickedRight.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
-		elif event.button() == Qt.MouseButton.MiddleButton:
-			# print("Middle button clicked")
-			self.clickedMiddle.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
-
-		super().mousePressEvent(event)
-
-	def mouseDoubleClickEvent(self, event: QMouseEvent):
-		index = self.indexAt(event.pos())
-		if not index.isValid():
-			return
-
-		row = index.row()
-		col = index.column()
-
-		if event.button() == Qt.MouseButton.LeftButton:
-			print("Left button double clicked")
-			self.doubleClickedLeft.emit(row, col, QApplication.keyboardModifiers())
-		elif event.button() == Qt.MouseButton.RightButton:
-			print("Right button double clicked")
-			self.doubleClickedRight.emit(row, col, QApplication.keyboardModifiers())
-		elif event.button() == Qt.MouseButton.MiddleButton:
-			print("Middle button double clicked")
-			self.doubleClickedMiddle.emit(row, col, QApplication.keyboardModifiers())
-
-		super().mouseDoubleClickEvent(event)
-
 class MyTabWidget(QTabWidget):
 	def __init__(self, parent=None):
 		super().__init__(parent)
@@ -345,10 +255,11 @@ class MainWindow(QMainWindow):
 		tableBuilder: BaseTableBuilder = tableBuilderClass(swHandler.GetSettings())
 		
 		descs: list[BaseDescriptor] = self._prepareDescriptors(swHandler, viewUID, tableBuilder)
-
-		if tilesWidget := self._createTableWidget(descs, tableBuilder, parent=self):
-			self.tabsWidget.insertTab(0, tilesWidget, tableBuilder.GetName())
-			# self.tabsWidget.addTabWithUid(tilesWidget, tableBuilder.GetName(), viewUID+descUID)
+		
+		tableWidget: MyTableWidget = MyTableWidget(descs, tableBuilder, parent=self)
+		tableWidget.itemSelectionChanged.connect(partial(self._tableItemFocusBuggedWorkaround, tableWidget))
+		self.tabsWidget.insertTab(0, tableWidget, tableBuilder.GetName())
+		# self.tabsWidget.addTabWithUid(tableWidget, tableBuilder.GetName(), viewUID+descUID)
 
 	def _createCustomView(self, swHandler: SoftwareHandler, viewUID: str):
 		customViewClass: Type[BaseCustomView] | None = swHandler.GetCustomViewClass(viewUID)
@@ -362,82 +273,6 @@ class MainWindow(QMainWindow):
 	def _onTabChanged(self, index: int):
 		self.qavmSettings.SetSetting('last_opened_tab', index)
 		self.qavmSettings.Save()  # TODO: should save now or later once per all changes?
-
-	def _updateTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder):
-		for desc in descs:
-			tileBuilder.UpdateTileWidget()
-	
-	# def UpdateTableWidget(self):
-	# 	softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
-	# 	contextMenu: BaseContextMenu = softwareHandler.GetTableBuilderContextMenuClass()(softwareHandler.GetSettings())
-	# 	tableBuilder = softwareHandler.GetTableBuilderClass()(softwareHandler.GetSettings(), contextMenu)
-	# 	if type(tableBuilder) is BaseTableBuilder:
-	# 		return
-		
-	# 	currentTabIndex: int = self.tabsWidget.currentIndex()
-
-	# 	if hasattr(self, 'tableWidget') and self.tableWidget:
-	# 		self.tableWidget.deleteLater()
-		
-	# 	app = QApplication.instance()
-	# 	self.tableWidget = self._createTableWidget(app.GetSoftwareDescriptions(), tableBuilder, contextMenu, self)
-	# 	self.tabsWidget.insertTab(1, self.tableWidget, "Details")
-	# 	self.tabsWidget.currentChanged.connect(partial(self._tableItemFocusBuggedWorkaround, self.tableWidget))
-		
-	# 	self.tabsWidget.setCurrentIndex(currentTabIndex)
-
-	def _createTableWidget(self, descs: list[BaseDescriptor], tableBuilder: BaseTableBuilder, parent: QWidget):
-		tableWidget = MyTableWidget(parent)
-
-		headers: list[str] = tableBuilder.GetTableCaptions()
-
-		tableWidget.setRowCount(len(descs))
-		# tableWidget.verticalHeader().setVisible(False)  # TODO: make this preferences option
-
-		myHeader = MyTableViewHeader(Qt.Orientation.Horizontal, tableWidget)
-		tableWidget.setHorizontalHeader(myHeader)
-		tableWidget.setColumnCount(len(headers) + 1)
-		tableWidget.setHorizontalHeaderLabels(headers + ['descIdx'])
-		tableWidget.hideColumn(len(headers))  # hide descIdx column, this is kinda dirty, but gives more flexibility comparing to qabstracttablemodel and qproxymodel
-		tableWidget.setItemDelegate(tableBuilder.GetItemDelegateClass()(tableWidget))
-		
-		tableWidget.setSortingEnabled(True)
-		tableWidget.horizontalHeader().setStretchLastSection(True)
-		tableWidget.horizontalHeader().setMinimumSectionSize(150)
-		tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-		tableWidget.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-		tableWidget.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-		
-		tableWidget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-		tableWidget.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-		tableWidget.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-		tableWidget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-		tableWidget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-
-		tableWidget.doubleClickedLeft.connect(partial(self._onTableItemDoubleClickedLeft, tableWidget, tableBuilder))
-		tableWidget.clickedMiddle.connect(partial(self._onTableItemClickedMiddle, tableWidget, tableBuilder))
-		tableWidget.itemSelectionChanged.connect(partial(self._tableItemFocusBuggedWorkaround, tableWidget))
-
-		def showContextMenu(pos):
-			selectedRowsUnique: set = {idx.row() for idx in tableWidget.selectedIndexes()}
-			currentRow = selectedRowsUnique.pop()
-			descIdx: int = int(tableWidget.item(currentRow, len(headers)).text())
-			if menu := tableBuilder.GetContextMenu(descs[descIdx]):
-				menu.exec(QCursor.pos())
-
-		for r, desc in enumerate(descs):
-			# rowColor = QBrush(colors[r % 3])
-			for c, header in enumerate(headers):
-				tableWidgetItem = tableBuilder.GetTableCellValue(desc, c)
-				if not isinstance(tableWidgetItem, QTableWidgetItem):
-					tableWidgetItem = QTableWidgetItem(tableWidgetItem)
-				tableWidget.setItem(r, c, tableWidgetItem)
-			tableWidget.setItem(r, len(headers), QTableWidgetItem(str(r)))
-		
-		tableWidget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-		tableWidget.customContextMenuRequested.connect(showContextMenu)
-		
-		return tableWidget
 	
 	def _tableItemFocusBuggedWorkaround(self, tableWidget: QTableWidget):
 		"""
@@ -447,19 +282,6 @@ class MainWindow(QMainWindow):
 		if self.tabsWidget.currentIndex() == 1:  # TODO: dynamically get table tab index, don't hardcode!
 			tableWidget.clearFocus()
 	
-	def _onTableItemDoubleClickedLeft(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
-		if row < 0 or col < 0:
-			return
-		app = QApplication.instance()
-		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
-		# tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, True, 0, QApplication.keyboardModifiers())
-
-	def _onTableItemClickedMiddle(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
-		if row < 0 or col < 0:
-			return
-		app = QApplication.instance()
-		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
-		# tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
 	
 	# def UpdateTilesWidget(self):
 	# 	softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()  # TODO: handle case when softwareHandler is None
@@ -651,72 +473,5 @@ class MainWindow(QMainWindow):
 	# 	self.UpdateTilesWidget()
 
 	def _showAboutDialog(self):
-		aboutDialog = QDialog(self)
-		aboutDialog.setWindowTitle("About QAVM")
-		aboutDialog.setMinimumSize(600, 400)
-		aboutDialog.setModal(True)
-
-		mainLayout = QVBoxLayout(aboutDialog)
-
-		# === Top section: Icon + version info ===
-		topLayout = QHBoxLayout()
-
-		# App icon
-		icon = QIcon("res/qavm_icon.png")  # Replace with your icon path or Qt resource
-		pixmap = icon.pixmap(64, 64)
-		iconLabel = QLabel()
-		iconLabel.setPixmap(pixmap)
-		iconLabel.setAlignment(Qt.AlignmentFlag.AlignTop)
-		topLayout.addWidget(iconLabel)
-
-		# Version info
-		versionInfo = (
-			f"<b>QAVM {GetQAVMVersionVariant()}</b><br>"
-			f"Package: {GetPackageVersion()}<br>"
-			f"Build: {GetBuildVersion()}<br><br>"
-		)
-		versionLabel = QLabel(versionInfo)
-		versionLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
-		versionLabel.setTextFormat(Qt.TextFormat.RichText)
-		versionLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-		topLayout.addWidget(versionLabel)
-
-		topLayout.addStretch()
-		mainLayout.addLayout(topLayout)
-
-		# === Scrollable plugin section ===
-		scrollArea = QScrollArea()
-		scrollArea.setWidgetResizable(True)
-		pluginContainer = QWidget()
-		pluginLayout = QVBoxLayout(pluginContainer)
-
-		for plugin in self.pluginManager.GetPlugins():
-			pluginVersion: str = plugin.GetVersionStr()
-			pluginVariant: str = plugin.GetPluginVariant()
-			if pluginVariant:
-				pluginVersion += f" ({pluginVariant})"
-			pluginText = (
-				f"<b>Plugin:</b> {plugin.GetName()}"
-				f"<br><b>Version:</b> {pluginVersion}"
-				f"<br><b>UID:</b> {plugin.GetUID()}"
-				f"<br><b>Executable:</b> <code>{plugin.GetExecutablePath()}</code>"
-				f"<br><b>Developer:</b> {plugin.GetPluginDeveloper()}"
-				f"<br><b>Website:</b> <a href='{plugin.GetPluginWebsite()}'>{plugin.GetPluginWebsite()}</a>"
-			)
-			pluginLabel = QLabel()
-			pluginLabel.setTextFormat(Qt.TextFormat.RichText)
-			pluginLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
-			pluginLabel.setOpenExternalLinks(True)
-			pluginLabel.setWordWrap(True)
-			pluginLabel.setText(pluginText)
-			pluginLayout.addWidget(pluginLabel)
-
-		scrollArea.setWidget(pluginContainer)
-		mainLayout.addWidget(scrollArea)
-
-		# === OK Button ===
-		buttonBox = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
-		buttonBox.accepted.connect(aboutDialog.accept)
-		mainLayout.addWidget(buttonBox)
-
+		aboutDialog: AboutDialog = AboutDialog(self, self.pluginManager)
 		aboutDialog.exec()
