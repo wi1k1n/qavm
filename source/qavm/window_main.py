@@ -273,6 +273,10 @@ class MainWindow(QMainWindow):
 	def _onTabChanged(self, index: int):
 		self.qavmSettings.SetSetting('last_opened_tab', index)
 		self.qavmSettings.Save()  # TODO: should save now or later once per all changes?
+		
+	def _updateTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder):
+		for desc in descs:
+			tileBuilder.UpdateTileWidget()
 	
 	def _tableItemFocusBuggedWorkaround(self, tableWidget: QTableWidget):
 		"""
