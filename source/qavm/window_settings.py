@@ -64,7 +64,8 @@ class PreferencesWindow(QWidget):
 				for (name, widget) in swSettings.CreateWidgets(self.contentWidget):
 					self.AddSettingsEntry(name, widget, softwareItem)
 
-		self.menuWidget.expandAll()
+		# self.menuWidget.expandAll()
+		self.menuWidget.expand(generalSettingsItem.index())
 	
 		minExtraWidth = 20
 		if qutils.PlatformMacOS():
