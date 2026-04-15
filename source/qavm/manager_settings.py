@@ -309,5 +309,7 @@ class SettingsManager:
 		if not workspace or workspace.IsEmpty():
 			return
 		sfHandlers, notFoundPlugins = workspace.GetInvolvedSoftwareHandlers()
+		if notFoundPlugins:
+			logger.warning(f'Plugins not found while loading workspace software settings: {notFoundPlugins}')
 		for swHandler in sfHandlers:
 			self.LoadSoftwareSettings(swHandler)
