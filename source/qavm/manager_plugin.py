@@ -5,7 +5,7 @@ from typing import Type, Optional, Any
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, BaseSettings, BaseTableBuilder,
-	BaseCustomView, SoftwareBaseSettings, BaseMenuItem, 
+	BaseCustomView, SoftwareBaseSettings, BaseMenuItem, BaseSoftwareInterface
 )
 import qavm.qavmapi.utils as utils
 
@@ -318,8 +318,11 @@ class SoftwareHandler:
 	KEY_CUSTOM = 'custom'
 	KEY_SETTINGS = 'settings'
 	KEY_MENUITEMS = 'menuitems'
+	KEY_INTERFACE = 'interface'
 
-	def __init__(self, regData: dict) -> None:
+	def __init__(self, pluginID: str, regData: dict) -> None:
+		self.pluginID = pluginID
+
 		########################### ID ###########################
 		self.id: str = regData.get('id', '')
 		self._checkType(self.id, str, 'software ID')
@@ -389,6 +392,13 @@ class SoftwareHandler:
 			self._checkType(menuItemTypeId, str, 'menu item type ID')
 			self._checkSubClass(menuItemClass, BaseMenuItem, 'menu items class')
 			self.menuItems[f'{self.KEY_MENUITEMS}/{menuItemTypeId}'] = menuItemClass(self.settingsInstance)
+
+		############################# Interface ###########################
+		self.interfaceInstance: BaseSoftwareInterface | None = None
+		if interfaceClass := regData.get(self.KEY_INTERFACE, None):
+			self._checkSubClass(interfaceClass, BaseSoftwareInterface, self.KEY_INTERFACE)
+			self.interfaceInstance = interfaceClass(self.pluginID, self.GetID())
+
 			
 	def _checkType(self, value: object, expectedType: type, name: str) -> None:
 		# TODO: move to some plugins utils module
@@ -462,6 +472,10 @@ class SoftwareHandler:
 		if menuItemTypeId := UID.FetchDataPath(menuItemTypeId):
 			return self.menuItems.get(menuItemTypeId, None)
 		return None
+	
+	def GetInterface(self) -> BaseSoftwareInterface | None:
+		""" Returns the interface class registered by the software handler, e.g. 'BaseSoftwareInterface' or None if not set """
+		return self.interfaceInstance
 
 class QAVMPlugin:
 	"""
@@ -509,7 +523,7 @@ class QAVMPlugin:
 			raise Exception(f'Invalid software registration data for plugin: {self.pluginID}. Expected a list, got {type(softwareRegDataList).__name__}')
 
 		for softwareRegData in softwareRegDataList:
-			softwareHandler = SoftwareHandler(softwareRegData)
+			softwareHandler = SoftwareHandler(self.pluginID, softwareRegData)
 
 			if softwareHandler.id in self.softwareHandlers:
 				raise Exception(f'Duplicate software ID found: {softwareHandler.id}')

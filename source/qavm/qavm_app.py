@@ -2,7 +2,7 @@ import argparse
 from typing import List, Type
 from pathlib import Path
 
-from qavm.manager_plugin import PluginManager, SoftwareHandler, QAVMWorkspace
+from qavm.manager_plugin import PluginManager, SoftwareHandler, QAVMWorkspace, QAVMPlugin
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.manager_dialogs import DialogsManager
 from qavm.manager_descriptor_data import DescriptorDataManager
@@ -12,7 +12,7 @@ import qavm.qavmapi.utils as utils  # TODO: rename to qutils
 import qavm.qavmapi.gui as gui_utils
 from qavm.qavmapi import (
 	BaseDescriptor, QualifierIdentificationConfig, BaseQualifier, SoftwareBaseSettings,
-
+	BaseSoftwareInterface,
 )
 from qavm.utils_plugin_package import VerifyPlugin
 
@@ -108,6 +108,13 @@ class QAVMApp(QApplication):
 	def GetPluginPaths(self) -> list[Path]:
 		""" Returns a set of paths to individual plugins (i.e. a folder, containing the plugin). """
 		return list(self.pluginPaths)
+	
+	def GetSoftwareInterfaces(self) -> list[BaseSoftwareInterface]:
+		interfaces: list[BaseSoftwareInterface] = list()
+		for (pluginID, softwareID, softwareHandler) in self.GetPluginManager().GetSoftwareHandlers():
+			if interface := softwareHandler.GetInterface():
+				interfaces.append(interface)
+		return interfaces
 	
 	def GetSoftwareDescriptors(self, swHandler: SoftwareHandler) -> dict[str, list[BaseDescriptor]]:
 		if swDescriptors := self.softwareDescriptors.get(swHandler, dict()):

@@ -5,12 +5,12 @@ from functools import partial
 import json, enum
 
 from PyQt6.QtCore import (
-	pyqtSignal, QObject, Qt, 
+	pyqtSignal, QObject, Qt, QCoreApplication
 )
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QTableWidgetItem, QMenu, QStyledItemDelegate, QVBoxLayout, QListWidget, QSizePolicy,
 	QListWidgetItem, QPushButton, QFileDialog, QTextEdit, QHBoxLayout, QStackedWidget, QTableWidgetItem, 
-	QLineEdit, QComboBox, QApplication, QCheckBox, 
+	QLineEdit, QComboBox, QApplication, QCheckBox
 )
 from PyQt6.QtGui import (
 	QKeyEvent, QAction, 
@@ -488,3 +488,25 @@ class BaseMenuItem(QObject):
 	def GetMenu(self, parent) -> Optional[QMenu | QAction]:
 		""" Returns a QMenu or QAction object to be added to the main menu. QActions are not supported on MacOS. """
 		return None
+	
+class BaseSoftwareInterface(object):
+	def __init__(self, pluginID: str, softwareID: str):
+		self.pluginID = pluginID
+		self.softwareID = softwareID
+
+	def GetPluginID(self) -> str:
+		return self.pluginID
+	
+	def GetSoftwareID(self) -> str:
+		return self.softwareID
+	
+##############################################################################
+##############################################################################
+##############################################################################
+
+def GetQAVMSoftwareInterfaces() -> list[BaseSoftwareInterface]:
+	qtApp: QCoreApplication | None = QApplication.instance()
+	if qtApp is None or type(qtApp).__name__ != 'QAVMApp' or not hasattr(qtApp, 'GetSoftwareInterfaces'):
+		# logger.error("Couldn't get QAVM plugins software interfaces")
+		return []
+	return qtApp.GetSoftwareInterfaces()
