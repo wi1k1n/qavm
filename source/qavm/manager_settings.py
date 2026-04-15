@@ -304,10 +304,11 @@ class SettingsManager:
 		if swHandler in self.softwareSettings:
 			self.softwareSettings[swHandler].Save()
 
-	def LoadWorkspaceSoftwareSettings(self, workspace: QAVMWorkspace) -> None:
-		""" Loads the software settings for the workspace views. """
-		if not workspace or workspace.IsEmpty():
-			return
-		sfHandlers, notFoundPlugins = workspace.GetInvolvedSoftwareHandlers()
-		for swHandler in sfHandlers:
-			self.LoadSoftwareSettings(swHandler)
+	# # TODO: after introducing BaseSoftwareInterface, we always load all software settings
+	# def LoadWorkspaceSoftwareSettings(self, workspace: QAVMWorkspace) -> None:
+	# 	""" Loads the software settings for the workspace views. """
+	# 	if not workspace or workspace.IsEmpty():
+	# 		return
+	# 	sfHandlers, notFoundPlugins = workspace.GetInvolvedSoftwareHandlers()
+	# 	for swHandler in sfHandlers:
+	# 		self.LoadSoftwareSettings(swHandler)
