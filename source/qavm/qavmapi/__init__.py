@@ -423,7 +423,7 @@ class BaseDescriptor(QObject):
 			dirType = 'J'
 		return dirType
 
-class BaseBuilder(QObject):
+class BaseBuilder(QWidget):
 	def __init__(self, settings: SoftwareBaseSettings):
 		super().__init__()
 		self.settings: SoftwareBaseSettings = settings
@@ -490,9 +490,10 @@ class BaseMenuItem(QObject):
 		return None
 	
 class BaseSoftwareInterface(object):
-	def __init__(self, pluginID: str, softwareID: str):
+	def __init__(self, pluginID: str, softwareID: str, settings: SoftwareBaseSettings):
 		self.pluginID = pluginID
 		self.softwareID = softwareID
+		self.settings: SoftwareBaseSettings = settings
 
 	def GetPluginID(self) -> str:
 		return self.pluginID

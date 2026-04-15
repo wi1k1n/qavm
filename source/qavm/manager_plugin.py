@@ -397,7 +397,7 @@ class SoftwareHandler:
 		self.interfaceInstance: BaseSoftwareInterface | None = None
 		if interfaceClass := regData.get(self.KEY_INTERFACE, None):
 			self._checkSubClass(interfaceClass, BaseSoftwareInterface, self.KEY_INTERFACE)
-			self.interfaceInstance = interfaceClass(self.pluginID, self.GetID())
+			self.interfaceInstance = interfaceClass(self.pluginID, self.GetID(), self.settingsInstance)
 
 			
 	def _checkType(self, value: object, expectedType: type, name: str) -> None:
