@@ -19,12 +19,7 @@ class DialogsManager:
 
 	def ShowWorkspace(self, workspace: QAVMWorkspace):
 		app = QApplication.instance()
-
-		# after introducing BaseSoftwareInterface, we always load all software settings
-		settingsManager = app.GetSettingsManager()
-		for pluginID, softwareID, softwareHandler in app.GetPluginManager().GetSoftwareHandlers():
-			settingsManager.LoadSoftwareSettings(softwareHandler)
-		
+		app.GetSettingsManager().LoadWorkspaceSoftwareSettings(workspace)
 		app.SetWorkspace(workspace)
 		self.GetMainWindow().show()
 

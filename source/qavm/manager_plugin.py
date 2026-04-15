@@ -248,14 +248,37 @@ class QAVMWorkspace(SerializableBase):
 		notFoundPlugins.update(customNotFound)
 
 		return plugins, notFoundPlugins
+	
+	def GetPluginsDependenciesRecursive(self, plugins: set[QAVMPlugin]) -> tuple[set[QAVMPlugin], set[str]]:
+		""" Returns a set of loaded plugins that the given plugins depend on (and a set of plugins that were not found). """
+		dependencies: set[QAVMPlugin] = set()
+		notFoundDependencies: set[str] = set()
+		for plugin in plugins:
+			for swHandler in plugin.GetSoftwareHandlers().values():
+				for swDepPSID in swHandler.GetSoftwareInterfaceDependencies():
+					if UID.IsPluginSoftwareIDValid(swDepPSID):
+						if depPlugin := QApplication.instance().GetPluginManager().GetPlugin(swDepPSID):
+							dependencies.add(depPlugin)
+							continue
+					notFoundDependencies.add(swDepPSID)
+		if dependencies.difference(plugins):
+			# Recursively get dependencies of dependencies
+			depDependencies, depNotFound = self.GetPluginsDependenciesRecursive(dependencies.difference(plugins))
+			dependencies.update(depDependencies)
+			notFoundDependencies.update(depNotFound)
+		return dependencies, notFoundDependencies
+
 
 	def GetInvolvedSoftwareHandlers(self) -> tuple[set[SoftwareHandler], set[str]]:
 		""" Returns a set of software handlers involved in the workspace views (and a set of plugins that were not found). """
 		plugins, notFoundPlugins = self.GetInvolvedPlugins()
+		pluginDeps, notFoundPluginDeps = self.GetPluginsDependenciesRecursive(plugins)
 		softwareHandlers: set[SoftwareHandler] = set()
 		for plugin in plugins:
 			softwareHandlers.update(plugin.GetSoftwareHandlers().values())
-		return softwareHandlers, notFoundPlugins
+		for plugin in pluginDeps:
+			softwareHandlers.update(plugin.GetSoftwareHandlers().values())
+		return softwareHandlers, notFoundPlugins.union(notFoundPluginDeps)
 	
 	def GetTilesViews(self) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [viewUIDs]}
 		""" Returns tiles views in current workspace grouped by software handlers. """
@@ -319,6 +342,7 @@ class SoftwareHandler:
 	KEY_SETTINGS = 'settings'
 	KEY_MENUITEMS = 'menuitems'
 	KEY_INTERFACE = 'interface'
+	KEY_SWINTERFACE_DEP = 'software_interface_dependencies'
 
 	def __init__(self, pluginID: str, regData: dict) -> None:
 		self.pluginID = pluginID
@@ -399,6 +423,15 @@ class SoftwareHandler:
 			self._checkSubClass(interfaceClass, BaseSoftwareInterface, self.KEY_INTERFACE)
 			self.interfaceInstance = interfaceClass(self.pluginID, self.GetID(), self.settingsInstance)
 
+		############################ Software Interface Dependencies ###########################
+		self.softwareInterfaceDependencies: list[str] = []
+		softwareInterfaceDependenciesData: list = regData.get(self.KEY_SWINTERFACE_DEP, [])
+		self._checkType(softwareInterfaceDependenciesData, list, self.KEY_SWINTERFACE_DEP)
+		for swInterfaceDep in softwareInterfaceDependenciesData:
+			self._checkType(swInterfaceDep, str, 'software interface dependency software ID')
+			if not UID.IsPluginSoftwareIDValid(swInterfaceDep):
+				raise Exception(f'Invalid software interface dependency software ID: {swInterfaceDep}')
+			self.softwareInterfaceDependencies.append(swInterfaceDep)
 			
 	def _checkType(self, value: object, expectedType: type, name: str) -> None:
 		# TODO: move to some plugins utils module
@@ -476,6 +509,10 @@ class SoftwareHandler:
 	def GetInterface(self) -> BaseSoftwareInterface | None:
 		""" Returns the interface class registered by the software handler, e.g. 'BaseSoftwareInterface' or None if not set """
 		return self.interfaceInstance
+	
+	def GetSoftwareInterfaceDependencies(self) -> list[str]:
+		""" Returns a list of software IDs that the software handler's interface depends on, e.g. ['plugin_id1#software_id1', 'plugin_id2#software_id2'] """
+		return self.softwareInterfaceDependencies
 
 class QAVMPlugin:
 	"""
