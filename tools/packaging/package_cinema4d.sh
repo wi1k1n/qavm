@@ -4,6 +4,12 @@ APP_NAME=qavm
 
 source ../../venv/bin/activate
 
+# Run prebuild checks
+python prebuild-check.py
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
 # Create build.txt during packaging phase
 python create-build-info.py $APP_NAME
 if [ $? -ne 0 ]; then

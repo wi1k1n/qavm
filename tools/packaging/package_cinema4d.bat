@@ -1,5 +1,9 @@
 set APP_NAME=qavm
 
+@REM Run prebuild checks
+python.exe prebuild-check.py
+if errorlevel 1 exit /b 1
+
 @REM Create build.txt during packaging phase
 python.exe create-build-info.py %APP_NAME%
 if errorlevel 1 exit /b 1

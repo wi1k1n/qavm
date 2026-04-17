@@ -6,6 +6,8 @@ This is a rethought version of the [C4D Version Manager](https://github.com/wi1k
 
 ## Improvements & bugs
 
+* Check for plugins collisions between built-in and external, and reject within prescedence
+
 * Don't throw away calculated results (such that switching back-n-forth between software is fast)
 	* have a setting to show software in the menubar directly (instead of switch->software)
 
