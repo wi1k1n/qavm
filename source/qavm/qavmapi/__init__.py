@@ -511,3 +511,19 @@ def GetQAVMSoftwareInterfaces() -> list[BaseSoftwareInterface]:
 		# logger.error("Couldn't get QAVM plugins software interfaces")
 		return []
 	return qtApp.GetSoftwareInterfaces()
+
+def GetQAVMSoftwareInterface(pluginID: str, softwareID: str) -> Optional[BaseSoftwareInterface]:
+	interfaces = GetQAVMSoftwareInterfaces()
+	for interface in interfaces:
+		if interface.GetPluginID() == pluginID and interface.GetSoftwareID() == softwareID:
+			return interface
+	return None
+
+def CheckQAVMSoftwareInterface(interface: BaseSoftwareInterface, attrName: str, attrType: type | None = None) -> bool:
+	if not isinstance(interface, BaseSoftwareInterface):
+		return False
+	if not hasattr(interface, attrName):
+		return False
+	if attrType is not None and not isinstance(getattr(interface, attrName), attrType):
+		return False
+	return True
