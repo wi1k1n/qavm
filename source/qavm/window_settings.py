@@ -56,14 +56,17 @@ class PreferencesWindow(QWidget):
 		swHandlersSet, _ = workspace.GetInvolvedSoftwareHandlers()
 		for swHandler in swHandlersSet:
 			if swSettings := self.settingsManager.GetSoftwareSettings(swHandler):
+				swSettingsWidgets: list[tuple[str, QWidget]] = [(n, s) for (n, s) in swSettings.CreateWidgets(self.contentWidget) if s is not None]
+				if not swSettingsWidgets:
+					continue  # Don't add software to the menu if it doesn't have any settings to show
+
 				softwareItem = QStandardItem(swHandler.GetName())
 				softwareItem.setEditable(False)
 				softwareItem.setFlags(Qt.ItemFlag.ItemIsEnabled)
 				self.menuModel.appendRow(softwareItem)
 
-				for (name, widget) in swSettings.CreateWidgets(self.contentWidget):
-					if widget is not None:  # Only add entries that have an associated widget
-						self.AddSettingsEntry(name, widget, softwareItem)
+				for (name, widget) in swSettingsWidgets:
+					self.AddSettingsEntry(name, widget, softwareItem)
 
 		# self.menuWidget.expandAll()
 		self.menuWidget.expand(generalSettingsItem.index())
