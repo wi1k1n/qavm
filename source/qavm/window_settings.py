@@ -24,7 +24,7 @@ class PreferencesWindow(QWidget):
 		super().__init__(parent)
 
 		self.setWindowTitle("QAVM - Settings")
-		self.resize(800, 600)
+		self.resize(900, 600)
 		self.setMinimumHeight(300)
 
 		# self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)  # this keeps the window on top even for other applications
@@ -54,7 +54,7 @@ class PreferencesWindow(QWidget):
 		# Group settings by software handler
 		workspace: QAVMWorkspace = app.GetWorkspace()
 		swHandlersSet, _ = workspace.GetInvolvedSoftwareHandlers()
-		for swHandler in swHandlersSet:
+		for swHandler in sorted(swHandlersSet, key=lambda sh: sh.GetName()):
 			if swSettings := self.settingsManager.GetSoftwareSettings(swHandler):
 				swSettingsWidgets: list[tuple[str, QWidget]] = [(n, s) for (n, s) in swSettings.CreateWidgets(self.contentWidget) if s is not None]
 				if not swSettingsWidgets:
