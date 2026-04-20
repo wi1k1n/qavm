@@ -119,7 +119,7 @@ class QAVMGlobalSettings(BaseSettings):
 		self.SetSetting('search_paths_global', paths)
 
 
-	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
+	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:
 		settingsWidget: QWidget = QWidget(parent)
 		layout: QFormLayout = QFormLayout(settingsWidget)
 

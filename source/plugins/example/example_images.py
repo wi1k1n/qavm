@@ -221,7 +221,7 @@ class ExampleSettingsImages(SoftwareBaseSettings):
 		'tile_size': 50,  # default tile size in pixels
 	}
 
-	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
+	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:
 		commonSettingsWidgets: list[tuple[str, QWidget]] = super().CreateWidgets(parent)
 
 		tabsWidget: QTabWidget = QTabWidget(parent)

@@ -62,7 +62,8 @@ class PreferencesWindow(QWidget):
 				self.menuModel.appendRow(softwareItem)
 
 				for (name, widget) in swSettings.CreateWidgets(self.contentWidget):
-					self.AddSettingsEntry(name, widget, softwareItem)
+					if widget is not None:  # Only add entries that have an associated widget
+						self.AddSettingsEntry(name, widget, softwareItem)
 
 		# self.menuWidget.expandAll()
 		self.menuWidget.expand(generalSettingsItem.index())

@@ -117,9 +117,9 @@ class BaseSettings(QObject):
 		with open(self.prefFilePath, 'w') as f:
 			f.write(self.container.DumpToString())
 
-	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
+	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:
 		""" Creates settings widgets (one per settings category). Returns a list of tuples, where each tuple contains the category name and the widget. """
-		return [('BaseSettings', QWidget(parent))]  # BaseSettings does not provide a widget by default, subclasses should override this method
+		return [('BaseSettings', None)]  # BaseSettings does not provide a widget by default, subclasses should override this method
 	
 	def GetSetting(self, key: str) -> Any:
 		if self.container.Contains(key):
@@ -140,7 +140,7 @@ class SoftwareBaseSettings(BaseSettings):
 		'include_global_search_paths': True,  # whether to include global search paths from QAVM settings
 	}
 	
-	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
+	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:
 		# Create a widget with QVBoxLayout and a QListWidget for search paths
 		widget = QWidget(parent)
 		layout = QVBoxLayout(widget)

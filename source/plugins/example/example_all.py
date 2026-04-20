@@ -252,7 +252,7 @@ class ExampleSettings(SoftwareBaseSettings):
 		'myExampleSetting': 'default value',  # Example setting
 	}
 
-	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget]]:
+	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:
 		commonSettingsWidgets: list[tuple[str, QWidget]] = super().CreateWidgets(parent)
 
 		tabsWidget: QTabWidget = QTabWidget(parent)
