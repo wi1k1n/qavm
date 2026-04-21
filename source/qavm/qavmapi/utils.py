@@ -32,7 +32,8 @@ def IsPathSymlinkD(path: Path) -> bool:
 
 def IsPathJunction(path: Path) -> bool:
 	if not PlatformWindows():
-		raise NotImplementedError("Junctions are only supported on Windows.")
+		# raise NotImplementedError("Junctions are only supported on Windows.")
+		return False
 	if not path.is_dir() or not path.exists():
 		return False
 	FILE_ATTRIBUTE_REPARSE_POINT = 0x400
@@ -41,7 +42,8 @@ def IsPathJunction(path: Path) -> bool:
 
 def IsPathShortcut(path: Path) -> bool:
 	if not PlatformWindows():
-		raise NotImplementedError("Shortcuts are only supported on Windows.")
+		# raise NotImplementedError("Shortcuts are only supported on Windows.")
+		return False
 	return path.suffix.lower() == '.lnk' and path.is_file()
 
 # === Target Retrieval Functions ===
@@ -253,7 +255,7 @@ def GetAppDataPath() -> Path:
 	if PlatformWindows():
 		return Path(str(os.getenv('APPDATA')))
 	if PlatformMacOS():
-		return Path.home()/'Library/Preferences'
+		return Path.home()/'Library/Application Support'
 	# if PlatformLinux():
 	# 	return os.path.expanduser('~')
 	raise Exception('Unsupported platform')
