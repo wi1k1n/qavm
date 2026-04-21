@@ -170,22 +170,25 @@ class QAVMApp(QApplication):
 				items: set[Path] = set(getDirItemsListIgnoreError(searchPath))
 				subdirs: set[str] = set()
 				for item in sorted(items):
-					passed = config.IdentificationMaskPasses(item)
-					if not passed:
-						if currentDepthLevel < scanDepth - 1 and item.is_dir():  # skip unnecessary iteration due to depth limit
-							subdirs.update(set(getDirListIgnoreError(item)))
-						continue
+					try:
+						passed = config.IdentificationMaskPasses(item)
+						if not passed:
+							if currentDepthLevel < scanDepth - 1 and item.is_dir():  # skip unnecessary iteration due to depth limit
+								subdirs.update(set(getDirListIgnoreError(item)))
+							continue
 
-					fileContents: dict[str, str | bytes] = config.GetFileContents(item)
-					if not qualifier.Identify(item, fileContents):
-						if currentDepthLevel < scanDepth - 1 and item.is_dir():  # skip unnecessary iteration due to depth limit
-							subdirs.update(set(getDirListIgnoreError(item)))
+						fileContents: dict[str, str | bytes] = config.GetFileContents(item)
+						if not qualifier.Identify(item, fileContents):
+							if currentDepthLevel < scanDepth - 1 and item.is_dir():  # skip unnecessary iteration due to depth limit
+								subdirs.update(set(getDirListIgnoreError(item)))
+							continue
+						descriptor: BaseDescriptor = descriptorClass(item, softwareSettings, fileContents)
+						# descData: dict = self.descDataManager.GetDescriptorData(descriptor)
+						# descriptor.AttachDescriptorData(descData)
+						softwareDescs.append(descriptor)
+					except Exception as e:
+						logger.error(f'Error processing item {item} for qualifier {type(qualifier).__name__}: {e}')
 						continue
-					descriptor: BaseDescriptor = descriptorClass(item, softwareSettings, fileContents)
-					# descData: dict = self.descDataManager.GetDescriptorData(descriptor)
-					# descriptor.AttachDescriptorData(descData)
-					softwareDescs.append(descriptor)
-
 				subfoldersSearchPathsList.update(subdirs)
 			searchPathsList = subfoldersSearchPathsList
 			currentDepthLevel += 1
