@@ -16,11 +16,12 @@ QAVM_VERSION = _read_variable(VERSION_FILE, 'QAVM_VERSION')
 QAVM_VARIANT = _read_variable(VERSION_FILE, 'QAVM_VARIANT')
 
 def main():
-	if not QAVM_VERSION or not QAVM_VARIANT:
+	if not QAVM_VERSION:
 		print('Failed to read QAVM version info from source code. Please check the file: ' + VERSION_FILE)
 		sys.exit(1)
 	
-	print(f'QAVM_VERSION is set to: {QAVM_VERSION} (variant: {QAVM_VARIANT})')
+	variantStr: str = QAVM_VARIANT or '<stable>'
+	print(f'QAVM_VERSION is set to: {QAVM_VERSION} (variant: {variantStr})')
 	answer = input('Do you want to continue? [y/N]: ').strip().lower()
 	if answer != 'y':
 		print('Aborted.')
