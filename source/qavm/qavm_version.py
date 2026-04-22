@@ -3,7 +3,7 @@ import qavm.logs as logs
 logger = logs.logger
 
 QAVM_VERSION = '0.3.0'
-QAVM_VARIANT = 'dev'
+QAVM_VARIANT = 'alpha'
 PACKAGE_VERSION = ''
 BUILD_VERSION = ''
 
