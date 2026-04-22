@@ -263,3 +263,4 @@ source/plugins/cinema4d/*
 source/qavm/generated/verification_key.py
 tools/packaging/signing/keys/*
 tools/packaging/dist*
+*.DS_Store
