@@ -114,9 +114,9 @@ class MainWindow(QMainWindow):
 		# self.actionPluginSelection.setEnabled(len(self.pluginManager.GetSoftwareHandlers()) > 1)
 		self.actionPluginSelection.triggered.connect(self._switchToPluginSelection)
 
-		# self.actionRescan = QAction("&Rescan", self)
-		# self.actionRescan.setShortcut("Ctrl+F5")
-		# self.actionRescan.triggered.connect(self._rescanSoftware)
+		self.actionRescan = QAction("&Rescan", self)
+		self.actionRescan.setShortcut("Ctrl+F5")
+		self.actionRescan.triggered.connect(self._rescanSoftware)
 
 		self.actionAbout = QAction("&About", self)
 		self.actionAbout.triggered.connect(self._showAboutDialog)
@@ -126,9 +126,9 @@ class MainWindow(QMainWindow):
 		menuBar.setNativeMenuBar(True)  # Use native menu bar on macOS
 		
 		fileMenu: QMenu = QMenu("&File", self)
-		# fileMenu.addAction(self.actionRescan)
-		# fileMenu.addSeparator()
 		fileMenu.addAction(self.actionPluginSelection)
+		fileMenu.addAction(self.actionRescan)
+		fileMenu.addSeparator()
 		fileMenu.addAction(self.actionPrefs)
 		fileMenu.addSeparator()
 		fileMenu.addAction(self.actionExit)
@@ -471,10 +471,15 @@ class MainWindow(QMainWindow):
 		
 		self.dialogsManager.ShowWorkspaceManager()
 	
-	# def _rescanSoftware(self):
-	# 	app = QApplication.instance()
-	# 	app.ResetSoftwareDescriptions()
-	# 	self.UpdateTilesWidget()
+	def _rescanSoftware(self):
+		app = QApplication.instance()
+		swHandlers, _ = app.GetWorkspace().GetInvolvedSoftwareHandlers()
+		for swHandler in swHandlers:
+			app.LoadSoftwareDescriptors(swHandler)
+		oldWidget = self.takeCentralWidget()
+		if oldWidget:
+			oldWidget.deleteLater()
+		self._setupCentralWidget()
 
 	def _showAboutDialog(self):
 		aboutDialog: AboutDialog = AboutDialog(self, self.pluginManager)

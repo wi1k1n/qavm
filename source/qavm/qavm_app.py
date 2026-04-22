@@ -119,19 +119,21 @@ class QAVMApp(QApplication):
 	def GetSoftwareDescriptors(self, swHandler: SoftwareHandler) -> dict[str, list[BaseDescriptor]]:
 		if swDescriptors := self.softwareDescriptors.get(swHandler, dict()):
 			return swDescriptors
-		
-		self.softwareDescriptors[swHandler] = self.ScanSoftware(swHandler)
+		self.LoadSoftwareDescriptors(swHandler)
 		return self.softwareDescriptors[swHandler]
 	
 	def ResetSoftwareDescriptors(self) -> None:
 		self.softwareDescriptors = None
+
+	def LoadSoftwareDescriptors(self, swHandler: SoftwareHandler) -> None:
+		self.softwareDescriptors[swHandler] = self.ScanSoftware(swHandler)
 	
 	def ScanSoftware(self, swHandler: SoftwareHandler) -> dict[str, list[BaseDescriptor]]:
 		descs: dict[str, list[BaseDescriptor]] = dict()
 		softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings(swHandler)
 		searchPaths: list[Path] = softwareSettings.GetEvaluatedSearchPaths()
 		for descDPath, (qualifier, descClass) in swHandler.GetDescriptorClasses().items():
-			MAX_SCAN_DEPTH: int = 1
+			MAX_SCAN_DEPTH: int = 1  # TODO: make it a setting
 			descs[descDPath] = self._scanSoftwareDescriptor(qualifier, descClass, softwareSettings, searchPaths, scanDepth=MAX_SCAN_DEPTH)
 		return descs
 
