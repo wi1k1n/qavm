@@ -248,6 +248,9 @@ class ExampleTableBuilderPNG(ExampleTableBuilderEXE):
 		return super().GetTableCellValue(desc, col)
 
 class ExampleSettings(SoftwareBaseSettings):
+	def GetSettingsVersion(self) -> int:
+		return 1
+	
 	CONTAINER_DEFAULTS: dict[str, Any] = {
 		'myExampleSetting': 'default value',  # Example setting
 	}

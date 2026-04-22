@@ -95,9 +95,18 @@ class BaseSettings(QObject):
 			prefFilenamePath = prefFilenamePath.with_suffix('.json')
 		self.prefFilePath: Path = utils.GetPrefsFolderPath() / f'{str(prefFilenamePath)}'
 
+	def GetSettingsVersion(self) -> int:
+		if self.__class__.__name__ == 'SoftwareBaseSettings':
+			return 1
+		raise NotImplementedError('GetSettingsVersion must be implemented by subclasses to provide settings version for migration purposes. [{}]'.format(self.__class__.__name__))
+
 	def InitializeContainer(self) -> BaseSettingsContainer:
 		""" Initializes the settings container with default values. """
-		return BaseSettingsContainer({**self.CONTAINER_QAVM_DEFAULTS, **self.CONTAINER_DEFAULTS})
+		return BaseSettingsContainer({
+			'__version__': self.GetSettingsVersion(),
+			**self.CONTAINER_QAVM_DEFAULTS,
+			**self.CONTAINER_DEFAULTS
+		})
 
 	def Load(self):
 		if not self.prefFilePath.exists():
@@ -136,6 +145,7 @@ class BaseSettings(QObject):
 class SoftwareBaseSettings(BaseSettings):
 	""" Base class for software settings. Contains basic implementation for settings that are common for all software. """
 	CONTAINER_QAVM_DEFAULTS: dict[str, Any] = {
+		**BaseSettings.CONTAINER_QAVM_DEFAULTS,
 		'search_paths': [],  # list of paths to search for software
 		'include_global_search_paths': True,  # whether to include global search paths from QAVM settings
 	}

@@ -217,6 +217,9 @@ class ExampleTableBuilderImages(BaseTableBuilder):
 		return ''
 
 class ExampleSettingsImages(SoftwareBaseSettings):
+	def GetSettingsVersion(self) -> int:
+		return 1
+	
 	CONTAINER_DEFAULTS: dict[str, Any] = {
 		'tile_size': 50,  # default tile size in pixels
 	}

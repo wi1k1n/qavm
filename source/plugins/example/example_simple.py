@@ -78,7 +78,8 @@ class SimpleTileBuilder(BaseTileBuilder, ContextBase):
 		return self._getContextMenu(desc)
 	
 class SimpleSettings(SoftwareBaseSettings):
-	pass
+	def GetSettingsVersion(self) -> int:
+		return 1
 
 
 REGISTRATION_DATA = [
