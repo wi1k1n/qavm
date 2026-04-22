@@ -6,3 +6,4 @@ gitpython==3.1.0
 opencv-python==4.10.0.84
 cryptography
 psutil==7.0.0
+pillow=12.2.0
