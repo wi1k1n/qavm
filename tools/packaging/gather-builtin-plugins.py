@@ -14,6 +14,13 @@ def cleanPluginFolder(plugin_folder: Path):
 			print(f'Removing .pyc file: {pyc_file}')
 			pyc_file.unlink()
 
+	# remove .DS_Store files (macOS metadata) - PyInstaller strips them when bundling,
+	# so they must not be present when signing to ensure the hash matches at runtime
+	for ds_store in plugin_folder.rglob('.DS_Store'):
+		if ds_store.is_file():
+			print(f'Removing .DS_Store file: {ds_store}')
+			ds_store.unlink()
+
 def main():
 	parser = argparse.ArgumentParser(description='Gather built-in plugins for packaging')
 	parser.add_argument('--pluginsFolder', type=str, action='append', help='Path to the folder containing all required plugin folders (can be used multiple times)', default=[])
