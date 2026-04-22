@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from qavm.qavmapi.utils import GetQAVMCachePath, GetQAVMTempPath, GetHashFile, PlatformWindows, PlatformMacOS
+from qavm.qavmapi.utils import GetQAVMCachePath, GetQAVMTempPath, GetHashFile, PlatformWindows, PlatformMacOS, GetQAVMRootPath
 from qavm.qavmapi.media_cache import MediaCache
 
 def GetIconFromExecutable(executablePath: Path) -> Path | None:
@@ -268,7 +268,10 @@ def GetIconFromExecutableWindows(executablePath: Path) -> Path | None:
 	if executablePath.suffix.lower() != '.exe':
 		raise Exception('Not an executable file')
 	
-	path7z: Path = Path('external/7zip/win/7z.exe')
+	path7z: Path = GetQAVMRootPath() / Path('../external/7zip/win/7z.exe')
+	if path7z is None or not path7z.exists():
+		print(f"7zip program not found at '{path7z}', cannot extract icons.")
+		return None
 
 	icon_files: List[Tuple[str, int]] = find_icons_in_exe(path7z, executablePath)
 	if not icon_files:
