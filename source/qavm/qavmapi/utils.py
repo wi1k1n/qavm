@@ -247,6 +247,17 @@ def RunCommandMacOS(cmd: str) -> subprocess.CompletedProcess:
 		raise Exception('This function is only supported on macOS')
 	return subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
+def RunCommandMacOSAsAdmin(cmd: str) -> subprocess.CompletedProcess:
+	"""
+	Launch a shell command on macOS with administrator privileges via osascript.
+	cmd: string, e.g. 'ln -s "/src" "/dst"'
+	"""
+	if not PlatformMacOS():
+		raise Exception('This function is only supported on macOS')
+	escaped = cmd.replace('\\', '\\\\').replace('"', '\\"')
+	osascript_cmd = f'osascript -e \'do shell script "{escaped}" with administrator privileges\''
+	return subprocess.run(osascript_cmd, shell=True, capture_output=True, text=True)
+
 
 
 
