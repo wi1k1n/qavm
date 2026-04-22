@@ -47,15 +47,17 @@ class QAVMApp(QApplication):
 		self.pluginPaths: set[Path] = set()  # Paths to individual plugins
 		self.builtinPluginPaths: set[Path] = set()  # Paths to built-in plugins (i.e. unpacked plugins)
 		self.softwareDescriptors: dict[SoftwareHandler, dict[str, list[BaseDescriptor]]] = dict()
+		self.defaultGlobalSearchPaths: list[str] = list()
 
 		self.processArgs(args)
 
 		logger.info(f'Plugins folder paths: {[str(p) for p in self.pluginsFolderPaths]}')
 		logger.info(f'Extra individial plugin paths: {[str(p) for p in self.pluginPaths]}')
+		logger.info(f'Default global search paths: {self.defaultGlobalSearchPaths}')
 		
 		self.dialogsManager: DialogsManager = DialogsManager()
 
-		self.settingsManager: SettingsManager = SettingsManager(utils.GetPrefsFolderPath())
+		self.settingsManager: SettingsManager = SettingsManager(utils.GetPrefsFolderPath(), self.defaultGlobalSearchPaths)
 		self.settingsManager.LoadQAVMSettings()
 		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
 
@@ -210,6 +212,9 @@ class QAVMApp(QApplication):
 			self.pluginPaths.update({Path(p) for p in args.extraPluginPath})
 
 		# self.selectedSoftwareUID = args.selectedSoftwareUID
+		
+		if args.defaultGlobalSearchPath:
+			self.defaultGlobalSearchPaths = [p for p in args.defaultGlobalSearchPath]
 
 	def _loadVerificationKey(self) -> bytes:
 		try:

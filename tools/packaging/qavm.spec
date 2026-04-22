@@ -21,7 +21,7 @@ a = Analysis(
     ],
     hookspath=[f'{PATH_SOURCE}/qavm/pyinstaller-hooks'],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=[f'{PATH_SOURCE}/qavm/pyinstaller-hooks/rthook_default_search_path.py'],
     excludes=[],
     noarchive=False,
     optimize=0,

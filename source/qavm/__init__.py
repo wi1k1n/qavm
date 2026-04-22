@@ -28,6 +28,7 @@ def ParseArgs() -> argparse.Namespace:
 	parser.add_argument('--extraPluginsFolder', type=str, action='append', help='Path to an additional plugins folder (can be used multiple times)', default=[])
 	parser.add_argument('--extraPluginPath', type=str, action='append', help='Path to an additional plugin to load (can be used multiple times)', default=[])
 	# parser.add_argument('--selectedSoftwareUID', type=str, help='UID of the selected software (Default: empty)', default='')
+	parser.add_argument('--defaultGlobalSearchPath', type=str, action='append', help='Path to be added by default to global search paths (can be used multiple times)', default=[])
 	parser.add_argument('--ignoreBuiltinPlugins', action='store_true', help='Ignore (i.e. don\'t load) the built-in plugins (Default: False)')
 	
 	args = parser.parse_args()

@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 	QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QTabWidget, QSizePolicy, 
 )
 
-import qavm.qavmapi.utils as utils
+import qavm.qavmapi.utils as qutils
 import qavm.qavmapi.gui as gui_utils
 
 from qavm.qavmapi import BaseSettings, BaseSettingsContainer, BaseSettingsEntry, SoftwareBaseSettings
@@ -91,6 +91,10 @@ class QAVMGlobalSettings(BaseSettings):
 		# hideOnClose
 		'workspace_last': {},
 	}
+
+	def __init__(self, prefName: str, defaultGlobalSearchPaths: list[str]):
+		self.CONTAINER_DEFAULTS['search_paths_global'] = defaultGlobalSearchPaths
+		super().__init__(prefName)
 
 	def GetSettingsVersion(self) -> int:
 		return 1
@@ -273,10 +277,10 @@ class QAVMGlobalSettings(BaseSettings):
 
 
 class SettingsManager:
-	def __init__(self, prefsFolderPath: Path):
+	def __init__(self, prefsFolderPath: Path, defaultGlobalSearchPaths: list[str]):
 		self.prefsFolderPath: Path = prefsFolderPath
 
-		self.qavmGlobalSettings: QAVMGlobalSettings = QAVMGlobalSettings('qavm-global')
+		self.qavmGlobalSettings: QAVMGlobalSettings = QAVMGlobalSettings('qavm-global', defaultGlobalSearchPaths)
 		self.softwareSettings: dict[SoftwareHandler, SoftwareBaseSettings] = dict()
 
 	def GetQAVMSettings(self) -> QAVMGlobalSettings:
