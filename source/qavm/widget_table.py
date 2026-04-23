@@ -3,8 +3,8 @@ from pathlib import Path
 from functools import partial
 from typing import Type, Optional
 
-from PyQt6.QtCore import Qt, QMargins, QPoint, pyqtSignal
-from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QMouseEvent
+from PyQt6.QtCore import Qt, QMargins, QPoint, QRect, pyqtSignal
+from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QPen, QPolygon, QMouseEvent, QPaintEvent
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
 	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication, QAbstractItemView, QMessageBox,
@@ -35,7 +35,7 @@ logger = logs.logger
 class MyTableViewHeader(QHeaderView):
 	def __init__(self, orientation, parent=None):
 		super().__init__(orientation, parent)
-		self.setSortIndicatorShown(True)
+		self.setSortIndicatorShown(False)  # We paint the indicator manually
 		self.setSortIndicator(0, Qt.SortOrder.AscendingOrder)
 		self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 		self.customContextMenuRequested.connect(self._showContextMenu)
@@ -43,6 +43,51 @@ class MyTableViewHeader(QHeaderView):
 
 		self._mousePressedPos = None
 		self._mousePressedSection = -1
+
+	def paintSection(self, painter: QPainter, rect: QRect, logicalIndex: int):
+		super().paintSection(painter, rect, logicalIndex)
+
+	def paintEvent(self, event: QPaintEvent):
+		super().paintEvent(event)
+
+		section = self.sortIndicatorSection()
+		if section < 0 or self.isSectionHidden(section):
+			return
+
+		# Draw sort arrow overlay using the theme's primary color
+		from qavm.qavmapi.gui import GetThemeData
+		themeData = GetThemeData()
+		color = QColor(themeData.get('primaryColor', '#ffffff')) if themeData else QColor('#ffffff')
+
+		sectionPos = self.sectionViewportPosition(section)
+		sectionSize = self.sectionSize(section)
+		headerHeight = self.height()
+
+		arrowSize = 8
+		margin = 6
+		centerY = headerHeight // 2
+		xPos = sectionPos + sectionSize - arrowSize - margin
+
+		painter = QPainter(self.viewport())
+		painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+		painter.setPen(Qt.PenStyle.NoPen)
+		painter.setBrush(QBrush(color))
+
+		if self.sortIndicatorOrder() == Qt.SortOrder.AscendingOrder:
+			points = [
+				QPoint(xPos + arrowSize // 2, centerY - arrowSize // 2),
+				QPoint(xPos, centerY + arrowSize // 2),
+				QPoint(xPos + arrowSize, centerY + arrowSize // 2),
+			]
+		else:
+			points = [
+				QPoint(xPos, centerY - arrowSize // 2),
+				QPoint(xPos + arrowSize, centerY - arrowSize // 2),
+				QPoint(xPos + arrowSize // 2, centerY + arrowSize // 2),
+			]
+
+		painter.drawPolygon(QPolygon(points))
+		painter.end()
 
 	def _showContextMenu(self, pos: QPoint):
 		menu = QMenu(self)
