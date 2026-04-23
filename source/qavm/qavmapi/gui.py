@@ -420,8 +420,21 @@ def SetTheme(theme: str) -> None:
 		}
 	"""
 		
+	styleExtraHeaderSortIndicator = """
+		QHeaderView::down-arrow {
+			image: none;
+			width: 0px;
+			height: 0px;
+		}
+		QHeaderView::up-arrow {
+			image: none;
+			width: 0px;
+			height: 0px;
+		}
+	"""
+
 	# Append custom style to override scrollbar thickness
-	app.setStyleSheet(app.styleSheet() + styleExtraScrollBar + styleExtraLineEdit + styleExtraTreeview)
+	app.setStyleSheet(app.styleSheet() + styleExtraScrollBar + styleExtraLineEdit + styleExtraTreeview + styleExtraHeaderSortIndicator)
 
 def GetThemesList() -> list[str]:
 	return list_themes()
