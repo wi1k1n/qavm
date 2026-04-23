@@ -256,7 +256,10 @@ def RunCommandMacOSAsAdmin(cmd: str) -> subprocess.CompletedProcess:
 		raise Exception('This function is only supported on macOS')
 	escaped = cmd.replace('\\', '\\\\').replace('"', '\\"')
 	osascript_cmd = f'osascript -e \'do shell script "{escaped}" with administrator privileges\''
-	return subprocess.run(osascript_cmd, shell=True, capture_output=True, text=True)
+	result = subprocess.run(osascript_cmd, shell=True, capture_output=True, text=True)
+	if result.returncode != 0:
+		raise RuntimeError(f"Admin command failed (exit code {result.returncode}): {result.stderr}")
+	return result
 
 
 
