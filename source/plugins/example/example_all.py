@@ -378,9 +378,15 @@ REGISTRATION_DATA = [
 	}
 ]
 WORKSPACES_DATA = {
-	'First': ['software.first#*'],
-	'PNG': [
-		'software.first#views/tiles/png',
-		'software.first#views/table/png',
-	],
+	'first': {
+		'name': 'First',
+		'ids': ['software.first#*'],
+	},
+	'png': {
+		'name': 'PNG',
+		'ids': [
+			'software.first#views/tiles/png',
+			'software.first#views/table/png',
+		],
+	},
 }

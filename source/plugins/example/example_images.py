@@ -290,5 +290,8 @@ REGISTRATION_DATA = [
 	}
 ]
 WORKSPACES_DATA = {
-	'Images': ['software.images#*'],
+	'images': {
+		'name': 'Images',
+		'ids': ['software.images#*'],
+	},
 }

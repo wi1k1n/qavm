@@ -191,7 +191,8 @@ class SerializableBase(object):
 		raise NotImplementedError("Deserialize method should be implemented in subclasses.")
 
 class QAVMWorkspace(SerializableBase):
-	def __init__(self, data: list[str] = [], name: str = '') -> None:
+	def __init__(self, wsID: str = '', data: list[str] = [], name: str = '') -> None:
+		self.wsID: str = wsID
 		self.name: str = name
 		
 		self.tiles: list[str] = []
@@ -201,19 +202,23 @@ class QAVMWorkspace(SerializableBase):
 
 		for uid in data:
 			if not isinstance(uid, str):
-				raise ValueError("Invalid workspace data: all view UIDs should be strings.")
+				logger.error(f"Invalid workspace item UID: {uid} (should be a string)")
+				continue
 
 			plID: str = UID.FetchPluginID(uid)
 			if not plID:
-				raise ValueError(f"Invalid workspace item UID '{uid}': plugin ID is missing or invalid.")
+				logger.error(f"Invalid workspace item UID '{uid}': plugin ID is missing or invalid.")
+				continue
 
 			if dataPath := UID.FetchDataPath(uid):
 				parts: list[str] = UID.DataPathGetParts(dataPath)
 				if not parts:
-					raise ValueError(f"Invalid view UID '{uid}': data path is empty.")
+					logger.error(f"Invalid workspace item UID '{uid}': data path is invalid.")
+					continue
 				if parts[0] == 'views':
 					if len(parts) < 2:
-						raise ValueError(f"Invalid view UID '{uid}': missing view type.")
+						logger.error(f"Invalid view UID '{uid}': missing view type.")
+						continue
 					if parts[1] == 'tiles':
 						self.tiles.append(uid)
 					elif parts[1] == 'table':
@@ -222,6 +227,9 @@ class QAVMWorkspace(SerializableBase):
 						self.custom.append(uid)
 				elif parts[0] == 'menuitems':
 					self.menuItems.append(uid)
+
+	def GetID(self) -> str:
+		return self.wsID
 
 	def GetName(self) -> str:
 		return self.name
@@ -296,19 +304,33 @@ class QAVMWorkspace(SerializableBase):
 		""" Returns menu items in current workspace grouped by software handlers. """
 		return self._getItems(self.menuItems)
 	
-	def Serialize(self) -> list[str]:
-		""" Serializes the workspace to a list of view UIDs. """
-		data: list[str] = []
-		data.extend(self.tiles)
-		data.extend(self.table)
-		data.extend(self.custom)
-		data.extend(self.menuItems)
+	def Serialize(self) -> dict[str, Any]:
+		""" Serializes the workspace to a dictionary. """
+		ids: list[str] = []
+		ids.extend(self.tiles)
+		ids.extend(self.table)
+		ids.extend(self.custom)
+		ids.extend(self.menuItems)
+
+		data: dict[str, Any] = {
+			'id': self.wsID,
+			'name': self.name,
+			'ids': ids
+		}
 		return data
 	
 	@staticmethod
-	def Deserialize(data: list[str]) -> QAVMWorkspace:
-		""" Deserializes the workspace from a list of view UIDs. """
-		return QAVMWorkspace(data)
+	def Deserialize(data: dict[str, Any]) -> QAVMWorkspace:
+		""" Deserializes the workspace from a dictionary. """
+		wsID: str = data.get('id', '')
+		wsName: str = data.get('name', '')
+		wsData: list = data.get('ids', [])
+		# TODO: use _checkType instead
+		if not isinstance(wsID, str) or not wsID \
+			or not isinstance(wsName, str) or not wsName \
+			or not isinstance(wsData, list):
+			logger.error(f"Invalid workspace data: {data}")
+		return QAVMWorkspace(wsID, wsData, wsName)
 	
 	def _getItems(self, itemUIDs: list[str]) -> dict[SoftwareHandler, list[str]]:  # -> {SoftwareHandler: [itemUIDs]}
 		items: dict[SoftwareHandler, list[str]] = {}
@@ -576,16 +598,23 @@ class QAVMPlugin:
 		if not isinstance(workspaceRegDataList, dict):  # TODO: use _checkType instead
 			raise Exception(f'Invalid workspace registration data for plugin: {self.pluginID}. Expected a dictionary, got {type(workspaceRegDataList).__name__}')
 
-		for wsName, wsData in workspaceRegDataList.items():
-			if not isinstance(wsData, list):  # TODO: use _checkType instead
-				raise Exception(f'Invalid workspace data for plugin: {self.pluginID}. Expected a list, got {type(wsData).__name__}')
-			if not isinstance(wsName, str) or not wsName:  # TODO: use _checkType instead
-				raise Exception(f'Invalid workspace name for plugin: {self.pluginID}. Expected a non-empty string, got {type(wsName).__name__}')
+		for wsID, wsData in workspaceRegDataList.items():
+			if not isinstance(wsData, dict):  # TODO: use _checkType instead
+				raise Exception(f'Invalid workspace data for plugin: {self.pluginID}. Expected a dictionary, got {type(wsData).__name__}')
+			if not isinstance(wsID, str) or not wsID:  # TODO: use _checkType instead
+				raise Exception(f'Invalid workspace ID for plugin: {self.pluginID}. Expected a non-empty string, got {type(wsID).__name__}')
 			if not wsData:  # empty workspace data
 				continue
 
+			wsName: str = wsData.get('name', wsID)
+			if not isinstance(wsName, str):  # TODO: use _checkType instead
+				raise Exception(f'Invalid workspace name for workspace {wsID} in plugin: {self.pluginID}. Expected a string, got {type(wsName).__name__}')
+			wsIDs: list = wsData.get('ids', [])
+			if not isinstance(wsIDs, list):  # TODO: use _checkType instead
+				raise Exception(f'Invalid workspace ids data for workspace {wsID} in plugin: {self.pluginID}. Expected a list, got {type(wsIDs).__name__}')
+
 			validUIDs = []
-			for uid in wsData:
+			for uid in wsIDs:
 				if wildCardExpanded := self._expandWildcardUID(uid):
 					validUIDs.extend(wildCardExpanded)
 					continue
@@ -595,7 +624,7 @@ class QAVMPlugin:
 				elif UID.IsUIDValid(uid):
 					validUIDs.append(uid)
 
-			self.pluginWorkspaces.append(QAVMWorkspace(validUIDs, wsName))
+			self.pluginWorkspaces.append(QAVMWorkspace(wsID, validUIDs, wsName))
 
 	def _expandWildcardUID(self, uid: str) -> list[str]:
 		""" Expands a wildcard UID to a list of valid UIDs. """
@@ -647,6 +676,7 @@ class QAVMPlugin:
 		""" Returns the default workspace registered by the plugin, e.g. QAVMWorkspace() or None if not set """
 		if self.pluginWorkspaces:
 			return self.pluginWorkspaces[0]
+		logger.warning(f'No workspaces found for plugin: {self.pluginID}. Returning an empty workspace.')
 		return QAVMWorkspace()  # return an empty workspace if no workspaces are registered
 
 	def GetUID(self) -> str:

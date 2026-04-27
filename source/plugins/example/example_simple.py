@@ -101,5 +101,8 @@ REGISTRATION_DATA = [
 	}
 ]
 WORKSPACES_DATA = {
-	'Simple': ['software.simple#*'],
+	'simple': {
+		'name': 'Simple',
+		'ids': ['software.simple#*'],
+	}
 }

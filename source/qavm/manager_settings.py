@@ -98,13 +98,9 @@ class QAVMGlobalSettings(BaseSettings):
 
 	def GetSettingsVersion(self) -> int:
 		return 1
-
-	def GetWorkspaceLast(self) -> QAVMWorkspace:
-		""" Returns the last opened workspace as a dict. """
-		return QAVMWorkspace.Deserialize(self.GetSetting('workspace_last'))
 	
 	def GetWorkspaceLast(self) -> QAVMWorkspace:
-		return QAVMWorkspace(self.GetSetting('workspace_last'))
+		return QAVMWorkspace.Deserialize(self.GetSetting('workspace_last'))
 	
 	def SetWorkspaceLast(self, workspace: QAVMWorkspace | None) -> None:
 		self.SetSetting('workspace_last', workspace.Serialize() if workspace else {})
