@@ -537,3 +537,10 @@ def CheckQAVMSoftwareInterface(interface: BaseSoftwareInterface, attrName: str, 
 	if attrType is not None and not isinstance(getattr(interface, attrName), attrType):
 		return False
 	return True
+
+def GetQAVMCurrentWorkspaceId() -> Optional[str]:
+	qtApp: QCoreApplication | None = QApplication.instance()
+	if qtApp is None or type(qtApp).__name__ != 'QAVMApp' or not hasattr(qtApp, 'GetWorkspace'):
+		# logger.error("Couldn't get QAVM current workspace ID")
+		return None
+	return qtApp.GetWorkspace().GetID()
