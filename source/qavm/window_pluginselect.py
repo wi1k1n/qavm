@@ -51,7 +51,7 @@ class WorkspaceManagerWindow(QMainWindow):
 
 		for plugin in self.pluginManager.GetPlugins():
 			for ws in plugin.GetWorkspaces():
-				button = QPushButton(f'{plugin.GetName()} - {ws.GetName()}')
+				button = QPushButton(ws.GetName())
 				button.setToolTip(
 					f'{plugin.GetName()}'
 					f'\nVersion: {plugin.GetVersionStr()}'
@@ -59,6 +59,15 @@ class WorkspaceManagerWindow(QMainWindow):
 				)
 				button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 				button.clicked.connect(partial(self.selectWorkspaceButtonClicked, ws))
+
+				btnLayout = QHBoxLayout(button)
+				btnLayout.setContentsMargins(8, 0, 8, 0)
+				pluginLabel = QLabel(plugin.GetName())
+				pluginLabel.setStyleSheet("font-style: italic; background: transparent;")
+				pluginLabel.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+				btnLayout.addWidget(pluginLabel, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+				btnLayout.addStretch()
+
 				layout.addWidget(button)
 
 		return tab
