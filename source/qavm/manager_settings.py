@@ -91,6 +91,7 @@ class QAVMGlobalSettings(BaseSettings):
 		'workspace_last': {},
 		'search_paths_global_depth': 1, # How many levels of subfolders to include in global search paths
 		'search_paths_global_dont_dive_after_match': True, # Whether to include subfolders of a matched search path in global search paths or not
+		'workspaces_favorites': [], # List of favorite workspace IDs
 	}
 
 	def __init__(self, prefName: str, defaultGlobalSearchPaths: list[str]):
@@ -133,6 +134,15 @@ class QAVMGlobalSettings(BaseSettings):
 
 	def SetGlobalSearchPathsDontDiveAfterMatch(self, value: bool) -> None:
 		self.SetSetting('search_paths_global_dont_dive_after_match', value)
+
+	def GetFavoriteWorkspaceIDs(self) -> list[str]:
+		return self.GetSetting('workspaces_favorites')
+
+	def SetFavoriteWorkspaceIDs(self, ids: list[str]) -> None:
+		self.SetSetting('workspaces_favorites', ids)
+
+	def IsWorkspaceFavorite(self, wsID: str) -> bool:
+		return wsID in self.GetFavoriteWorkspaceIDs()
 
 
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:

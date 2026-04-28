@@ -1,18 +1,72 @@
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QVBoxLayout, QPushButton, QSizePolicy, QMessageBox, QApplication,
 	QTabWidget, QListWidget, QTreeWidget, QTreeWidgetItem, QHBoxLayout, QLabel, QListWidgetItem,
-
+	QMenuBar, QMenu, QDialog, QCheckBox, QScrollArea,
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QAction
 from functools import partial
 from typing import Optional
 import sys
 
 from qavm.manager_plugin import PluginManager, QAVMPlugin, SoftwareHandler, UID, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
+from qavm.window_about import AboutDialog
 
 import qavm.logs as logs
 logger = logs.logger
+
+
+class EditFavoritesDialog(QDialog):
+	def __init__(self, pluginManager: PluginManager, qavmSettings: QAVMGlobalSettings, parent: QWidget | None = None):
+		super().__init__(parent)
+		self.pluginManager = pluginManager
+		self.qavmSettings = qavmSettings
+		self.setWindowTitle("Edit Favorites")
+		self.setMinimumSize(500, 350)
+		self.setModal(True)
+
+		mainLayout = QVBoxLayout(self)
+
+		scrollArea = QScrollArea()
+		scrollArea.setWidgetResizable(True)
+		scrollContent = QWidget()
+		self.scrollLayout = QVBoxLayout(scrollContent)
+
+		favoriteIDs: list[str] = self.qavmSettings.GetFavoriteWorkspaceIDs()
+		self.checkboxes: list[tuple[QCheckBox, QAVMWorkspace]] = []
+
+		for plugin in self.pluginManager.GetPlugins():
+			for ws in plugin.GetWorkspaces():
+				cb = QCheckBox(ws.GetName())
+				cb.setToolTip(
+					f'{plugin.GetName()}'
+					f'\nVersion: {plugin.GetVersionStr()}'
+					f'\nID: {ws.GetID()}'
+				)
+				cb.setChecked(ws.GetID() in favoriteIDs)
+				self.scrollLayout.addWidget(cb)
+				self.checkboxes.append((cb, ws))
+
+		self.scrollLayout.addStretch()
+		scrollArea.setWidget(scrollContent)
+		mainLayout.addWidget(scrollArea)
+
+		buttonLayout = QHBoxLayout()
+		buttonLayout.addStretch()
+		saveButton = QPushButton("Save")
+		saveButton.clicked.connect(self._save)
+		buttonLayout.addWidget(saveButton)
+		mainLayout.addLayout(buttonLayout)
+
+	def _save(self):
+		favoriteIDs: list[str] = []
+		for cb, ws in self.checkboxes:
+			if cb.isChecked():
+				favoriteIDs.append(ws.GetID())
+		self.qavmSettings.SetFavoriteWorkspaceIDs(favoriteIDs)
+		self.qavmSettings.Save()
+		self.accept()
 
 
 class WorkspaceManagerWindow(QMainWindow):
@@ -28,24 +82,87 @@ class WorkspaceManagerWindow(QMainWindow):
 		self.settingsManager: SettingsManager = app.GetSettingsManager()
 		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
 
+		self._setupMenuBar()
+
 		self.tabWidget = QTabWidget(self)
 		self.setCentralWidget(self.tabWidget)
 
-		# swHandlers: list[tuple[str, str, SoftwareHandler]] = self.pluginManager.GetSoftwareHandlers()
-		# wsData: list[str] = []
-		# for pluginID, softwareID, swHandler in swHandlers:
-		# 	pluginSoftwareID: str = f'{pluginID}#{softwareID}'  # TODO: make it a function of UID class
-		# 	wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetTileBuilderClasses().keys()])
-		# 	wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetTableBuilderClasses().keys()])
-		# 	wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetCustomViewClasses().keys()])
-		# 	wsData.extend([f'{pluginSoftwareID}#{viewID}' for viewID in swHandler.GetMenuItems().keys()])
-		# self.workspace = QAVMWorkspace(wsData)
+		self.tabWidget.addTab(self._createFavoritesTab(), "Favorites")
+		self.tabWidget.addTab(self._createPluginsTab(), "System Workspaces")
 
-		self.tabWidget.addTab(self.createPluginsTab(), "Plugins")
-		# self.tabWidget.addTab(self.createPresetsTab(), "Presets")
-		# self.tabWidget.addTab(self.createCustomTab(), "Custom")
+	def _setupMenuBar(self):
+		menuBar: QMenuBar = self.menuBar()
+		menuBar.setNativeMenuBar(True)
 
-	def createPluginsTab(self) -> QWidget:
+		fileMenu = QMenu("&File", self)
+		editFavoritesAction = QAction("Edit &Favorites", self)
+		editFavoritesAction.triggered.connect(self._showEditFavoritesDialog)
+		fileMenu.addAction(editFavoritesAction)
+		fileMenu.addSeparator()
+		exitAction = QAction("E&xit", self)
+		exitAction.triggered.connect(self.close)
+		fileMenu.addAction(exitAction)
+		menuBar.addMenu(fileMenu)
+
+		helpMenu = QMenu("&Help", self)
+		aboutAction = QAction("&About", self)
+		aboutAction.triggered.connect(self._showAboutDialog)
+		helpMenu.addAction(aboutAction)
+		menuBar.addMenu(helpMenu)
+
+	def _showEditFavoritesDialog(self):
+		dialog = EditFavoritesDialog(self.pluginManager, self.qavmSettings, self)
+		if dialog.exec() == QDialog.DialogCode.Accepted:
+			self._refreshFavoritesTab()
+
+	def _showAboutDialog(self):
+		aboutDialog = AboutDialog(self, self.pluginManager)
+		aboutDialog.exec()
+
+	def _createFavoritesTab(self) -> QWidget:
+		self.favoritesTab = QWidget()
+		self.favoritesLayout = QVBoxLayout(self.favoritesTab)
+		self._populateFavorites()
+		return self.favoritesTab
+
+	def _populateFavorites(self):
+		favoriteIDs: list[str] = self.qavmSettings.GetFavoriteWorkspaceIDs()
+		for plugin in self.pluginManager.GetPlugins():
+			for ws in plugin.GetWorkspaces():
+				if ws.GetID() not in favoriteIDs:
+					continue
+				button = QPushButton(ws.GetName())
+				button.setToolTip(
+					f'{plugin.GetName()}'
+					f'\nVersion: {plugin.GetVersionStr()}'
+					f'\nPlugin: {plugin.GetExecutablePath()}'
+				)
+				button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+				button.clicked.connect(partial(self.selectWorkspaceButtonClicked, ws))
+
+				btnLayout = QHBoxLayout(button)
+				btnLayout.setContentsMargins(8, 0, 8, 0)
+				pluginLabel = QLabel(plugin.GetName())
+				pluginLabel.setStyleSheet("font-style: italic; background: transparent;")
+				pluginLabel.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+				btnLayout.addWidget(pluginLabel, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+				btnLayout.addStretch()
+
+				self.favoritesLayout.addWidget(button)
+
+		if not favoriteIDs:
+			emptyLabel = QLabel("No favorites yet. Use File > Edit Favorites to add some.")
+			emptyLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+			self.favoritesLayout.addWidget(emptyLabel)
+
+	def _refreshFavoritesTab(self):
+		while self.favoritesLayout.count():
+			item = self.favoritesLayout.takeAt(0)
+			if widget := item.widget():
+				widget.deleteLater()
+		self._populateFavorites()
+
+	def _createPluginsTab(self) -> QWidget:
 		tab = QWidget()
 		layout = QVBoxLayout(tab)
 
