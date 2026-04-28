@@ -135,9 +135,11 @@ class QAVMApp(QApplication):
 		softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings(swHandler)
 		searchPaths: list[Path] = softwareSettings.GetEvaluatedSearchPaths()
 		for descDPath, (qualifier, descClass) in swHandler.GetDescriptorClasses().items():
-			MAX_SCAN_DEPTH: int = 2  # TODO: make it a setting
-			DONT_DIVE_AFTER_FIRST_MATCH: bool = True  # TODO: make it a setting
-			descs[descDPath] = self._scanSoftwareDescriptor(qualifier, descClass, softwareSettings, searchPaths, scanDepth=MAX_SCAN_DEPTH, dontDiveAfterMatch=DONT_DIVE_AFTER_FIRST_MATCH)
+			descs[descDPath] = self._scanSoftwareDescriptor(
+				qualifier, descClass, softwareSettings, searchPaths,
+				scanDepth=self.qavmSettings.GetGlobalSearchPathsDepth(),
+				dontDiveAfterMatch=self.qavmSettings.GetGlobalSearchPathsDontDiveAfterMatch()
+				)
 		return descs
 
 	def _scanSoftwareDescriptor(self,

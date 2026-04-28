@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QKeyEvent, QColor, QPainter, QBrush
 from PyQt6.QtWidgets import (
 	QWidget, QFormLayout, QCheckBox, QLineEdit, QApplication, QListWidget, QListWidgetItem,
-	QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QTabWidget, QSizePolicy, 
+	QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QTabWidget, QSizePolicy, QSpinBox,
 )
 
 import qavm.qavmapi.utils as qutils
@@ -87,9 +87,10 @@ class QAVMGlobalSettings(BaseSettings):
 		'last_opened_tab': 0,
 		'app_theme': gui_utils.GetDefaultTheme(),
 		'search_paths_global': [],
-		# searchSubfoldersDepth
 		# hideOnClose
 		'workspace_last': {},
+		'search_paths_global_depth': 2, # How many levels of subfolders to include in global search paths
+		'search_paths_global_dont_dive_after_match': True, # Whether to include subfolders of a matched search path in global search paths or not
 	}
 
 	def __init__(self, prefName: str, defaultGlobalSearchPaths: list[str]):
@@ -121,6 +122,18 @@ class QAVMGlobalSettings(BaseSettings):
 			return
 		self.SetSetting('search_paths_global', paths)
 
+	def GetGlobalSearchPathsDepth(self) -> int:
+		return self.GetSetting('search_paths_global_depth')
+
+	def SetGlobalSearchPathsDepth(self, depth: int) -> None:
+		self.SetSetting('search_paths_global_depth', depth)
+
+	def GetGlobalSearchPathsDontDiveAfterMatch(self) -> bool:
+		return self.GetSetting('search_paths_global_dont_dive_after_match')
+
+	def SetGlobalSearchPathsDontDiveAfterMatch(self, value: bool) -> None:
+		self.SetSetting('search_paths_global_dont_dive_after_match', value)
+
 
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:
 		settingsWidget: QWidget = QWidget(parent)
@@ -131,6 +144,34 @@ class QAVMGlobalSettings(BaseSettings):
 
 		searchPathsWidget = self._createSearchPathsWidget(parent)
 		layout.addRow('Search Paths (Global)', searchPathsWidget)
+
+		searchOptionsWidget = QWidget(settingsWidget)
+		searchOptionsLayout = QHBoxLayout(searchOptionsWidget)
+
+		depthSpinBox = QSpinBox(searchOptionsWidget)
+		depthSpinBox.setMinimum(1)
+		depthSpinBox.setMinimumWidth(80)
+		depthSpinBox.setValue(self.GetGlobalSearchPathsDepth())
+		depthTooltipStr = 'How many levels of subfolders to include in global search paths.\n'
+		depthSpinBox.setToolTip(depthTooltipStr)
+		depthSpinBox.valueChanged.connect(self.SetGlobalSearchPathsDepth)
+
+		depthSpinBoxLabel = QLabel('Search Depth:', searchOptionsWidget)
+		depthSpinBoxLabel.setToolTip(depthTooltipStr)
+		searchOptionsLayout.addWidget(depthSpinBoxLabel)
+		searchOptionsLayout.addSpacing(10)
+		searchOptionsLayout.addWidget(depthSpinBox)
+
+		dontDiveCheckBox = QCheckBox('Don\'t Dive After Match', searchOptionsWidget)
+		dontDiveCheckBox.setChecked(self.GetGlobalSearchPathsDontDiveAfterMatch())
+		dontDiveCheckBox.setToolTip('Stop descending into subfolders once a match is found in a search path')
+		dontDiveCheckBox.toggled.connect(self.SetGlobalSearchPathsDontDiveAfterMatch)
+
+		searchOptionsLayout.addSpacing(32)
+		searchOptionsLayout.addWidget(dontDiveCheckBox)
+		searchOptionsLayout.addStretch()
+
+		layout.addRow(searchOptionsWidget)
 
 		return [('Application', settingsWidget)]
 	
