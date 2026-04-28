@@ -723,9 +723,10 @@ class QAVMPlugin:
 
 
 class PluginManager:
-	def __init__(self, pluginPaths: set[Path], pluginsFolderPaths: list[Path]) -> None:
+	def __init__(self, builtinPluginPaths: set[Path], pluginPaths: set[Path], pluginsFolderPaths: list[Path]) -> None:
 		self.pluginsFolderPaths: list[Path] = pluginsFolderPaths
 		self.pluginsPaths: list[Path] = pluginPaths  # individual plugins paths
+		self.builtinPluginPaths: list[Path] = list(builtinPluginPaths)  # built-in plugins paths
 
 		self.plugins: dict[str, QAVMPlugin] = dict()
 
@@ -735,6 +736,14 @@ class PluginManager:
 			logger.info(f'Created plugins folder: {defaultPluginsFolderPath}')
 
 	def LoadPlugins(self) -> bool:
+		# Load built-in plugins first
+		for pluginPath in self.builtinPluginPaths:
+			if not pluginPath.is_dir():
+				continue
+			if not self.LoadPluginFromPath(pluginPath):
+				logger.error(f'Failed to load built-in plugin from path: {pluginPath}')
+				continue
+
 		# Iterate over individual plugin paths
 		for pluginPath in self.pluginsPaths:
 			if not pluginPath.is_dir():
@@ -779,7 +788,7 @@ class PluginManager:
 			
 			plugin = QAVMPlugin(pluginPyModule, pluginMainFile)
 			if plugin.pluginID in self.plugins:
-				logger.error(f'Duplicate plugin ID found: {plugin.pluginID} ({pluginName})')
+				logger.error(f'Duplicate plugin ({plugin.GetUID()} "{plugin.GetName()}") at {plugin.GetExecutablePath()} has the same plugin ID as already loaded plugin ({self.plugins[plugin.pluginID].GetUID()} "{self.plugins[plugin.pluginID].GetName()}") at {self.plugins[plugin.pluginID].GetExecutablePath()}. Skipping.')
 				return False
 			
 			logger.info(f'Loaded plugin: {pluginName} @ {plugin.GetVersionStr()} ({plugin.GetUID()})')
