@@ -137,8 +137,8 @@ class QAVMApp(QApplication):
 		for descDPath, (qualifier, descClass) in swHandler.GetDescriptorClasses().items():
 			descs[descDPath] = self._scanSoftwareDescriptor(
 				qualifier, descClass, softwareSettings, searchPaths,
-				scanDepth=self.qavmSettings.GetGlobalSearchPathsDepth(),
-				dontDiveAfterMatch=self.qavmSettings.GetGlobalSearchPathsDontDiveAfterMatch()
+				scanDepth=softwareSettings.GetEvaluatedSearchDepth(),
+				dontDiveAfterMatch=softwareSettings.GetEvaluatedDontDiveAfterMatch()
 				)
 		return descs
 

@@ -10,7 +10,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtWidgets import (
 	QWidget, QLabel, QTableWidgetItem, QMenu, QStyledItemDelegate, QVBoxLayout, QListWidget, QSizePolicy,
 	QListWidgetItem, QPushButton, QFileDialog, QTextEdit, QHBoxLayout, QStackedWidget, QTableWidgetItem, 
-	QLineEdit, QComboBox, QApplication, QCheckBox
+	QLineEdit, QComboBox, QApplication, QCheckBox, QSpinBox, QStackedLayout,
 )
 from PyQt6.QtGui import (
 	QKeyEvent, QAction, 
@@ -145,16 +145,18 @@ class BaseSettings(QObject):
 class SoftwareBaseSettings(BaseSettings):
 	""" Base class for software settings. Contains basic implementation for settings that are common for all software. """
 	CONTAINER_QAVM_DEFAULTS: dict[str, Any] = {
-		**BaseSettings.CONTAINER_QAVM_DEFAULTS,
 		'search_paths': [],  # list of paths to search for software
 		'include_global_search_paths': True,  # whether to include global search paths from QAVM settings
+		'search_paths_depth': 2,  # How many levels of subfolders to include in search paths
+		'search_paths_dont_dive_after_match': True,  # Whether to stop descending into subfolders once a match is found
+		'search_paths_options_override': False,  # Whether to override global search options or inherit from QAVM settings
+		**BaseSettings.CONTAINER_QAVM_DEFAULTS,
 	}
 	
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:
 		# Create a widget with QVBoxLayout and a QListWidget for search paths
 		widget = QWidget(parent)
 		layout = QVBoxLayout(widget)
-		layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 		layout.addWidget(QLabel('Search paths:', widget))
 
 		self.searchPathsWidget = FolderPathsListWidget()
@@ -172,7 +174,7 @@ class SoftwareBaseSettings(BaseSettings):
 		# Hence, need to ensure it's disconnected when the widget is destroyed
 		self.searchPathsWidget.destroyed.connect(partial(qavmSettings.settingChanged.disconnect, self._updateSearchPathsEvaluatedWidget))
 
-		layout.addWidget(self.searchPathsWidget)
+		layout.addWidget(self.searchPathsWidget, 1)
 
 		addButton = QPushButton('Browse', widget)
 		addButton.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -199,6 +201,64 @@ class SoftwareBaseSettings(BaseSettings):
 		layout.addWidget(self.searchPathsEvaluated)
 		
 		self._updateSearchPathsEvaluatedWidget()
+
+		# Search options: inherit from global or override
+		searchOptionsRow = QWidget(widget)
+		searchOptionsRowLayout = QHBoxLayout(searchOptionsRow)
+		searchOptionsRowLayout.setContentsMargins(0, 0, 0, 0)
+
+		self._overrideCheckBox = QCheckBox('Override:', searchOptionsRow)
+		self._overrideCheckBox.setToolTip('Override global search path options for this software')
+		self._overrideCheckBox.setChecked(self.GetSetting('search_paths_options_override'))
+		self._overrideCheckBox.toggled.connect(self._searchOptionsOverrideChanged)
+		searchOptionsRowLayout.addWidget(self._overrideCheckBox)
+		searchOptionsRowLayout.addSpacing(10)
+
+		# Stacked widget: index 0 = inherit label, index 1 = override controls
+		self._searchOptionsStack = QStackedWidget(searchOptionsRow)
+
+		# Inherit label
+		self._inheritLabel = QLabel(searchOptionsRow)
+		self._searchOptionsStack.addWidget(self._inheritLabel)
+
+		# Override controls
+		overrideWidget = QWidget(searchOptionsRow)
+		overrideLayout = QHBoxLayout(overrideWidget)
+		overrideLayout.setContentsMargins(0, 0, 0, 0)
+
+		depthSpinBoxLabel = QLabel('Search Depth:', overrideWidget)
+		depthTooltipStr = 'How many levels of subfolders to include in search paths.'
+		depthSpinBoxLabel.setToolTip(depthTooltipStr)
+		overrideLayout.addWidget(depthSpinBoxLabel)
+		overrideLayout.addSpacing(10)
+
+		self._depthSpinBox = QSpinBox(overrideWidget)
+		self._depthSpinBox.setMinimum(1)
+		self._depthSpinBox.setMinimumWidth(80)
+		self._depthSpinBox.setValue(self.GetSetting('search_paths_depth'))
+		self._depthSpinBox.setToolTip(depthTooltipStr)
+		self._depthSpinBox.valueChanged.connect(lambda v: self.SetSetting('search_paths_depth', v))
+		overrideLayout.addWidget(self._depthSpinBox)
+
+		overrideLayout.addSpacing(32)
+
+		self._dontDiveCheckBox = QCheckBox("Don't Dive After Match", overrideWidget)
+		self._dontDiveCheckBox.setChecked(self.GetSetting('search_paths_dont_dive_after_match'))
+		self._dontDiveCheckBox.setToolTip('Stop descending into subfolders once a match is found in a search path')
+		self._dontDiveCheckBox.toggled.connect(lambda v: self.SetSetting('search_paths_dont_dive_after_match', v))
+		overrideLayout.addWidget(self._dontDiveCheckBox)
+		overrideLayout.addStretch()
+
+		self._searchOptionsStack.addWidget(overrideWidget)
+
+		searchOptionsRowLayout.addWidget(self._searchOptionsStack)
+		searchOptionsRowLayout.addStretch()
+
+		layout.addWidget(searchOptionsRow)
+
+		self._updateSearchOptionsDisplay()
+		qavmSettings.settingChanged.connect(self._onGlobalSettingChangedForOptions)
+		self.searchPathsWidget.destroyed.connect(partial(qavmSettings.settingChanged.disconnect, self._onGlobalSettingChangedForOptions))
 
 		return [('Common', widget)]
 	
@@ -239,12 +299,47 @@ class SoftwareBaseSettings(BaseSettings):
 		self.SetSetting('include_global_search_paths', state == Qt.CheckState.Checked.value)
 		self._updateSearchPathsEvaluatedWidget()
 
+	def _searchOptionsOverrideChanged(self, checked: bool):
+		self.SetSetting('search_paths_options_override', checked)
+		self._updateSearchOptionsDisplay()
+
+	def _updateSearchOptionsDisplay(self):
+		""" Updates the search options block based on the override checkbox. """
+		if self.GetSetting('search_paths_options_override'):
+			self._searchOptionsStack.setCurrentIndex(1)
+		else:
+			qavmSettings = QApplication.instance().GetSettingsManager().GetQAVMSettings()
+			depth = qavmSettings.GetGlobalSearchPathsDepth()
+			dontDive = qavmSettings.GetGlobalSearchPathsDontDiveAfterMatch()
+			self._inheritLabel.setText(
+				f"<i>[Using QAVM settings]</i> Search depth = {depth} | "
+				f"Don't dive after match = {dontDive}"
+			)
+			self._searchOptionsStack.setCurrentIndex(0)
+
+	def _onGlobalSettingChangedForOptions(self, settingName: str, newValue: object):
+		""" Updates the inherit label when global search options change. """
+		if settingName in ('search_paths_global_depth', 'search_paths_global_dont_dive_after_match'):
+			self._updateSearchOptionsDisplay()
+
 	def GetEvaluatedSearchPaths(self) -> list[Path]:
 		""" Returns the evaluated search paths, which are a combination of global and software-specific search paths. """
 		searchPathsGlobal = []
 		if self.GetSetting('include_global_search_paths'):
 			searchPathsGlobal = QApplication.instance().GetSettingsManager().GetQAVMSettings().GetGlobalSearchPaths()
 		return [Path(p).resolve().absolute() for p in set(searchPathsGlobal + self.GetSetting('search_paths'))]
+	
+	def GetEvaluatedSearchDepth(self) -> int:
+		if self.GetSetting('search_paths_options_override'):
+			return self.GetSetting('search_paths_depth')
+		else:
+			return QApplication.instance().GetSettingsManager().GetQAVMSettings().GetGlobalSearchPathsDepth()
+		
+	def GetEvaluatedDontDiveAfterMatch(self) -> bool:
+		if self.GetSetting('search_paths_options_override'):
+			return self.GetSetting('search_paths_dont_dive_after_match')
+		else:
+			return QApplication.instance().GetSettingsManager().GetQAVMSettings().GetGlobalSearchPathsDontDiveAfterMatch()
 
 
 ##############################################################################

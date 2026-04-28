@@ -89,7 +89,7 @@ class QAVMGlobalSettings(BaseSettings):
 		'search_paths_global': [],
 		# hideOnClose
 		'workspace_last': {},
-		'search_paths_global_depth': 2, # How many levels of subfolders to include in global search paths
+		'search_paths_global_depth': 1, # How many levels of subfolders to include in global search paths
 		'search_paths_global_dont_dive_after_match': True, # Whether to include subfolders of a matched search path in global search paths or not
 	}
 
