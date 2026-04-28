@@ -145,34 +145,6 @@ class QAVMGlobalSettings(BaseSettings):
 		searchPathsWidget = self._createSearchPathsWidget(parent)
 		layout.addRow('Search Paths (Global)', searchPathsWidget)
 
-		searchOptionsWidget = QWidget(settingsWidget)
-		searchOptionsLayout = QHBoxLayout(searchOptionsWidget)
-
-		depthSpinBox = QSpinBox(searchOptionsWidget)
-		depthSpinBox.setMinimum(1)
-		depthSpinBox.setMinimumWidth(80)
-		depthSpinBox.setValue(self.GetGlobalSearchPathsDepth())
-		depthTooltipStr = 'How many levels of subfolders to include in global search paths.\n'
-		depthSpinBox.setToolTip(depthTooltipStr)
-		depthSpinBox.valueChanged.connect(self.SetGlobalSearchPathsDepth)
-
-		depthSpinBoxLabel = QLabel('Search Depth:', searchOptionsWidget)
-		depthSpinBoxLabel.setToolTip(depthTooltipStr)
-		searchOptionsLayout.addWidget(depthSpinBoxLabel)
-		searchOptionsLayout.addSpacing(10)
-		searchOptionsLayout.addWidget(depthSpinBox)
-
-		dontDiveCheckBox = QCheckBox('Don\'t Dive After Match', searchOptionsWidget)
-		dontDiveCheckBox.setChecked(self.GetGlobalSearchPathsDontDiveAfterMatch())
-		dontDiveCheckBox.setToolTip('Stop descending into subfolders once a match is found in a search path')
-		dontDiveCheckBox.toggled.connect(self.SetGlobalSearchPathsDontDiveAfterMatch)
-
-		searchOptionsLayout.addSpacing(32)
-		searchOptionsLayout.addWidget(dontDiveCheckBox)
-		searchOptionsLayout.addStretch()
-
-		layout.addRow(searchOptionsWidget)
-
 		return [('Application', settingsWidget)]
 	
 	# TODO: This is very similar to the one in SoftwareBaseSettings, consider refactoring
@@ -193,9 +165,30 @@ class QAVMGlobalSettings(BaseSettings):
 		addButton = QPushButton('Browse', widget)
 		addButton.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 		addButton.clicked.connect(self._selectAndAddSearchPath)
-		
+
+		depthSpinBox = QSpinBox(widget)
+		depthSpinBox.setMinimum(1)
+		depthSpinBox.setMinimumWidth(80)
+		depthSpinBox.setValue(self.GetGlobalSearchPathsDepth())
+		depthTooltipStr = 'How many levels of subfolders to include in global search paths.\n'
+		depthSpinBox.setToolTip(depthTooltipStr)
+		depthSpinBox.valueChanged.connect(self.SetGlobalSearchPathsDepth)
+
+		depthSpinBoxLabel = QLabel('Search Depth:', widget)
+		depthSpinBoxLabel.setToolTip(depthTooltipStr)
+
+		dontDiveCheckBox = QCheckBox('Don\'t Dive After Match', widget)
+		dontDiveCheckBox.setChecked(self.GetGlobalSearchPathsDontDiveAfterMatch())
+		dontDiveCheckBox.setToolTip('Stop descending into subfolders once a match is found in a search path')
+		dontDiveCheckBox.toggled.connect(self.SetGlobalSearchPathsDontDiveAfterMatch)
+
 		buttonLayout = QHBoxLayout()
-		buttonLayout.addStretch()  # Pushes the button to the right
+		buttonLayout.addWidget(depthSpinBoxLabel)
+		buttonLayout.addSpacing(10)
+		buttonLayout.addWidget(depthSpinBox)
+		buttonLayout.addSpacing(32)
+		buttonLayout.addWidget(dontDiveCheckBox)
+		buttonLayout.addStretch()
 		buttonLayout.addWidget(addButton)
 		layout.addLayout(buttonLayout)
 
