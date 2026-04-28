@@ -125,7 +125,7 @@ class QAVMApp(QApplication):
 		return self.softwareDescriptors[swHandler]
 	
 	def ResetSoftwareDescriptors(self) -> None:
-		self.softwareDescriptors = None
+		self.softwareDescriptors = dict()
 
 	def LoadSoftwareDescriptors(self, swHandler: SoftwareHandler) -> None:
 		self.softwareDescriptors[swHandler] = self.ScanSoftware(swHandler)
@@ -135,8 +135,9 @@ class QAVMApp(QApplication):
 		softwareSettings: SoftwareBaseSettings = self.settingsManager.GetSoftwareSettings(swHandler)
 		searchPaths: list[Path] = softwareSettings.GetEvaluatedSearchPaths()
 		for descDPath, (qualifier, descClass) in swHandler.GetDescriptorClasses().items():
-			MAX_SCAN_DEPTH: int = 1  # TODO: make it a setting
-			descs[descDPath] = self._scanSoftwareDescriptor(qualifier, descClass, softwareSettings, searchPaths, scanDepth=MAX_SCAN_DEPTH)
+			MAX_SCAN_DEPTH: int = 2  # TODO: make it a setting
+			DONT_DIVE_AFTER_FIRST_MATCH: bool = True  # TODO: make it a setting
+			descs[descDPath] = self._scanSoftwareDescriptor(qualifier, descClass, softwareSettings, searchPaths, scanDepth=MAX_SCAN_DEPTH, dontDiveAfterMatch=DONT_DIVE_AFTER_FIRST_MATCH)
 		return descs
 
 	def _scanSoftwareDescriptor(self,
@@ -144,7 +145,8 @@ class QAVMApp(QApplication):
 							 descriptorClass: Type[BaseDescriptor],
 							 softwareSettings: SoftwareBaseSettings,
 							 searchPaths: list[Path],
-							 scanDepth: int = 1
+							 scanDepth: int = 1,
+							 dontDiveAfterMatch: bool = True,
 							 ) -> list[BaseDescriptor]:
 		searchPaths = qualifier.ProcessSearchPaths(searchPaths)
 		
@@ -168,11 +170,10 @@ class QAVMApp(QApplication):
 
 		currentDepthLevel: int = 0
 		searchPathsList = set(searchPaths)
-		while currentDepthLevel < scanDepth:
-			subfoldersSearchPathsList = set()
-			for searchPath in searchPathsList:
-				items: set[Path] = set(getDirItemsListIgnoreError(searchPath))
-				subdirs: set[str] = set()
+		for searchPath in searchPathsList:
+			items: set[Path] = set(getDirItemsListIgnoreError(searchPath))
+			for currentDepthLevel in range(scanDepth):
+				subdirs: set[Path] = set()
 				for item in sorted(items):
 					try:
 						passed = config.IdentificationMaskPasses(item)
@@ -190,12 +191,13 @@ class QAVMApp(QApplication):
 						# descData: dict = self.descDataManager.GetDescriptorData(descriptor)
 						# descriptor.AttachDescriptorData(descData)
 						softwareDescs.append(descriptor)
+
+						if not dontDiveAfterMatch and currentDepthLevel < scanDepth - 1 and item.is_dir():
+							subdirs.update(set(getDirListIgnoreError(item)))
 					except Exception as e:
 						logger.error(f'Error processing item {item} for qualifier {type(qualifier).__name__}: {e}')
 						continue
-				subfoldersSearchPathsList.update(subdirs)
-			searchPathsList = subfoldersSearchPathsList
-			currentDepthLevel += 1
+				items = subdirs
 		
 		return softwareDescs
 	
