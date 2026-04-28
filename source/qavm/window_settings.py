@@ -41,6 +41,7 @@ class PreferencesWindow(QWidget):
 		self.menuModel.setHorizontalHeaderLabels(["Settings"])
 		self.menuWidget.setModel(self.menuModel)
 		self.menuWidget.selectionModel().selectionChanged.connect(self._onMenuSelectionChanged)
+		self.menuWidget.clicked.connect(self._onMenuItemClicked)
 
 		# Add general QAVM settings
 		generalSettingsItem = QStandardItem("QAVM")
@@ -113,6 +114,20 @@ class PreferencesWindow(QWidget):
 				widgetIndex = self.contentWidget.indexOf(item.data(Qt.ItemDataRole.UserRole))
 				if widgetIndex != -1:
 					self.contentWidget.setCurrentIndex(widgetIndex)
+
+	def _onMenuItemClicked(self, index):
+		item = self.menuModel.itemFromIndex(index)
+		if not item or item.parent() is not None:
+			return  # Only handle root-level items
+
+		self.menuWidget.expand(index)
+
+		# Look for a "Common" child and select it if found
+		for row in range(item.rowCount()):
+			child = item.child(row)
+			if child and child.text() == "Common":
+				self.menuWidget.selectionModel().select(child.index(), self.menuWidget.selectionModel().SelectionFlag.ClearAndSelect)
+				return
 
 	def keyPressEvent(self, event):
 		if event.key() == Qt.Key.Key_Escape:
