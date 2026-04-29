@@ -17,7 +17,7 @@ a = Analysis(
         (f'{PATH_RES}/qavm_icon.png', './res/.'),
     ],
     hiddenimports=['qavm.qavmapi',
-        'cv2', 'pyperclip',  # TODO: can this by dynamically linked on the target system?
+        'pyperclip',  # TODO: can this by dynamically linked on the target system?
     ],
     hookspath=[f'{PATH_SOURCE}/qavm/pyinstaller-hooks'],
     hooksconfig={},

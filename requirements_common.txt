@@ -3,7 +3,8 @@ qt_material==2.14.0
 pyinstaller==6.19.0
 pyperclip==1.9.0
 gitpython==3.1.0
-opencv-python==4.10.0.84
+imageio==2.37.0
+imageio-ffmpeg==0.5.1
 cryptography
 psutil==7.0.0
 pillow==12.2.0
