@@ -18,6 +18,8 @@ a = Analysis(
     ],
     hiddenimports=['qavm.qavmapi',
         'pyperclip',  # TODO: can this by dynamically linked on the target system?
+        'imageio',
+        'imageio_ffmpeg',
     ],
     hookspath=[f'{PATH_SOURCE}/qavm/pyinstaller-hooks'],
     hooksconfig={},
@@ -40,7 +42,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
