@@ -350,6 +350,28 @@ def GetHashFile(filePath: Path, hashAlgo='sha256'):
 			hashFunc.update(chunk)
 	return hashFunc.hexdigest()[:12]
 
+def GetWinExeVersionInfo(execPath: Path) -> tuple[str, str]:
+	"""Extract file version and product version from exe properties.
+	Returns (fileVersion, productVersion)"""
+	try:
+		import win32api
+		strPath = str(execPath)
+		# Get numeric file version
+		info = win32api.GetFileVersionInfo(strPath, '\\')
+		fileVersion = '{}.{}.{}.{}'.format(
+			info['FileVersionMS'] >> 16, info['FileVersionMS'] & 0xFFFF,
+			info['FileVersionLS'] >> 16, info['FileVersionLS'] & 0xFFFF)
+		# Get string product version from StringFileInfo
+		langCodepage = win32api.GetFileVersionInfo(strPath, '\\VarFileInfo\\Translation')
+		prodVersion = None
+		if langCodepage:
+			lang, codepage = langCodepage[0]
+			prodVersion = win32api.GetFileVersionInfo(strPath, f'\\StringFileInfo\\{lang:04x}{codepage:04x}\\ProductVersion')
+		return fileVersion, prodVersion or fileVersion
+	except Exception as e:
+		logger.warning(f"Failed to get version info from {execPath}: {e}")
+	return '', ''
+
 # TODO: this is better to be an QAVMApp class variable
 processes: dict[str, subprocess.Popen] = dict()
 def StartProcess(uid: str, path: Path, args: list[str]) -> int:
