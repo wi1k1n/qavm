@@ -1,9 +1,10 @@
 PyQT6==6.7.0
 qt_material==2.14.0
-pyinstaller
+pyinstaller==6.19.0
 pyperclip==1.9.0
 gitpython==3.1.0
 opencv-python==4.10.0.84
 cryptography
 psutil==7.0.0
 pillow==12.2.0
+pefile==2024.8.26

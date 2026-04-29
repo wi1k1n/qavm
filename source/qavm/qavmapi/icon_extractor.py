@@ -1,9 +1,20 @@
+import io
 import json
+import plistlib
+import struct
 from pathlib import Path
 from typing import Any
+import logging
 
-from qavm.qavmapi.utils import GetQAVMCachePath, GetQAVMTempPath, GetHashFile, PlatformWindows, PlatformMacOS, GetQAVMRootPath
+import pefile
+from PIL import Image
+logging.getLogger("PIL").setLevel(logging.WARNING)  # Suppress PIL warnings
+
+from qavm.qavmapi.utils import GetQAVMCachePath, GetQAVMTempPath, GetHashFile, PlatformWindows, PlatformMacOS
 from qavm.qavmapi.media_cache import MediaCache
+
+RT_ICON = 3
+RT_GROUP_ICON = 14
 
 def GetIconFromExecutable(executablePath: Path) -> Path | None:
 	"""Searched for cached icon file and extracts if not found"""
@@ -107,182 +118,182 @@ def ExtractIconFromExecutable(executablePath: Path) -> Path | None:
 
 	return iconPath
 
-##################################################################################################################
-############################### TODO: Implement this part as a binding to the C++ code ###########################
-##################################################################################################################
+def _build_ico_from_group(group_data: bytes, icons: dict[int, bytes]) -> bytes:
+	"""Converts RT_GROUP_ICON resource data + RT_ICON resources into a valid .ico file."""
+	reserved, icon_type, count = struct.unpack_from("<HHH", group_data, 0)
 
-"""Utility script for extracting icons from executable files using 7zip.
+	if reserved != 0 or icon_type != 1:
+		raise RuntimeError("Invalid icon group resource")
 
-Accepts .exe files, links to .exe files, and directories containing .exe files.
+	entries = []
+	offset = 6 + count * 16
+	icon_payloads = []
 
-Example usage:
-	python icon_extractor.py 'my/exe.exe'
-	python icon_extractor.py 'my/exe/folder'
-	python icon_extractor.py 'my/exe.lnk'
+	for i in range(count):
+		entry_offset = 6 + i * 14
 
+		width, height, color_count, reserved_byte, planes, bit_count, size, icon_id = struct.unpack_from(
+			"<BBBBHHIH",
+			group_data,
+			entry_offset,
+		)
 
-Author: Maatss
-Date: 2023-10-03
-GitHub: https://github.com/Maatss/PyIconExtractor
-Version: 1.0
-"""
-
-"""Uses 7zip prepared by daemondevin: https://github.com/daemondevin/7-ZipPortable"""
-
-from pathlib import Path
-import subprocess, re, shutil
-from subprocess import CompletedProcess
-from typing import List, Tuple, Optional
-
-
-def find_icons_in_exe(path_7zip: Path, exe_path: Path) -> List[Tuple[str, int]]:
-	"""Find icons in an executable file.
-
-	Args:
-		exe_path (Path): Path to executable file.
-
-	Returns:
-		Optional[List[Tuple[str, int]]]: List of icon file paths and sizes.
-	"""
-
-	# List file contents using 7zip program
-	list_cmd: List[str] = [str(path_7zip), "l", str(exe_path)]
-	result: CompletedProcess[str] = subprocess.run(list_cmd, capture_output=True, text=True, check=False)
-	output: str = result.stdout
-	if result.returncode != 0:
-		print(f"\t\t- Failed to list file contents, skipping '{exe_path}'.")
-		return []
-
-	# Find icon files
-	icon_files: List[Tuple[str, int]] = []
-	for line in output.split("\n"):
-		# Search lines containing: "*\ICON\*"
-		# I.e. files in the ICON directory
-		match_ico_files: Optional[re.Match[str]] = re.search(r".+[\/\\]ICON[\/\\]\S+", line)
-
-		# Skip if no match
-		if not match_ico_files:
+		icon_data = icons.get(icon_id)
+		if icon_data is None:
 			continue
 
-		# Extract icon file name and size
-		# Example:
-		#                                    Size   Compressed  Name
-		# "                    .....       270398       270376  .rsrc\1033\ICON\1.ico"
-		# "                    .....         2398         1376  .rsrc\1033\ICON\2"
-		fields: List[str] = line.split()
-		icon_file_path: str = fields[-1]
-		icon_file_size: int = int(fields[-3])
-		icon_files.append((icon_file_path, icon_file_size))
+		entries.append(
+			struct.pack(
+				"<BBBBHHII",
+				width,
+				height,
+				color_count,
+				reserved_byte,
+				planes,
+				bit_count,
+				len(icon_data),
+				offset,
+			)
+		)
 
-	# Return list sorted by size (large to small)
-	icon_files.sort(key=lambda entry: entry[1], reverse=True)
-	return icon_files
+		icon_payloads.append(icon_data)
+		offset += len(icon_data)
 
-def guess_image_extension(path: Path) -> str | None:
-    with open(path, "rb") as f:
-        header = f.read(16)
-    if header.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "png"
-    if header.startswith(b"\xff\xd8"):
-        return "jpeg"
-    if header.startswith(b"GIF87a") or header.startswith(b"GIF89a"):
-        return "gif"
-    if header.startswith(b"BM"):
-        return "bmp"
-    if header.startswith(b"\x00\x00\x01\x00"):
-        return "ico"
-    return None
+	if not entries:
+		raise RuntimeError("Icon group exists, but no matching icon images were found")
 
-def extract_icon_from_exe(path_7zip: Path, exe_path: Path, inner_icon_file_path: str, output_dir_path: Path) -> Optional[Path]:
-	"""Extract an icon from an executable file.
+	header = struct.pack("<HHH", 0, 1, len(entries))
+	return header + b"".join(entries) + b"".join(icon_payloads)
 
-	Args:
-		exe_path (Path): Path to executable file.
-		inner_icon_file_path (str): Path to icon file inside executable file.
-		output_path (Path): Path to where to save the icon file.
 
-	Returns:
-		bool: True if successful, else False.
-	"""
+def _load_largest_image_from_ico_bytes(ico_data: bytes) -> Image.Image:
+	"""Loads all frames from ICO data and returns the largest one."""
+	img = Image.open(io.BytesIO(ico_data))
 
-	outerIconFilePath: Path = output_dir_path / Path(inner_icon_file_path).name
-	if outerIconFilePath.exists():
-		outerIconFilePath.unlink()
+	best = None
+	best_area = -1
 
-	# Extract icon file using 7zip program
-	extract_cmd: List[str] = [str(path_7zip), "e", str(exe_path), inner_icon_file_path, f"-o{str(output_dir_path)}"]
-	result: CompletedProcess[str] = subprocess.run(extract_cmd, capture_output=True, text=True, check=False)
-	if result.returncode != 0:
-		print(f"\t\t\t- Failed to extract icon file '{inner_icon_file_path}' from '{exe_path}'.")
-		return None
+	for frame in range(getattr(img, "n_frames", 1)):
+		try:
+			img.seek(frame)
+		except EOFError:
+			break
 
-	# If missing a file extension, guess it from the file header
-	extracted_file_path: Path = output_dir_path / Path(inner_icon_file_path).name
-	if extracted_file_path.suffix.lower() == "":
-		print("\t\t\t- Guessing file extension from file header.")
-		extension: str | None = guess_image_extension(extracted_file_path)
-		if extension:
-			extracted_file_path = extracted_file_path.rename(extracted_file_path.with_suffix(f".{extension}"))
-		else:
-			print(f"\t\t\t\t- Failed to guess file extension for '{extracted_file_path}'.")
-			return None
+		candidate = img.convert("RGBA")
+		area = candidate.width * candidate.height
 
-	# Return the path to the extracted icon file
-	return extracted_file_path
+		if area > best_area:
+			best = candidate.copy()
+			best_area = area
 
-# b = extract_icons(path7z, executablePath, icon_files, tempPath)
-def extract_icons(path_7zip: Path,
-					exe_file_path: Path,
-					icon_files: List[Tuple[str, int]],
-				#   output_dir_path: Path,
-					temp_output_dir_path: Path,
-				#   extract_largest_only: bool
-					) -> Path | None:
-	"""Extract icons from executable files, and save them to output directory.
+	if best is None:
+		raise RuntimeError("Could not decode ICO image")
 
-	Args:
-		path_7zip (Path): Path to 7zip program.
-		exe_file_path (Path): Path to executable file.
-		icon_files (List[Tuple[str, int]]): List of icon file paths and sizes.
-		output_dir_path (Path): Path to where to store extracted icons.
-		temp_output_dir_path (Path): Path to temporary output directory.
-		extract_largest_only (bool): Extract only the largest icon file.
+	return best
 
-	Returns:
-		bool: True if successful, else False.
-	"""
-
-	for file_index, (inner_icon_file_path, icon_file_size) in enumerate(icon_files, start=1):
-		# print(f"\t\t- ({file_index}) Extracting icon named '{inner_icon_file_path}' ({icon_file_size} bytes).")
-		icon_path: Optional[Path] = extract_icon_from_exe(path_7zip, exe_file_path, inner_icon_file_path, temp_output_dir_path)
-		
-		# Skip if extraction failed
-		if not icon_path:
-			print("\t\t\t- Failed to extract icon.")
-			continue
-
-		return icon_path
-	return None
 
 def GetIconFromExecutableWindows(executablePath: Path) -> Path | None:
-	if executablePath.suffix.lower() != '.exe':
-		raise Exception('Not an executable file')
-	
-	path7z: Path = GetQAVMRootPath() / Path('../external/7zip/win/7z.exe')
-	if path7z is None or not path7z.exists():
-		print(f"7zip program not found at '{path7z}', cannot extract icons.")
+	"""Extracts the largest icon from a Windows PE file (.exe or .dll) using pefile."""
+	if executablePath.suffix.lower() not in {'.exe', '.dll'}:
 		return None
 
-	icon_files: List[Tuple[str, int]] = find_icons_in_exe(path7z, executablePath)
-	if not icon_files:
+	try:
+		pe = pefile.PE(str(executablePath))
+	except pefile.PEFormatError:
 		return None
-	
-	tempPath: Path = GetQAVMTempPath()/'icons'
-	return extract_icons(path7z, executablePath, icon_files, tempPath)
+
+	if not hasattr(pe, "DIRECTORY_ENTRY_RESOURCE"):
+		return None
+
+	icon_groups: dict[int, bytes] = {}
+	icons: dict[int, bytes] = {}
+
+	for resource_type in pe.DIRECTORY_ENTRY_RESOURCE.entries:
+		if resource_type.id == RT_GROUP_ICON:
+			for name_entry in resource_type.directory.entries:
+				for lang_entry in name_entry.directory.entries:
+					data_rva = lang_entry.data.struct.OffsetToData
+					size = lang_entry.data.struct.Size
+					data = pe.get_memory_mapped_image()[data_rva:data_rva + size]
+					icon_groups[name_entry.id] = data
+
+		elif resource_type.id == RT_ICON:
+			for name_entry in resource_type.directory.entries:
+				for lang_entry in name_entry.directory.entries:
+					data_rva = lang_entry.data.struct.OffsetToData
+					size = lang_entry.data.struct.Size
+					data = pe.get_memory_mapped_image()[data_rva:data_rva + size]
+					icons[name_entry.id] = data
+
+	if not icon_groups:
+		return None
+
+	# Take the first icon group (most apps have one main icon group)
+	group_data = next(iter(icon_groups.values()))
+	ico_data = _build_ico_from_group(group_data, icons)
+
+	image = _load_largest_image_from_ico_bytes(ico_data)
+
+	tempPath: Path = GetQAVMTempPath() / 'icons'
+	tempPath.mkdir(parents=True, exist_ok=True)
+	outputPath: Path = tempPath / f'{executablePath.stem}.png'
+	image.save(outputPath)
+
+	return outputPath
+
 
 def GetIconFromExecutableMacOS(executablePath: Path) -> Path | None:
-	raise Exception('Not implemented')
+	"""Extracts icon from a macOS .app bundle or .icns file."""
+	if executablePath.suffix.lower() == '.app':
+		info_plist = executablePath / "Contents" / "Info.plist"
+		if not info_plist.exists():
+			return None
 
-##################################################################################################################
-############################### ///////////////////////////////////////////////////// ############################
-##################################################################################################################
+		with info_plist.open("rb") as f:
+			info = plistlib.load(f)
+
+		icon_name = info.get("CFBundleIconFile")
+		if not icon_name:
+			return None
+
+		if not icon_name.endswith(".icns"):
+			icon_name += ".icns"
+
+		icns_path = executablePath / "Contents" / "Resources" / icon_name
+		if not icns_path.exists():
+			return None
+	elif executablePath.suffix.lower() == '.icns':
+		icns_path = executablePath
+	else:
+		return None
+
+	try:
+		img = Image.open(icns_path)
+	except Exception:
+		return None
+
+	best = None
+	best_area = -1
+
+	for frame in range(getattr(img, "n_frames", 1)):
+		try:
+			img.seek(frame)
+		except EOFError:
+			break
+
+		candidate = img.convert("RGBA")
+		area = candidate.width * candidate.height
+
+		if area > best_area:
+			best = candidate.copy()
+			best_area = area
+
+	if best is None:
+		return None
+
+	tempPath: Path = GetQAVMTempPath() / 'icons'
+	tempPath.mkdir(parents=True, exist_ok=True)
+	outputPath: Path = tempPath / f'{executablePath.stem}.png'
+	best.save(outputPath)
+
+	return outputPath
