@@ -90,6 +90,9 @@ class WorkspaceManagerWindow(QMainWindow):
 		self.tabWidget.addTab(self._createFavoritesTab(), "Favorites")
 		self.tabWidget.addTab(self._createPluginsTab(), "System Workspaces")
 
+		if not self.qavmSettings.GetFavoriteWorkspaceIDs():
+			self.tabWidget.setCurrentIndex(1)
+
 	def _setupMenuBar(self):
 		menuBar: QMenuBar = self.menuBar()
 		menuBar.setNativeMenuBar(True)
