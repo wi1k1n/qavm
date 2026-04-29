@@ -181,13 +181,8 @@ class MyTableWidget(QTableWidget):
 		header = MyTableViewHeader(Qt.Orientation.Horizontal, self)
 		# TODO: move this to MyTableViewHeader
 		header.setStretchLastSection(True)
+		header.setMinimumSectionSize(0)
 		header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-
-		colMinWidths: list[int] | None = tableBuilder.GetColumnMinimumWidths()
-		if colMinWidths:
-			header.setMinimumSectionSize(min(colMinWidths))
-		else:
-			header.setMinimumSectionSize(150)
 
 		self.setHorizontalHeader(header)
 		self.setRowCount(len(descs))
@@ -227,6 +222,16 @@ class MyTableWidget(QTableWidget):
 					tableWidgetItem = QTableWidgetItem(tableWidgetItem)
 				self.setItem(r, c, tableWidgetItem)
 			self.setItem(r, len(headers), QTableWidgetItem(str(r)))
+
+		# Apply per-column minimum widths after items are populated
+		colMinWidths: list[int] | None = tableBuilder.GetColumnMinimumWidths()
+		if colMinWidths:
+			hdr = self.horizontalHeader()
+			for col in range(min(len(colMinWidths), len(headers))):
+				minW = colMinWidths[col]
+				if minW > 0:
+					hdr.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+					hdr.resizeSection(col, max(hdr.sectionSize(col), minW))
 
 		self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 		self.customContextMenuRequested.connect(showContextMenu)
