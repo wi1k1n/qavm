@@ -343,6 +343,26 @@ def GetHashString(string: str, hashAlgo='sha256'):
 	return hashlib.new(hashAlgo, string.encode()).hexdigest()
 
 def GetHashFile(filePath: Path, hashAlgo='sha256'):
+	# TODO: make a helper function out of it
+	# .app bundles on macOS are directories; hash the main binary inside instead
+	if filePath.is_dir():
+		if PlatformMacOS() and filePath.suffix.lower() == '.app':
+			info_plist = filePath / "Contents" / "Info.plist"
+			if info_plist.exists():
+				import plistlib
+				with info_plist.open("rb") as f:
+					info = plistlib.load(f)
+				exec_name = info.get("CFBundleExecutable")
+				if exec_name:
+					binary = filePath / "Contents" / "MacOS" / exec_name
+					if binary.exists():
+						filePath = binary
+					else:
+						filePath = info_plist
+				else:
+					filePath = info_plist
+		else:
+			raise IsADirectoryError(f"Cannot hash a directory: {filePath}")
 	CHUNKSIZE = 32 * 1024 * 1024  # 32 MB
 	hashFunc = hashlib.new(hashAlgo)
 	with open(filePath, 'rb') as file:
