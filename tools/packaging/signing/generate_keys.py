@@ -44,6 +44,8 @@ def main():
 	if args.deployPath:
 		# Create a verification key script
 		deployPath: Path = Path(args.deployPath)
+		if not deployPath.parent.exists():
+			deployPath.parent.mkdir(parents=True, exist_ok=True)
 		with open(deployPath, "w") as f:
 			f.write(f"""\
 # This script contains the public key for signature verification.
