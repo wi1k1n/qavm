@@ -181,8 +181,13 @@ class MyTableWidget(QTableWidget):
 		header = MyTableViewHeader(Qt.Orientation.Horizontal, self)
 		# TODO: move this to MyTableViewHeader
 		header.setStretchLastSection(True)
-		header.setMinimumSectionSize(150)
 		header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+
+		colMinWidths: list[int] | None = tableBuilder.GetColumnMinimumWidths()
+		if colMinWidths:
+			header.setMinimumSectionSize(min(colMinWidths))
+		else:
+			header.setMinimumSectionSize(150)
 
 		self.setHorizontalHeader(header)
 		self.setRowCount(len(descs))

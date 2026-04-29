@@ -572,6 +572,10 @@ class BaseTableBuilder(BaseBuilder):
 	def GetItemDelegateClass(self) -> QStyledItemDelegate.__class__:
 		return QStyledItemDelegate
 	
+	def GetColumnMinimumWidths(self) -> list[int] | None:
+		"""Returns per-column minimum widths. None means use default for all columns."""
+		return None
+
 	# TODO: change key from int to enum. Currently 0 - LMB, 1 - RMB, 2 - MMB
 	def HandleClick(self, desc: BaseDescriptor, row: int, col: int, isDouble: bool, key: int, modifiers: Qt.KeyboardModifier):
 		pass
