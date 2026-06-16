@@ -256,9 +256,9 @@ class MainWindow(QMainWindow):
 		
 		descs: list[BaseDescriptor] = self._prepareDescriptors(swHandler, viewUID, tableBuilder)
 		
-		tableWidget: MyTableWidget = MyTableWidget(descs, tableBuilder, parent=self)
-		tableWidget.itemSelectionChanged.connect(partial(self._tableItemFocusBuggedWorkaround, tableWidget))
-		self.tabsWidget.insertTab(0, tableWidget, tableBuilder.GetName())
+		self.tableWidget: MyTableWidget = MyTableWidget(descs, tableBuilder, parent=self)
+		# tableWidget.itemSelectionChanged.connect(partial(self._tableItemFocusBuggedWorkaround, tableWidget))
+		self.tabsWidget.insertTab(0, self.tableWidget, tableBuilder.GetName())
 		# self.tabsWidget.addTabWithUid(tableWidget, tableBuilder.GetName(), viewUID+descUID)
 
 	def _createCustomView(self, swHandler: SoftwareHandler, viewUID: str):
@@ -273,18 +273,20 @@ class MainWindow(QMainWindow):
 	def _onTabChanged(self, index: int):
 		self.qavmSettings.SetSetting('last_opened_tab', index)
 		self.qavmSettings.Save()  # TODO: should save now or later once per all changes?
+
+		self.tableWidget.clearFocus()
 		
 	def _updateTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder):
 		for desc in descs:
 			tileBuilder.UpdateTileWidget()
 	
-	def _tableItemFocusBuggedWorkaround(self, tableWidget: QTableWidget):
-		"""
-		For some reason, after switching to the TilesWidget + RMB click there and switching back to the TableWidget,
-		the TableWidget starts highlighting the currently selected item regardless of the Qt.FocusPolicy.NoFocus
-		"""
-		if self.tabsWidget.currentIndex() == 1:  # TODO: dynamically get table tab index, don't hardcode!
-			tableWidget.clearFocus()
+	# def _tableItemFocusBuggedWorkaround(self, tableWidget: QTableWidget):
+	# 	"""
+	# 	For some reason, after switching to the TilesWidget + RMB click there and switching back to the TableWidget,
+	# 	the TableWidget starts highlighting the currently selected item regardless of the Qt.FocusPolicy.NoFocus
+	# 	"""
+	# 	# if self.tabsWidget.currentIndex() == 1:  # TODO: dynamically get table tab index, don't hardcode!
+	# 	tableWidget.clearFocus()
 	
 	
 	# def UpdateTilesWidget(self):
@@ -305,69 +307,69 @@ class MainWindow(QMainWindow):
 		
 	# 	self.tabsWidget.setCurrentIndex(currentTabIndex)
 
-	def _createTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget) -> QWidget:
-		tiles: list[QWidget] = list()
+	# def _createTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget) -> QWidget:
+	# 	tiles: list[QWidget] = list()
 
-		def showContextMenu(desc):
-			def assignTag(tag: Tag):
-				logger.info(f"Assigning tag {tag.GetName()} to descriptor {desc.GetUID()}")
-				self.tagsManager.AssignTag(desc, tag)
-			def removeTag(desc: BaseDescriptor, tag: Tag):
-				logger.info(f"Removing tag {tag.GetName()} from descriptor {desc.GetUID()}")
-				self.tagsManager.RemoveTag(desc, tag)
+	# 	def showContextMenu(desc):
+	# 		def assignTag(tag: Tag):
+	# 			logger.info(f"Assigning tag {tag.GetName()} to descriptor {desc.GetUID()}")
+	# 			self.tagsManager.AssignTag(desc, tag)
+	# 		def removeTag(desc: BaseDescriptor, tag: Tag):
+	# 			logger.info(f"Removing tag {tag.GetName()} from descriptor {desc.GetUID()}")
+	# 			self.tagsManager.RemoveTag(desc, tag)
 
-			if menu := tileBuilder.GetContextMenu(desc):
-				descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
-				descTagsUIDs: list[str] = descData.tags
+	# 		if menu := tileBuilder.GetContextMenu(desc):
+	# 			descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+	# 			descTagsUIDs: list[str] = descData.tags
 				
-				addTagSubMenu = None
-				if tags := self.tagsManager.GetTags().values():
-					addTagSubMenu: QMenu = QMenu("Assign Tag", self)
-					for tag in tags:
-						if tag.GetUID() in descTagsUIDs:
-							continue
-						action = QAction(tag.GetName(), self, triggered=partial(assignTag, tag))
-						addTagSubMenu.addAction(action)
+	# 			addTagSubMenu = None
+	# 			if tags := self.tagsManager.GetTags().values():
+	# 				addTagSubMenu: QMenu = QMenu("Assign Tag", self)
+	# 				for tag in tags:
+	# 					if tag.GetUID() in descTagsUIDs:
+	# 						continue
+	# 					action = QAction(tag.GetName(), self, triggered=partial(assignTag, tag))
+	# 					addTagSubMenu.addAction(action)
 					
 
-				removeTagsSubMenu = None
-				if descTags := [self.tagsManager.GetTag(tagUID) for tagUID in descTagsUIDs if self.tagsManager.GetTag(tagUID)]:
-					removeTagsSubMenu: QMenu = QMenu("Remove Tag", self)
-					for tag in descTags:
-						action = QAction(tag.GetName(), self, triggered=partial(removeTag, desc, tag))
-						removeTagsSubMenu.addAction(action)
+	# 			removeTagsSubMenu = None
+	# 			if descTags := [self.tagsManager.GetTag(tagUID) for tagUID in descTagsUIDs if self.tagsManager.GetTag(tagUID)]:
+	# 				removeTagsSubMenu: QMenu = QMenu("Remove Tag", self)
+	# 				for tag in descTags:
+	# 					action = QAction(tag.GetName(), self, triggered=partial(removeTag, desc, tag))
+	# 					removeTagsSubMenu.addAction(action)
 
-				if addTagSubMenu or removeTagsSubMenu:	
-					menu.addSeparator()
-				if addTagSubMenu:
-					menu.addMenu(addTagSubMenu)
-				if removeTagsSubMenu:
-					menu.addMenu(removeTagsSubMenu)
+	# 			if addTagSubMenu or removeTagsSubMenu:	
+	# 				menu.addSeparator()
+	# 			if addTagSubMenu:
+	# 				menu.addMenu(addTagSubMenu)
+	# 			if removeTagsSubMenu:
+	# 				menu.addMenu(removeTagsSubMenu)
 
-				menu.addSeparator()
-				menu.addAction(QAction("Edit Note", self, triggered=partial(self._showNoteEditorDialog, desc)))
+	# 			menu.addSeparator()
+	# 			menu.addAction(QAction("Edit Note", self, triggered=partial(self._showNoteEditorDialog, desc)))
 				
-				menu.exec(QCursor.pos())
+	# 			menu.exec(QCursor.pos())
 
-		for desc in descs:
-			# desc.updated.connect(partial(self._onDescriptorUpdated, desc))
-			tileWidget = tileBuilder.CreateTileWidget(desc, parent)
+	# 	for desc in descs:
+	# 		# desc.updated.connect(partial(self._onDescriptorUpdated, desc))
+	# 		tileWidget = tileBuilder.CreateTileWidget(desc, parent)
 			
-			tileWidgetWithTags = self._wrapWidgetWithTags(tileWidget, parent, desc)
+	# 		tileWidgetWithTags = self._wrapWidgetWithTags(tileWidget, parent, desc)
 
-			descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
-			tileWidgetWithTags.setToolTip(descData.note)
+	# 		descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+	# 		tileWidgetWithTags.setToolTip(descData.note)
 			
-			tileWidgetWithTags.descriptor = desc  # TODO: what-a-heck? make a setter for that
-			tileWidgetWithTags.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-			tileWidgetWithTags.customContextMenuRequested.connect(partial(lambda d, p: showContextMenu(d), desc))
+	# 		tileWidgetWithTags.descriptor = desc  # TODO: what-a-heck? make a setter for that
+	# 		tileWidgetWithTags.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+	# 		tileWidgetWithTags.customContextMenuRequested.connect(partial(lambda d, p: showContextMenu(d), desc))
 
-			tiles.append(tileWidgetWithTags)
+	# 		tiles.append(tileWidgetWithTags)
 
-		flWidget = self._createFlowLayoutWithFromWidgets(self, tiles)
-		scrollWidget = self._wrapWidgetInScrollArea(flWidget, self)
+	# 	flWidget = self._createFlowLayoutWithFromWidgets(self, tiles)
+	# 	scrollWidget = self._wrapWidgetInScrollArea(flWidget, self)
 
-		return scrollWidget
+	# 	return scrollWidget
 		
 	def _showNoteEditorDialog(self, desc: BaseDescriptor):
 		"""

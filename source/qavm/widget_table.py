@@ -139,6 +139,8 @@ class MyTableWidget(QTableWidget):
 
 	def __init__(self, descs: list[BaseDescriptor], tableBuilder: BaseTableBuilder, parent: QMainWindow):
 		super().__init__(parent)
+		
+		self.mainWindow: QMainWindow = parent
 
 		self._setupTable(descs, tableBuilder, parent)
 
@@ -204,6 +206,49 @@ class MyTableWidget(QTableWidget):
 		self.doubleClickedLeft.connect(partial(self._onTableItemDoubleClickedLeft, self, tableBuilder))
 		self.clickedMiddle.connect(partial(self._onTableItemClickedMiddle, self, tableBuilder))
 
+		"""
+		def showContextMenu(desc):
+			def assignTag(tag: Tag):
+				logger.info(f"Assigning tag {tag.GetName()} to descriptor {desc.GetUID()}")
+				self.tagsManager.AssignTag(desc, tag)
+			def removeTag(desc: BaseDescriptor, tag: Tag):
+				logger.info(f"Removing tag {tag.GetName()} from descriptor {desc.GetUID()}")
+				self.tagsManager.RemoveTag(desc, tag)
+
+			if menu := tileBuilder.GetContextMenu(desc):
+				descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+				descTagsUIDs: list[str] = descData.tags
+				
+				addTagSubMenu = None
+				if tags := self.tagsManager.GetTags().values():
+					addTagSubMenu: QMenu = QMenu("Assign Tag", self)
+					for tag in tags:
+						if tag.GetUID() in descTagsUIDs:
+							continue
+						action = QAction(tag.GetName(), self, triggered=partial(assignTag, tag))
+						addTagSubMenu.addAction(action)
+					
+
+				removeTagsSubMenu = None
+				if descTags := [self.tagsManager.GetTag(tagUID) for tagUID in descTagsUIDs if self.tagsManager.GetTag(tagUID)]:
+					removeTagsSubMenu: QMenu = QMenu("Remove Tag", self)
+					for tag in descTags:
+						action = QAction(tag.GetName(), self, triggered=partial(removeTag, desc, tag))
+						removeTagsSubMenu.addAction(action)
+
+				if addTagSubMenu or removeTagsSubMenu:	
+					menu.addSeparator()
+				if addTagSubMenu:
+					menu.addMenu(addTagSubMenu)
+				if removeTagsSubMenu:
+					menu.addMenu(removeTagsSubMenu)
+
+				menu.addSeparator()
+				menu.addAction(QAction("Edit Note", self, triggered=partial(self._showNoteEditorDialog, desc)))
+				
+				menu.exec(QCursor.pos())
+		"""
+
 		def showContextMenu(pos):
 			selectedRowsUnique: set = {idx.row() for idx in self.selectedIndexes()}
 			if not selectedRowsUnique:
@@ -212,7 +257,46 @@ class MyTableWidget(QTableWidget):
 			item = self.item(currentRow, len(headers))
 			if item:
 				descIdx: int = int(item.text())
-				if menu := tableBuilder.GetContextMenu(descs[descIdx]):
+				desc: BaseDescriptor = descs[descIdx]
+				if menu := tableBuilder.GetContextMenu(desc):
+					##############################
+					def assignTag(tag: Tag):
+						logger.info(f"Assigning tag {tag.GetName()} to descriptor {desc.GetUID()}")
+						self.mainWindow.tagsManager.AssignTag(desc, tag)
+					def removeTag(desc: BaseDescriptor, tag: Tag):
+						logger.info(f"Removing tag {tag.GetName()} from descriptor {desc.GetUID()}")
+						self.mainWindow.tagsManager.RemoveTag(desc, tag)
+						
+					descData: DescriptorData = self.mainWindow.descDataManager.GetDescriptorData(desc)
+					descTagsUIDs: list[str] = descData.tags
+					
+					addTagSubMenu = None
+					if tags := self.mainWindow.tagsManager.GetTags().values():
+						addTagSubMenu: QMenu = QMenu("Assign Tag", self)
+						for tag in tags:
+							if tag.GetUID() in descTagsUIDs:
+								continue
+							action = QAction(tag.GetName(), self, triggered=partial(assignTag, tag))
+							addTagSubMenu.addAction(action)
+						
+
+					removeTagsSubMenu = None
+					if descTags := [self.mainWindow.tagsManager.GetTag(tagUID) for tagUID in descTagsUIDs if self.mainWindow.tagsManager.GetTag(tagUID)]:
+						removeTagsSubMenu: QMenu = QMenu("Remove Tag", self)
+						for tag in descTags:
+							action = QAction(tag.GetName(), self, triggered=partial(removeTag, desc, tag))
+							removeTagsSubMenu.addAction(action)
+
+					if addTagSubMenu or removeTagsSubMenu:	
+						menu.addSeparator()
+					if addTagSubMenu:
+						menu.addMenu(addTagSubMenu)
+					if removeTagsSubMenu:
+						menu.addMenu(removeTagsSubMenu)
+
+					menu.addSeparator()
+					menu.addAction(QAction("Edit Note", self, triggered=partial(self.mainWindow._showNoteEditorDialog, desc)))
+					##############################
 					menu.exec(QCursor.pos())
 
 		for r, desc in enumerate(descs):
