@@ -44,33 +44,29 @@ class PreferencesWindow(QWidget):
 		self.menuWidget.clicked.connect(self._onMenuItemClicked)
 
 		# Add general QAVM settings
-		generalSettingsItem = QStandardItem("QAVM")
-		generalSettingsItem.setEditable(False)
-		generalSettingsItem.setFlags(Qt.ItemFlag.ItemIsEnabled)
-		self.menuModel.appendRow(generalSettingsItem)
-
-		for (name, widget) in self.settingsManager.GetQAVMSettings().CreateWidgets(self.contentWidget):
-			self.AddSettingsEntry(name, widget, generalSettingsItem)
+		qavmWidgets: list[tuple[str, QWidget]] = [(n, w) for (n, w) in self.settingsManager.GetQAVMSettings().CreateWidgets(self.contentWidget) if w is not None]
+		generalSettingsItem = self.AddSettingsEntrySelectable("QAVM", qavmWidgets)
 
 		# Group settings by software handler
 		workspace: QAVMWorkspace = app.GetWorkspace()
 		swHandlersSet, _ = workspace.GetInvolvedSoftwareHandlers()
 		for swHandler in sorted(swHandlersSet, key=lambda sh: sh.GetName()):
 			if swSettings := self.settingsManager.GetSoftwareSettings(swHandler):
-				swSettingsWidgets: list[tuple[str, QWidget]] = [(n, s) for (n, s) in swSettings.CreateWidgets(self.contentWidget) if s is not None]
+				allSwWidgets = list(swSettings.CreateWidgets(self.contentWidget))
+				swSettingsWidgets: list[tuple[str, QWidget]] = [(n, s) for (n, s) in allSwWidgets if s is not None]
 				if not swSettingsWidgets:
 					continue  # Don't add software to the menu if it doesn't have any settings to show
 
-				softwareItem = QStandardItem(swHandler.GetName())
-				softwareItem.setEditable(False)
-				softwareItem.setFlags(Qt.ItemFlag.ItemIsEnabled)
-				self.menuModel.appendRow(softwareItem)
-
-				for (name, widget) in swSettingsWidgets:
-					self.AddSettingsEntry(name, widget, softwareItem)
+				firstOriginalWidget = allSwWidgets[0][1] if allSwWidgets else None
+				if firstOriginalWidget is not None:
+					# First entry is directly associated with the software handler item (no named child)
+					self.AddSettingsEntrySelectable(swHandler.GetName(), swSettingsWidgets)
+				else:
+					self.AddSettingsEntryContainer(swHandler.GetName(), swSettingsWidgets)
 
 		# self.menuWidget.expandAll()
 		self.menuWidget.expand(generalSettingsItem.index())
+		self.menuWidget.selectionModel().select(generalSettingsItem.index(), self.menuWidget.selectionModel().SelectionFlag.ClearAndSelect)
 	
 		minExtraWidth = 20
 		if qutils.PlatformMacOS():
@@ -107,6 +103,35 @@ class PreferencesWindow(QWidget):
 		parentItem.appendRow(item)
 		self.contentWidget.addWidget(widget)
 
+	def AddSettingsEntrySelectable(self, title: str, widgets: list[tuple[str, QWidget]], parentItem: QStandardItem | None = None) -> QStandardItem:
+		# The item itself is selectable and directly shows the first widget; remaining widgets are added as named children.
+		item = QStandardItem(title)
+		item.setEditable(False)
+		item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+		firstWidget = widgets[0][1]
+		item.setData(firstWidget, Qt.ItemDataRole.UserRole)  # Associate the first widget with the item
+		self.contentWidget.addWidget(firstWidget)
+		if parentItem is not None:
+			parentItem.appendRow(item)
+		else:
+			self.menuModel.appendRow(item)
+		for (name, widget) in widgets[1:]:
+			self.AddSettingsEntry(name, widget, item)
+		return item
+
+	def AddSettingsEntryContainer(self, title: str, widgets: list[tuple[str, QWidget]], parentItem: QStandardItem | None = None) -> QStandardItem:
+		# The item is a non-selectable container; all widgets are added as named children.
+		item = QStandardItem(title)
+		item.setEditable(False)
+		item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+		if parentItem is not None:
+			parentItem.appendRow(item)
+		else:
+			self.menuModel.appendRow(item)
+		for (name, widget) in widgets:
+			self.AddSettingsEntry(name, widget, item)
+		return item
+
 	def _onMenuSelectionChanged(self, selected, deselected):
 		if selectedIndexes := selected.indexes():
 			if item := self.menuModel.itemFromIndex(selectedIndexes[0]):
@@ -120,14 +145,17 @@ class PreferencesWindow(QWidget):
 		if not item or item.parent() is not None:
 			return  # Only handle root-level items
 
-		self.menuWidget.expand(index)
-
-		# Look for a "Common" child and select it if found
-		for row in range(item.rowCount()):
-			child = item.child(row)
-			if child and child.text() == "Common":
-				self.menuWidget.selectionModel().select(child.index(), self.menuWidget.selectionModel().SelectionFlag.ClearAndSelect)
-				return
+		# If this item has a directly associated widget, show it
+		directWidget = item.data(Qt.ItemDataRole.UserRole)
+		if directWidget is not None:
+			widgetIndex = self.contentWidget.indexOf(directWidget)
+			if widgetIndex != -1:
+				self.contentWidget.setCurrentIndex(widgetIndex)
+			return
+		else:
+			if item.hasChildren():
+				self.menuWidget.expand(index)
+				self.menuWidget.selectionModel().select(item.child(0).index(), self.menuWidget.selectionModel().SelectionFlag.ClearAndSelect)
 
 	def keyPressEvent(self, event):
 		if event.key() == Qt.Key.Key_Escape:

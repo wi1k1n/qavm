@@ -127,7 +127,12 @@ class BaseSettings(QObject):
 			f.write(self.container.DumpToString())
 
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:
-		""" Creates settings widgets (one per settings category). Returns a list of tuples, where each tuple contains the category name and the widget. """
+		"""
+		Creates settings widgets (one per settings category).
+		Returns a list of tuples, where each tuple contains the category name and the widget.
+		The very first entry will be the main settings entry (i.e. accessible by clicking on the software name in the settings menu).
+		If main settings entry is not required, pass None as first entry
+		"""
 		return [('BaseSettings', None)]  # BaseSettings does not provide a widget by default, subclasses should override this method
 	
 	def GetSetting(self, key: str) -> Any:
