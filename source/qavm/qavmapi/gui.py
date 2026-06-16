@@ -6,14 +6,15 @@ from PyQt6.QtCore import (
 	QModelIndex, 
 )
 from PyQt6.QtWidgets import (
-	QApplication, QFrame, QVBoxLayout, QLabel, QTableWidgetItem, QListWidget, QScrollBar,
+	QApplication, QFrame, QPlainTextEdit, QPushButton, QVBoxLayout, QLabel, QTableWidgetItem, QListWidget, QScrollBar,
 	QListWidgetItem, QLineEdit, QComboBox, QSizePolicy, QStyledItemDelegate, QStyleOptionViewItem,
-	QStyledItemDelegate,
+	QStyledItemDelegate, QHBoxLayout, QDialog, QWidget
 )
 from PyQt6.QtGui import (
 	QColor, QKeyEvent, QMouseEvent, QCursor, QPainter, QPalette, QLinearGradient, QGradient,
 )
 
+import pyperclip
 from qt_material import apply_stylesheet, get_theme, list_themes
 
 import qavm.qavmapi.utils as qutils
@@ -209,6 +210,45 @@ class FolderPathsListWidget(PathsListWidget):
 		""" Accept only folders, reject files. """
 		return Path(path).is_dir()
 	
+class CopyableTextDialog(QDialog):
+	MAX_WIDTH: int = 600
+
+	def __init__(self, title: str, text: str, parent: QWidget = None):
+		super().__init__(parent)
+		self.setWindowTitle(title)
+		self._text = text
+
+		layout = QVBoxLayout(self)
+
+		isMultiline = '\n' in text
+		if isMultiline:
+			self._textEdit = QPlainTextEdit(text)
+			self._textEdit.setReadOnly(True)
+		else:
+			self._textEdit = QLineEdit(text)
+			self._textEdit.setReadOnly(True)
+		layout.addWidget(self._textEdit)
+
+		btnLayout = QHBoxLayout()
+		copyBtn = QPushButton("Copy")
+		copyBtn.clicked.connect(self._copyText)
+		btnLayout.addWidget(copyBtn)
+		layout.addLayout(btnLayout)
+
+		self._adjustWidth()
+
+	def _adjustWidth(self):
+		fm = self._textEdit.fontMetrics()
+		if isinstance(self._textEdit, QLineEdit):
+			textWidth = fm.horizontalAdvance(self._text)
+		else:
+			textWidth = max(fm.horizontalAdvance(line) for line in self._text.splitlines()) if self._text else 0
+		margins = self.layout().contentsMargins()
+		padding = margins.left() + margins.right() + 40  # scrollbar + inner padding
+		self.setFixedWidth(min(textWidth + padding, CopyableTextDialog.MAX_WIDTH))
+
+	def _copyText(self):
+		pyperclip.copy(self._text)
 
 class AnimatedRowGradientDelegate(QStyledItemDelegate):
 	""" A delegate that animates the background gradient of the entire row in a table widget. """
