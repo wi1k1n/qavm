@@ -725,11 +725,11 @@ class QAVMPlugin:
 class PluginManager:
 	def __init__(self, builtinPluginPaths: set[Path], pluginPaths: set[Path], pluginsFolderPaths: list[Path]) -> None:
 		self.pluginsFolderPaths: list[Path] = pluginsFolderPaths
-		self.pluginsPaths: list[Path] = pluginPaths  # individual plugins paths
+		self.pluginsPaths: list[Path] = list(pluginPaths)  # individual plugins paths
 		self.builtinPluginPaths: list[Path] = list(builtinPluginPaths)  # built-in plugins paths
 		self.plugins: dict[str, QAVMPlugin] = dict()
 
-	def LoadPlugins(self) -> bool:
+	def LoadPlugins(self, customPluginsAllowed: bool) -> bool:
 		# Load built-in plugins first
 		for pluginPath in self.builtinPluginPaths:
 			if not pluginPath.is_dir():
@@ -738,29 +738,30 @@ class PluginManager:
 				logger.error(f'Failed to load built-in plugin from path: {pluginPath}')
 				continue
 
-		# Iterate over individual plugin paths
-		for pluginPath in self.pluginsPaths:
-			if not pluginPath.is_dir():
-				continue
-			if not self.LoadPluginFromPath(pluginPath):
-				logger.error(f'Failed to load plugin from path: {pluginPath}')
-				continue
-
-		# Iterate over plugins folders first
-		for pluginsFolderPath in self.pluginsFolderPaths:
-			if not pluginsFolderPath.exists():
-				if pluginsFolderPath != utils.GetDefaultPluginsFolderPath():
-					# default plugins folder is allowed to not exist
-					logger.error(f'Plugins folder not found: {pluginsFolderPath}')
-				continue
-			# Iterate over plugin folders inside current plugins folder
-			for pluginPath in pluginsFolderPath.iterdir():
+		if customPluginsAllowed:
+			# Iterate over individual plugin paths
+			for pluginPath in self.pluginsPaths:
 				if not pluginPath.is_dir():
 					continue
-				logger.info(f'Loading plugin from path: {pluginPath.resolve().absolute()}')
 				if not self.LoadPluginFromPath(pluginPath):
 					logger.error(f'Failed to load plugin from path: {pluginPath}')
 					continue
+
+			# Iterate over plugins folders first
+			for pluginsFolderPath in self.pluginsFolderPaths:
+				if not pluginsFolderPath.exists():
+					if pluginsFolderPath != utils.GetDefaultPluginsFolderPath():
+						# default plugins folder is allowed to not exist
+						logger.error(f'Plugins folder not found: {pluginsFolderPath}')
+					continue
+				# Iterate over plugin folders inside current plugins folder
+				for pluginPath in pluginsFolderPath.iterdir():
+					if not pluginPath.is_dir():
+						continue
+					logger.info(f'Loading plugin from path: {pluginPath.resolve().absolute()}')
+					if not self.LoadPluginFromPath(pluginPath):
+						logger.error(f'Failed to load plugin from path: {pluginPath}')
+						continue
 
 		self.LoadPluginWorkspaces()
 

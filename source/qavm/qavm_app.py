@@ -65,7 +65,8 @@ class QAVMApp(QApplication):
 			self._verifyBuiltinPlugins(args)
 
 		self.pluginManager: PluginManager = PluginManager(self.builtinPluginPaths, self.pluginPaths, self.GetPluginsFolderPaths())
-		self.pluginManager.LoadPlugins()  # TODO: try/except here?
+		# TODO: try/except here?
+		self.pluginManager.LoadPlugins(args.ignoreCustomPluginsSetting or self.qavmSettings.GetCustomPluginsAllowed())
 
 		self.descDataManager: DescriptorDataManager = DescriptorDataManager(utils.GetQAVMDescriptorDataFilepath())
 		self.descDataManager.LoadData()

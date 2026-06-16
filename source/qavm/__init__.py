@@ -30,6 +30,8 @@ def ParseArgs() -> argparse.Namespace:
 	# parser.add_argument('--selectedSoftwareUID', type=str, help='UID of the selected software (Default: empty)', default='')
 	parser.add_argument('--defaultGlobalSearchPath', type=str, action='append', help='Path to be added by default to global search paths (can be used multiple times)', default=[])
 	parser.add_argument('--ignoreBuiltinPlugins', action='store_true', help='Ignore (i.e. don\'t load) the built-in plugins (Default: False)')
+	# TODO: remove this from release, this is a backdoor!
+	parser.add_argument('--ignoreCustomPluginsSetting', action='store_true', help='Ignore the custom plugins setting and always allow custom plugins to be loaded (Default: False)')
 	
 	args = parser.parse_args()
 	

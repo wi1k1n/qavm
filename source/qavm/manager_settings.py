@@ -92,6 +92,7 @@ class QAVMGlobalSettings(BaseSettings):
 		'search_paths_global_depth': 1, # How many levels of subfolders to include in global search paths
 		'search_paths_global_dont_dive_after_match': True, # Whether to include subfolders of a matched search path in global search paths or not
 		'workspaces_favorites': [], # List of favorite workspace IDs
+		'allow_custom_plugins': '',  # Whether to allow custom (unsigned) plugins for this software
 	}
 
 	def __init__(self, prefName: str, defaultGlobalSearchPaths: list[str]):
@@ -140,6 +141,9 @@ class QAVMGlobalSettings(BaseSettings):
 
 	def SetFavoriteWorkspaceIDs(self, ids: list[str]) -> None:
 		self.SetSetting('workspaces_favorites', ids)
+
+	def GetCustomPluginsAllowed(self) -> bool:
+		return self.GetSetting('allow_custom_plugins') == 'custom_plugins_allowed'
 
 	def IsWorkspaceFavorite(self, wsID: str) -> bool:
 		return wsID in self.GetFavoriteWorkspaceIDs()
@@ -201,6 +205,12 @@ class QAVMGlobalSettings(BaseSettings):
 		buttonLayout.addStretch()
 		buttonLayout.addWidget(addButton)
 		layout.addLayout(buttonLayout)
+
+		allowCustomPluginsCheckbox = QCheckBox('Allow custom plugins', widget)
+		allowCustomPluginsCheckbox.setToolTip('Allow loading of custom (unsigned) plugins for this software')
+		allowCustomPluginsCheckbox.setChecked(self.GetCustomPluginsAllowed())
+		allowCustomPluginsCheckbox.toggled.connect(lambda v: self.SetSetting('allow_custom_plugins', 'custom_plugins_allowed' if v else ''))
+		layout.addWidget(allowCustomPluginsCheckbox)
 
 		return widget
 
