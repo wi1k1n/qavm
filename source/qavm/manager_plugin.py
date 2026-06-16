@@ -727,13 +727,7 @@ class PluginManager:
 		self.pluginsFolderPaths: list[Path] = pluginsFolderPaths
 		self.pluginsPaths: list[Path] = pluginPaths  # individual plugins paths
 		self.builtinPluginPaths: list[Path] = list(builtinPluginPaths)  # built-in plugins paths
-
 		self.plugins: dict[str, QAVMPlugin] = dict()
-
-		defaultPluginsFolderPath = utils.GetDefaultPluginsFolderPath()
-		if not defaultPluginsFolderPath.exists():
-			defaultPluginsFolderPath.mkdir(parents=True)
-			logger.info(f'Created plugins folder: {defaultPluginsFolderPath}')
 
 	def LoadPlugins(self) -> bool:
 		# Load built-in plugins first
@@ -755,7 +749,9 @@ class PluginManager:
 		# Iterate over plugins folders first
 		for pluginsFolderPath in self.pluginsFolderPaths:
 			if not pluginsFolderPath.exists():
-				logger.error(f'Plugins folder not found: {pluginsFolderPath}')
+				if pluginsFolderPath != utils.GetDefaultPluginsFolderPath():
+					# default plugins folder is allowed to not exist
+					logger.error(f'Plugins folder not found: {pluginsFolderPath}')
 				continue
 			# Iterate over plugin folders inside current plugins folder
 			for pluginPath in pluginsFolderPath.iterdir():

@@ -244,7 +244,7 @@ class CopyableTextDialog(QDialog):
 		else:
 			textWidth = max(fm.horizontalAdvance(line) for line in self._text.splitlines()) if self._text else 0
 		margins = self.layout().contentsMargins()
-		padding = margins.left() + margins.right() + 40  # scrollbar + inner padding
+		padding = margins.left() + margins.right() + 80  # scrollbar + inner padding
 		self.setFixedWidth(min(textWidth + padding, CopyableTextDialog.MAX_WIDTH))
 
 	def _copyText(self):

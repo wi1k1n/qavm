@@ -91,8 +91,8 @@ class BaseSettings(QObject):
 		self.container = self.InitializeContainer()
 
 		prefFilenamePath: Path = Path(prefFilename)
-		if not prefFilenamePath.suffix:
-			prefFilenamePath = prefFilenamePath.with_suffix('.json')
+		if not prefFilenamePath.suffix or prefFilenamePath.suffix != '.json':
+			prefFilenamePath = prefFilenamePath.parent / (prefFilenamePath.name + '.json')
 		self.prefFilePath: Path = utils.GetPrefsFolderPath() / f'{str(prefFilenamePath)}'
 
 	def GetSettingsVersion(self) -> int:

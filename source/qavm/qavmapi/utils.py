@@ -284,7 +284,7 @@ def GetQAVMDataPath(create=True) -> Path:
 	if create: CreateDir(path)
 	return path
 
-def GetDefaultPluginsFolderPath(create=True) -> Path:
+def GetDefaultPluginsFolderPath(create=False) -> Path:
 	"""Returns the default path to the QAVM plugins folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\plugins"""
 	path: Path = GetQAVMDataPath()/'plugins'
 	if create: CreateDir(path)
@@ -305,6 +305,12 @@ def GetQAVMTempPath(create=True) -> Path:
 def GetQAVMCachePath(create=True) -> Path:
 	"""Returns the path to the QAVM cache folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\cache"""
 	path: Path =  GetQAVMDataPath()/'cache'
+	if create: CreateDir(path)
+	return path
+
+def GetQAVMLogsPath(create=True) -> Path:
+	"""Returns the path to the QAVM logs folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\logs"""
+	path: Path =  GetQAVMDataPath()/'logs'
 	if create: CreateDir(path)
 	return path
 
