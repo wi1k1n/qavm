@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QVBoxLayout, QPushButton, QSizePolicy, QMessageBox, QApplication,
 	QTabWidget, QListWidget, QTreeWidget, QTreeWidgetItem, QHBoxLayout, QLabel, QListWidgetItem,
-	QMenuBar, QMenu, QDialog,
+	QMenuBar, QMenu, QDialog, QAbstractItemView,
 )
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QAction
 from functools import partial
 from typing import Optional
@@ -15,6 +15,20 @@ from qavm.window_about import AboutDialog
 
 import qavm.logs as logs
 logger = logs.logger
+
+
+class ReorderableListWidget(QListWidget):
+	itemsReordered = pyqtSignal()
+
+	def __init__(self, parent: QWidget | None = None):
+		super().__init__(parent)
+		self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+		self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+		self.setDefaultDropAction(Qt.DropAction.MoveAction)
+
+	def dropEvent(self, event):
+		super().dropEvent(event)
+		self.itemsReordered.emit()
 
 
 class EditFavoritesDialog(QDialog):
@@ -40,6 +54,7 @@ class EditFavoritesDialog(QDialog):
 		leftLayout = QVBoxLayout()
 		leftLayout.addWidget(QLabel("Available:"))
 		self.availableList = QListWidget()
+		self.availableList.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
 		leftLayout.addWidget(self.availableList)
 		panelsLayout.addLayout(leftLayout)
 
@@ -60,18 +75,9 @@ class EditFavoritesDialog(QDialog):
 		# Right panel: favorites (ordered)
 		rightLayout = QVBoxLayout()
 		rightLayout.addWidget(QLabel("Favorites:"))
-		self.favoritesList = QListWidget()
+		self.favoritesList = ReorderableListWidget()
+		self.favoritesList.itemsReordered.connect(self._reapplyFavoriteWidgets)
 		rightLayout.addWidget(self.favoritesList)
-
-		# Up/Down buttons
-		orderLayout = QHBoxLayout()
-		self.upButton = QPushButton("Up")
-		self.upButton.clicked.connect(self._moveUp)
-		orderLayout.addWidget(self.upButton)
-		self.downButton = QPushButton("Down")
-		self.downButton.clicked.connect(self._moveDown)
-		orderLayout.addWidget(self.downButton)
-		rightLayout.addLayout(orderLayout)
 
 		panelsLayout.addLayout(rightLayout)
 		mainLayout.addLayout(panelsLayout)
@@ -140,31 +146,16 @@ class EditFavoritesDialog(QDialog):
 			ws, plugin = self._wsLookup[wsID]
 			self._addListItem(self.availableList, ws, plugin)
 
-	def _moveUp(self):
-		row = self.favoritesList.currentRow()
-		if row <= 0:
-			return
-		item = self.favoritesList.takeItem(row)
-		wsID = item.data(Qt.ItemDataRole.UserRole)
-		ws, plugin = self._wsLookup[wsID]
-		self.favoritesList.insertItem(row - 1, item)
-		widget = self._makeItemWidget(ws, plugin)
-		item.setSizeHint(QSize(widget.sizeHint().width(), 28))
-		self.favoritesList.setItemWidget(item, widget)
-		self.favoritesList.setCurrentRow(row - 1)
-
-	def _moveDown(self):
-		row = self.favoritesList.currentRow()
-		if row < 0 or row >= self.favoritesList.count() - 1:
-			return
-		item = self.favoritesList.takeItem(row)
-		wsID = item.data(Qt.ItemDataRole.UserRole)
-		ws, plugin = self._wsLookup[wsID]
-		self.favoritesList.insertItem(row + 1, item)
-		widget = self._makeItemWidget(ws, plugin)
-		item.setSizeHint(QSize(widget.sizeHint().width(), 28))
-		self.favoritesList.setItemWidget(item, widget)
-		self.favoritesList.setCurrentRow(row + 1)
+	def _reapplyFavoriteWidgets(self):
+		# Drag-and-drop (InternalMove) recreates items and drops their item widgets,
+		# so rebuild the widgets from the preserved item data after a reorder.
+		for i in range(self.favoritesList.count()):
+			item = self.favoritesList.item(i)
+			wsID = item.data(Qt.ItemDataRole.UserRole)
+			ws, plugin = self._wsLookup[wsID]
+			widget = self._makeItemWidget(ws, plugin)
+			item.setSizeHint(QSize(widget.sizeHint().width(), 28))
+			self.favoritesList.setItemWidget(item, widget)
 
 	def _save(self):
 		favoriteIDs: list[str] = []
