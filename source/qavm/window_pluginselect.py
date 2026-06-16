@@ -23,7 +23,9 @@ class ReorderableListWidget(QListWidget):
 	def __init__(self, parent: QWidget | None = None):
 		super().__init__(parent)
 		self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-		self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+		self.setDragDropMode(QAbstractItemView.DragDropMode.DragDrop)
+		self.setDragEnabled(True)
+		self.setAcceptDrops(True)
 		self.setDefaultDropAction(Qt.DropAction.MoveAction)
 
 	def dropEvent(self, event):
@@ -53,8 +55,8 @@ class EditFavoritesDialog(QDialog):
 		# Left panel: available workspaces
 		leftLayout = QVBoxLayout()
 		leftLayout.addWidget(QLabel("Available:"))
-		self.availableList = QListWidget()
-		self.availableList.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+		self.availableList = ReorderableListWidget()
+		self.availableList.itemsReordered.connect(self._sortAndRebuildAvailable)
 		leftLayout.addWidget(self.availableList)
 		panelsLayout.addLayout(leftLayout)
 
@@ -125,10 +127,14 @@ class EditFavoritesDialog(QDialog):
 				ws, plugin = self._wsLookup[wsID]
 				self._addListItem(self.favoritesList, ws, plugin)
 
-		# Populate available (non-favorites)
-		for wsID, (ws, plugin) in self._wsLookup.items():
-			if wsID not in favoriteIDs:
-				self._addListItem(self.availableList, ws, plugin)
+		# Populate available (non-favorites), sorted alphabetically
+		availableIDs = [wsID for wsID in self._wsLookup if wsID not in favoriteIDs]
+		for wsID in self._sortIDsByName(availableIDs):
+			ws, plugin = self._wsLookup[wsID]
+			self._addListItem(self.availableList, ws, plugin)
+
+	def _sortIDsByName(self, wsIDs: list[str]) -> list[str]:
+		return sorted(wsIDs, key=lambda wsID: self._wsLookup[wsID][0].GetName().lower())
 
 	def _addToFavorites(self):
 		for item in self.availableList.selectedItems():
@@ -145,9 +151,10 @@ class EditFavoritesDialog(QDialog):
 			self.favoritesList.takeItem(row)
 			ws, plugin = self._wsLookup[wsID]
 			self._addListItem(self.availableList, ws, plugin)
+		self._sortAndRebuildAvailable()
 
 	def _reapplyFavoriteWidgets(self):
-		# Drag-and-drop (InternalMove) recreates items and drops their item widgets,
+		# Drag-and-drop recreates items and drops their item widgets,
 		# so rebuild the widgets from the preserved item data after a reorder.
 		for i in range(self.favoritesList.count()):
 			item = self.favoritesList.item(i)
@@ -156,6 +163,18 @@ class EditFavoritesDialog(QDialog):
 			widget = self._makeItemWidget(ws, plugin)
 			item.setSizeHint(QSize(widget.sizeHint().width(), 28))
 			self.favoritesList.setItemWidget(item, widget)
+
+	def _sortAndRebuildAvailable(self):
+		# Collect current IDs, then rebuild the list alphabetically. This also
+		# restores item widgets dropped during a cross-list drag-and-drop.
+		wsIDs: list[str] = []
+		for i in range(self.availableList.count()):
+			item = self.availableList.item(i)
+			wsIDs.append(item.data(Qt.ItemDataRole.UserRole))
+		self.availableList.clear()
+		for wsID in self._sortIDsByName(wsIDs):
+			ws, plugin = self._wsLookup[wsID]
+			self._addListItem(self.availableList, ws, plugin)
 
 	def _save(self):
 		favoriteIDs: list[str] = []
