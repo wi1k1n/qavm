@@ -8,6 +8,7 @@ from PyQt6.QtGui import QKeyEvent, QColor, QPainter, QBrush
 from PyQt6.QtWidgets import (
 	QWidget, QFormLayout, QCheckBox, QLineEdit, QApplication, QListWidget, QListWidgetItem,
 	QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QTabWidget, QSizePolicy, QSpinBox,
+	QMessageBox,
 )
 
 import qavm.qavmapi.utils as qutils
@@ -206,13 +207,32 @@ class QAVMGlobalSettings(BaseSettings):
 		buttonLayout.addWidget(addButton)
 		layout.addLayout(buttonLayout)
 
-		allowCustomPluginsCheckbox = QCheckBox('Allow custom plugins', widget)
-		allowCustomPluginsCheckbox.setToolTip('Allow loading of custom (unsigned) plugins for this software')
-		allowCustomPluginsCheckbox.setChecked(self.GetCustomPluginsAllowed())
-		allowCustomPluginsCheckbox.toggled.connect(lambda v: self.SetSetting('allow_custom_plugins', 'custom_plugins_allowed' if v else ''))
-		layout.addWidget(allowCustomPluginsCheckbox)
+		self.allowCustomPluginsCheckbox = QCheckBox('Allow custom plugins', widget)
+		self.allowCustomPluginsCheckbox.setToolTip('Allow loading of custom (unsigned) plugins for this software')
+		self.allowCustomPluginsCheckbox.setChecked(self.GetCustomPluginsAllowed())
+		self.allowCustomPluginsCheckbox.toggled.connect(self._onAllowCustomPluginsToggled)
+		layout.addWidget(self.allowCustomPluginsCheckbox)
 
 		return widget
+	
+	def _onAllowCustomPluginsToggled(self, checked: bool):
+		if checked:
+			reply = QMessageBox.warning(
+				self.allowCustomPluginsCheckbox,
+				'Security Warning',
+				'Enabling custom plugins will allow loading and executing raw Python code '
+				'that has not been verified by QAVM developers.\n\n'
+				f'Custom plugins default location:\n{qutils.GetDefaultPluginsFolderPath()}\n\n'
+				'This may pose a security risk. Are you sure you want to continue?',
+				QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+				QMessageBox.StandardButton.No,
+			)
+			if reply != QMessageBox.StandardButton.Yes:
+				self.allowCustomPluginsCheckbox.blockSignals(True)
+				self.allowCustomPluginsCheckbox.setChecked(False)
+				self.allowCustomPluginsCheckbox.blockSignals(False)
+				return
+		self.SetSetting('allow_custom_plugins', 'custom_plugins_allowed' if checked else '')
 
 	def _selectAndAddSearchPath(self):
 		""" Opens a file dialog to select a directory and adds it to the search paths. """
