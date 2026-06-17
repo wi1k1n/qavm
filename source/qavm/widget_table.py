@@ -3,7 +3,7 @@ from pathlib import Path
 from functools import partial
 from typing import Type, Optional
 
-from PyQt6.QtCore import Qt, QMargins, QPoint, QRect, pyqtSignal
+from PyQt6.QtCore import Qt, QMargins, QPoint, QRect, pyqtSignal, QTimer
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QPen, QPolygon, QMouseEvent, QPaintEvent
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
@@ -129,6 +129,18 @@ class MyTableViewHeader(QHeaderView):
 				# self.sectionClicked.emit(releasedSection)  # Emit the signal for the section clicked
 		super().mouseReleaseEvent(event)
 			
+class _CellWidgetSortItem(QTableWidgetItem):
+	""" Invisible placeholder item placed under a cell widget. Provides a stable sort key for the
+	column while displaying no text, so nothing renders behind a transparent cell widget. """
+	def __init__(self, sortKey: str):
+		super().__init__('')
+		self._sortKey: str = sortKey
+
+	def __lt__(self, other):
+		if isinstance(other, _CellWidgetSortItem):
+			return self._sortKey < other._sortKey
+		return super().__lt__(other)
+
 # TODO: wtf, rename it please!
 class MyTableWidget(QTableWidget):
 	clickedLeft = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
@@ -275,6 +287,11 @@ class MyTableWidget(QTableWidget):
 					hdr.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
 					hdr.resizeSection(col, max(hdr.sectionSize(col), minW))
 
+		# Cell widgets (e.g. tag bubbles) wrap based on column width and need realignment on sort.
+		header.sectionResized.connect(self._onSectionResized)
+		header.sortIndicatorChanged.connect(self._onSortIndicatorChanged)
+		self._recomputeAllRowHeights()
+
 		self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 		self.customContextMenuRequested.connect(showContextMenu)
 
@@ -282,11 +299,72 @@ class MyTableWidget(QTableWidget):
 		headers: list[str] = self._headers
 		tableBuilder: BaseTableBuilder = self._tableBuilder
 		for c in range(len(headers)):
-			tableWidgetItem = tableBuilder.GetTableCellValue(desc, c)
-			if not isinstance(tableWidgetItem, QTableWidgetItem):
-				tableWidgetItem = QTableWidgetItem(tableWidgetItem)
-			self.setItem(row, c, tableWidgetItem)
+			cellValue = tableBuilder.GetTableCellValue(desc, c)
+			if isinstance(cellValue, QWidget):
+				getSortKey = getattr(cellValue, 'GetSortKey', None)
+				sortKey: str = str(getSortKey()) if callable(getSortKey) else ''
+				self.setItem(row, c, _CellWidgetSortItem(sortKey))
+				self.setCellWidget(row, c, cellValue)
+			else:
+				if self.cellWidget(row, c) is not None:
+					self.removeCellWidget(row, c)
+				if not isinstance(cellValue, QTableWidgetItem):
+					cellValue = QTableWidgetItem(cellValue)
+				self.setItem(row, c, cellValue)
 		self.setItem(row, len(headers), QTableWidgetItem(str(descIdx)))
+		self._adjustRowHeight(row)
+
+	def _adjustRowHeight(self, row: int):
+		""" Sizes the row to fit any variable-height cell widgets, capped by the builder's max row height. """
+		maxHeight: int = self._tableBuilder.GetRowMaximumHeight()
+		desiredHeight: int = 0
+		hasWidget: bool = False
+		for c in range(len(self._headers)):
+			widget: QWidget | None = self.cellWidget(row, c)
+			if widget is not None and widget.hasHeightForWidth():
+				hasWidget = True
+				desiredHeight = max(desiredHeight, widget.heightForWidth(self.columnWidth(c)))
+		if hasWidget:
+			self.setRowHeight(row, max(min(desiredHeight, maxHeight), 1))
+		else:
+			self.resizeRowToContents(row)
+
+	def _recomputeAllRowHeights(self):
+		for row in range(self.rowCount()):
+			self._adjustRowHeight(row)
+
+	def _onSectionResized(self, logicalIndex: int, oldSize: int, newSize: int):
+		# Column width affects how the flow-laid-out cell widgets wrap, so row heights must be recomputed.
+		self._recomputeAllRowHeights()
+
+	def _rebuildCellWidgets(self):
+		""" Re-creates cell widgets for every row from the (possibly reordered) hidden descIdx column.
+
+		QTableWidget does not move cell widgets when sorting, so after a sort the widgets must be rebuilt
+		to stay aligned with their rows. """
+		descIdxColumn: int = len(self._headers)
+		tableBuilder: BaseTableBuilder = self._tableBuilder
+		for row in range(self.rowCount()):
+			item = self.item(row, descIdxColumn)
+			if item is None:
+				continue
+			try:
+				descIdx: int = int(item.text())
+			except ValueError:
+				continue
+			desc: BaseDescriptor = self._descs[descIdx]
+			for c in range(len(self._headers)):
+				cellValue = tableBuilder.GetTableCellValue(desc, c)
+				if isinstance(cellValue, QWidget):
+					self.setCellWidget(row, c, cellValue)
+				elif self.cellWidget(row, c) is not None:
+					self.removeCellWidget(row, c)
+			self._adjustRowHeight(row)
+
+	def _onSortIndicatorChanged(self, logicalIndex: int, order: Qt.SortOrder):
+		# Defer until after QTableWidget finishes reordering items, then realign cell widgets.
+		QTimer.singleShot(0, self._rebuildCellWidgets)
+
 
 	def _onUpdateTableRowRequired(self, desc: BaseDescriptor):
 		try:

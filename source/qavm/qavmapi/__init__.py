@@ -596,7 +596,7 @@ class BaseTableBuilder(BaseBuilder):
 	def GetTableCaptions(self) -> list[str]:
 		return ['Path']
 	
-	def GetTableCellValue(self, desc: BaseDescriptor, col: int) -> str | QTableWidgetItem:
+	def GetTableCellValue(self, desc: BaseDescriptor, col: int) -> str | QTableWidgetItem | QWidget:
 		return str(desc.dirPath)
 	
 	def GetItemDelegateClass(self) -> QStyledItemDelegate.__class__:
@@ -605,6 +605,11 @@ class BaseTableBuilder(BaseBuilder):
 	def GetColumnMinimumWidths(self) -> list[int] | None:
 		"""Returns per-column minimum widths. None means use default for all columns."""
 		return None
+
+	def GetRowMaximumHeight(self) -> int:
+		""" Returns the maximum height (in pixels) a table row may grow to when a cell hosts a
+		variable-height widget (e.g. wrapping tag bubbles). Content exceeding this is collapsed/clipped. """
+		return 96
 
 	# TODO: change key from int to enum. Currently 0 - LMB, 1 - RMB, 2 - MMB
 	def HandleClick(self, desc: BaseDescriptor, row: int, col: int, isDouble: bool, key: int, modifiers: Qt.KeyboardModifier):

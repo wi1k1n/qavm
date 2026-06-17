@@ -3,7 +3,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import (
 	Qt, pyqtSignal, QPropertyAnimation, pyqtProperty, QEasingCurve, QPointF,
-	QModelIndex, 
+	QModelIndex, QSize, QRect, 
 )
 from PyQt6.QtWidgets import (
 	QApplication, QFrame, QPlainTextEdit, QPushButton, QVBoxLayout, QLabel, QTableWidgetItem, QListWidget, QScrollBar,
@@ -18,6 +18,7 @@ import pyperclip
 from qt_material import apply_stylesheet, get_theme, list_themes
 
 import qavm.qavmapi.utils as qutils
+from qavm.utils_gui import BubbleWidget
 
 class NumberTableWidgetItem(QTableWidgetItem):
 	def __init__(self, value: int | float, format: str = '{}'):
@@ -377,6 +378,143 @@ class RunningDescriptorAnimatedRowGradientDelegate(AnimatedRowGradientDelegate):
 			return False
 		
 		return qutils.IsProcessRunning(descs[descIdx].UID)
+
+
+def _PickContrastingTextColor(bgColor: QColor | None) -> QColor:
+	""" Returns black or white depending on the perceived luminance (ITU-R BT.601) of the background color. """
+	if bgColor is None:
+		return QColor('black')
+	luminance: float = (0.299 * bgColor.red() + 0.587 * bgColor.green() + 0.114 * bgColor.blue()) / 255.0
+	return QColor('black') if luminance > 0.55 else QColor('white')
+
+
+class TagBubblesFlowWidget(QWidget):
+	""" Read-only, flow-laid-out collection of colorful tag bubbles for use inside table cells.
+
+	Bubbles wrap onto multiple lines so none are clipped horizontally. The total height is capped by
+	maxHeight; tags that don't fit are collapsed into a trailing '+N' bubble. The widget (and its
+	bubbles) are transparent for mouse events so the underlying table still handles row selection,
+	context menus and tag drag-n-drop. Intended to be returned from BaseTableBuilder.GetTableCellValue
+	and consumed via QTableWidget.setCellWidget. """
+	HSPACING: int = 4
+	VSPACING: int = 4
+	MARGIN: int = 3
+	BUBBLE_ROUNDING: float = 10.0
+	BUBBLE_MARGIN: int = 5
+	OVERFLOW_COLOR: QColor = QColor('#9e9e9e')
+
+	def __init__(self, tags: list, maxHeight: int, parent: QWidget | None = None):
+		super().__init__(parent)
+		self._maxHeight: int = max(maxHeight, 1)
+		self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+		self.setAutoFillBackground(False)
+
+		self._tagNames: list[str] = [tag.GetName() for tag in tags]
+		self._bubbles: list[BubbleWidget] = [
+			self._createBubble(tag.GetName(), QColor(tag.GetColor()) if tag.GetColor() else None)
+			for tag in tags
+		]
+		self._overflowBubble: BubbleWidget | None = None
+
+	def GetSortKey(self) -> str:
+		""" Returns a stable key used to sort the Tags column (comma-joined, lower-cased tag names). """
+		return ', '.join(self._tagNames).lower()
+
+	def _createBubble(self, text: str, bgColor: QColor | None) -> BubbleWidget:
+		bubble: BubbleWidget = BubbleWidget(text, bgColor=bgColor, rounding=self.BUBBLE_ROUNDING, margin=self.BUBBLE_MARGIN)
+		bubble.setParent(self)
+		bubble.setStyleSheet(f'color: {_PickContrastingTextColor(bgColor).name()};')
+		bubble.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+		return bubble
+
+	def _ensureOverflowBubble(self) -> BubbleWidget:
+		if self._overflowBubble is None:
+			self._overflowBubble = self._createBubble('', self.OVERFLOW_COLOR)
+		return self._overflowBubble
+
+	def _doLayout(self, width: int, apply: bool) -> int:
+		""" Lays out the bubbles within the given width, capped by maxHeight.
+
+		When apply is True the child bubbles are geometried and shown/hidden; otherwise this only
+		measures. Returns the total height (clamped to maxHeight) the content occupies. """
+		m, hsp, vsp = self.MARGIN, self.HSPACING, self.VSPACING
+		maxH: int = self._maxHeight
+		bubbles: list[BubbleWidget] = self._bubbles
+		n: int = len(bubbles)
+		effRight: int = max(width - m, m + 1)
+
+		placements: list[tuple[QWidget, QRect]] = []
+		x: int = m
+		y: int = m
+		lineHeight: int = 0
+		hiddenStart: int = n
+
+		i: int = 0
+		while i < n:
+			sz: QSize = bubbles[i].sizeHint()
+			bw, bh = sz.width(), sz.height()
+			if placements and x + bw > effRight and lineHeight > 0:
+				nextY: int = y + lineHeight + vsp
+				if nextY + bh + m > maxH:
+					hiddenStart = i
+					break
+				x, y, lineHeight = m, nextY, 0
+			placements.append((bubbles[i], QRect(x, y, bw, bh)))
+			x += bw + hsp
+			lineHeight = max(lineHeight, bh)
+			i += 1
+
+		if hiddenStart < n:
+			hiddenCount: int = n - hiddenStart
+			overflow: BubbleWidget = self._ensureOverflowBubble()
+			overflow.setText(f'+{hiddenCount}')
+			ow, oh = overflow.sizeHint().width(), overflow.sizeHint().height()
+			# Make room for the overflow bubble at the end of the current (last) row.
+			while placements and x + ow > effRight:
+				poppedRect: QRect = placements[-1][1]
+				if poppedRect.y() != y:
+					break
+				placements.pop()
+				hiddenCount += 1
+				overflow.setText(f'+{hiddenCount}')
+				ow, oh = overflow.sizeHint().width(), overflow.sizeHint().height()
+				x = poppedRect.x()
+			placements.append((overflow, QRect(x, y, ow, oh)))
+			lineHeight = max(lineHeight, oh)
+
+		if apply:
+			visible: set[int] = set()
+			for w, rect in placements:
+				w.setGeometry(rect)
+				w.setVisible(True)
+				visible.add(id(w))
+			for b in bubbles:
+				if id(b) not in visible:
+					b.setVisible(False)
+			if self._overflowBubble is not None and id(self._overflowBubble) not in visible:
+				self._overflowBubble.setVisible(False)
+
+		return min(y + lineHeight + m, maxH)
+
+	def hasHeightForWidth(self) -> bool:
+		return True
+
+	def heightForWidth(self, width: int) -> int:
+		return self._doLayout(width, apply=False)
+
+	def sizeHint(self) -> QSize:
+		w: int = self.width() if self.width() > 0 else 200
+		return QSize(w, self.heightForWidth(w))
+
+	def minimumSizeHint(self) -> QSize:
+		if not self._bubbles:
+			return QSize(0, 2 * self.MARGIN)
+		first: QSize = self._bubbles[0].sizeHint()
+		return QSize(first.width() + 2 * self.MARGIN, first.height() + 2 * self.MARGIN)
+
+	def resizeEvent(self, event):
+		self._doLayout(self.width(), apply=True)
+		super().resizeEvent(event)
 
 
 DEFAULT_THEME_MODE = 'light'  # Default theme mode, can be 'light' or 'dark'
