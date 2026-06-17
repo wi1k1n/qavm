@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorData
+from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorDataImpl
 from qavm.qavmapi import BaseDescriptor
 
 class NoteEditorDialog(QDialog):
@@ -19,7 +19,7 @@ class NoteEditorDialog(QDialog):
 		self.descDataManager: DescriptorDataManager = app.GetDescriptorDataManager()
 		
 		self.descriptor: BaseDescriptor = desc
-		descData: DescriptorData = self.descDataManager.GetDescriptorData(self.descriptor)
+		descData: DescriptorDataImpl = self.descDataManager.GetDescriptorData(self.descriptor)
 
 		# Layouts
 		mainLayout = QVBoxLayout()
@@ -64,7 +64,7 @@ class NoteEditorDialog(QDialog):
 	
 	def accept(self) -> None:
 		"""Override accept to save changes before closing."""
-		descData: DescriptorData = self.descDataManager.GetDescriptorData(self.descriptor)
+		descData: DescriptorDataImpl = self.descDataManager.GetDescriptorData(self.descriptor)
 		descData.noteVisible = self.smallTextField.toPlainText()
 		descData.note = self.noteField.toPlainText()
 		self.descDataManager.SetDescriptorData(self.descriptor, descData)

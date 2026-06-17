@@ -1,16 +1,9 @@
 import json
 from pathlib import Path
 from typing import Any
-from qavm.qavmapi import BaseDescriptor
+from qavm.qavmapi import BaseDescriptor, BaseDescriptorData, DescriptonrDataAccessor
 
-
-
-class DescriptorData(object):
-	def __init__(self) -> None:
-		self.tags: list[str] = []  # List of tag UIDs
-		self.noteVisible: str = ''  # The small note that's visible on the descriptor tile
-		self.note: str = ''  # The full note text, which can be edited in the note editor dialog
-	
+class DescriptorDataImpl(BaseDescriptorData):
 	def Serialize(self) -> dict[str, Any]:
 		""" Serializes the descriptor data to a dictionary. """
 		return {
@@ -21,11 +14,11 @@ class DescriptorData(object):
 	
 	# TODO: refactor this to a more generic implementation
 	@staticmethod
-	def Deserialize(data: dict[str, Any]) -> 'DescriptorData':
+	def Deserialize(data: dict[str, Any]) -> 'DescriptorDataImpl':
 		""" Deserializes the descriptor data from a dictionary. """
 		if not isinstance(data, dict):
 			raise TypeError(f'Expected dict, got {type(data)}')
-		descData = DescriptorData()
+		descData = DescriptorDataImpl()
 		if 'tags' in data:
 			if not isinstance(data['tags'], list):
 				raise TypeError(f'Expected list for tags, got {type(data["tags"])}')
@@ -40,22 +33,32 @@ class DescriptorData(object):
 			descData.note = data['note']
 		return descData
 
+class DescriptonrDataAccessorImpl(DescriptonrDataAccessor):
+	def __init__(self, descDataManager: 'DescriptorDataManager'):
+		self.descDataManager: DescriptorDataManager = descDataManager
+
+	def GetDescriptorData(self, desc: BaseDescriptor) -> DescriptorDataImpl:
+		return self.descDataManager.GetDescriptorData(desc)
 
 class DescriptorDataManager(object):
 	def __init__(self, dataFilepath: Path) -> None:
 		self.dataFilepath: Path = dataFilepath
 		# self.data_old: dict[str, Any] = {'__qavm__': {}}
-		self.data: dict[str, DescriptorData] = {}  # UID -> DescriptorData
+		self.data: dict[str, DescriptorDataImpl] = {}  # UID -> DescriptorDataImpl
+		self.descDataAccessor: DescriptonrDataAccessorImpl = DescriptonrDataAccessorImpl(self)
 
-	def GetDescriptorData(self, desc: BaseDescriptor) -> DescriptorData:
+	def GetDescriptorDataAccessor(self) -> DescriptonrDataAccessorImpl:
+		return self.descDataAccessor
+	
+	def GetDescriptorData(self, desc: BaseDescriptor) -> DescriptorDataImpl:
 		descUID: str = desc.GetUID()
 		if descUID not in self.data:
-			self.data[descUID] = DescriptorData()
+			self.data[descUID] = DescriptorDataImpl()
 		return self.data[descUID]
 	
-	def SetDescriptorData(self, desc: BaseDescriptor, data: DescriptorData) -> None:
-		if not isinstance(data, DescriptorData):
-			raise TypeError(f'Expected DescriptorData, got {type(data)}')
+	def SetDescriptorData(self, desc: BaseDescriptor, data: DescriptorDataImpl) -> None:
+		if not isinstance(data, DescriptorDataImpl):
+			raise TypeError(f'Expected DescriptorDataImpl, got {type(data)}')
 		descUID: str = desc.GetUID()
 		self.data[descUID] = data
 
@@ -78,11 +81,11 @@ class DescriptorDataManager(object):
 		""" Serializes the descriptor data to a dictionary. """
 		return {descUID: dd.Serialize() for descUID, dd in self.data.items()}
 	
-	def DeserializeData(self, data: dict[str, Any]) -> dict[str, DescriptorData]:
+	def DeserializeData(self, data: dict[str, Any]) -> dict[str, DescriptorDataImpl]:
 		""" Deserializes the descriptor data from a dictionary. """
 		if not isinstance(data, dict):
 			raise TypeError(f'Expected dict, got {type(data)}')
-		return {descUID: DescriptorData.Deserialize(dd) for descUID, dd in data.items()}
+		return {descUID: DescriptorDataImpl.Deserialize(dd) for descUID, dd in data.items()}
 
 	# def LoadDescriptorsData(self, workspace: 'QAVMWorkspace') -> None:
 	# 	if not workspace:

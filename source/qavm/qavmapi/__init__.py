@@ -479,6 +479,7 @@ class BaseQualifier(object):
 class BaseDescriptor(QObject):
 	""" Base class for software descriptors. Descriptor is used to represent the software among other plugin parts, such as TileBuilder, TableBuilder, ContextMenu, etc. """
 	updated = pyqtSignal()
+	descDataUpdated = pyqtSignal()
 
 	# TODO: rename dirPath to path, as now it also can be a file
 	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
@@ -532,11 +533,30 @@ class BaseDescriptor(QObject):
 		elif utils.PlatformWindows() and utils.IsPathJunction(self.dirPath):
 			dirType = 'J'
 		return dirType
+	
+class BaseDescriptorData(object):
+	def __init__(self) -> None:
+		self.tags: list[str] = []  # List of tag UIDs
+		self.noteVisible: str = ''  # A small note (purpose: to be visible on the descriptor tile)
+		self.note: str = ''  # The full note text, which can be edited in the note editor dialog
+	
+	def GetTags(self) -> list[str]:
+		return self.tags
+	def GetNoteVisible(self) -> str:
+		return self.noteVisible
+	def GetNote(self) -> str:
+		return self.note
 
+class DescriptonrDataAccessor(object):
+	def GetDescriptorData(self, desc: BaseDescriptor) -> BaseDescriptorData:
+		""" Returns the descriptor data for the given descriptor. """
+		return BaseDescriptorData()
+	
 class BaseBuilder(QWidget):
-	def __init__(self, settings: SoftwareBaseSettings):
+	def __init__(self, settings: SoftwareBaseSettings, descDataAccessor: DescriptonrDataAccessor):
 		super().__init__()
 		self.settings: SoftwareBaseSettings = settings
+		self.descDataAccessor: DescriptonrDataAccessor = descDataAccessor
 		self.themeData: dict[str, str | None] | None = GetThemeData()
 
 	def GetName(self) -> str:
@@ -561,12 +581,13 @@ class BaseTileBuilder(BaseBuilder):
 		""" Creates a tile widget for the descriptor. """
 		return QLabel(str(descriptor.dirPath), parent)
 	
-	def UpdateTileWidget(self, descriptor: BaseDescriptor, widget: QWidget) -> QWidget:
-		""" Updates the tile widget with the descriptor data. """
-		return widget
+	# def UpdateTileWidget(self, descriptor: BaseDescriptor, widget: QWidget) -> QWidget:
+	# 	""" Updates the tile widget with the descriptor data. """
+	# 	return widget
 
 class BaseTableBuilder(BaseBuilder):
-	updateTableRequired = pyqtSignal()  # is emitted when table needs to be updated
+	updateTableRequired = pyqtSignal()  # is emitted when whole table needs to be updated
+	# updateTableRowRequired = pyqtSignal(BaseDescriptor)  # is emitted when a certain row needs to be updated, int - row index
 
 	def GetTableCaptions(self) -> list[str]:
 		return ['Path']

@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorData
+from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorDataImpl
 
 from qavm.qavmapi import BaseDescriptor
 
@@ -124,7 +124,7 @@ class TagsManager(object):
 		if not isinstance(desc, BaseDescriptor):
 			raise TypeError(f'Expected BaseDescriptor, got {type(desc)}')
 		
-		descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+		descData: DescriptorDataImpl = self.descDataManager.GetDescriptorData(desc)
 		if tag.GetUID() in descData.tags:
 			descData.tags.remove(tag.GetUID())
 			self.descDataManager.SetDescriptorData(desc, descData)
@@ -139,7 +139,7 @@ class TagsManager(object):
 		if tag.GetUID() not in self.tags:
 			raise ValueError(f'Tag {tag.GetUID()} does not exist in tags manager')
 		
-		descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+		descData: DescriptorDataImpl = self.descDataManager.GetDescriptorData(desc)
 		if tag.GetUID() not in descData.tags:
 			descData.tags.append(tag.GetUID())
 			self.descDataManager.SetDescriptorData(desc, descData)

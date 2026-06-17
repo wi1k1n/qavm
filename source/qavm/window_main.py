@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 from qavm.manager_plugin import PluginManager, SoftwareHandler, UID, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.widget_tiles import TilesWidget
-from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorData
+from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorDataImpl
 from qavm.manager_tags import TagsManager, Tag
 
 from qavm.window_note_editor import NoteEditorDialog
@@ -239,12 +239,12 @@ class MainWindow(QMainWindow):
 		tileBuilderClass: Type[BaseTileBuilder] | None = swHandler.GetTileBuilderClass(viewUID)
 		if tileBuilderClass is None or not issubclass(tileBuilderClass, BaseTileBuilder):
 			return
-		tileBuilder: BaseTileBuilder = tileBuilderClass(swHandler.GetSettings())
+		tileBuilder: BaseTileBuilder = tileBuilderClass(swHandler.GetSettings(), self.descDataManager.GetDescriptorDataAccessor())
 		
 		descs: list[BaseDescriptor] = self._prepareDescriptors(swHandler, viewUID, tileBuilder)
 
 		if tilesView := TilesWidget(descs, tileBuilder, parent=self):
-			tileBuilder.updateTileRequired.connect(partial(self._updateTilesWidget, descs, tileBuilder))
+			# tileBuilder.updateTileRequired.connect(partial(self._updateTilesWidget, descs, tileBuilder))
 			self.tabsWidget.insertTab(0, tilesView, tileBuilder.GetName())
 			# self.tabsWidget.addTabWithUid(tilesView, tileBuilder.GetName(), viewUID+descUID)
 			
@@ -252,7 +252,8 @@ class MainWindow(QMainWindow):
 		tableBuilderClass: Type[BaseTableBuilder] | None = swHandler.GetTableBuilderClass(viewUID)
 		if tableBuilderClass is None or not issubclass(tableBuilderClass, BaseTableBuilder):
 			return
-		tableBuilder: BaseTableBuilder = tableBuilderClass(swHandler.GetSettings())
+		
+		tableBuilder: BaseTableBuilder = tableBuilderClass(swHandler.GetSettings(), self.descDataManager.GetDescriptorDataAccessor())
 		
 		descs: list[BaseDescriptor] = self._prepareDescriptors(swHandler, viewUID, tableBuilder)
 		
@@ -276,9 +277,9 @@ class MainWindow(QMainWindow):
 
 		self.tableWidget.clearFocus()
 		
-	def _updateTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder):
-		for desc in descs:
-			tileBuilder.UpdateTileWidget()
+	# def _updateTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder):
+	# 	for desc in descs:
+	# 		tileBuilder.UpdateTileWidget()
 	
 	# def _tableItemFocusBuggedWorkaround(self, tableWidget: QTableWidget):
 	# 	"""
@@ -319,7 +320,7 @@ class MainWindow(QMainWindow):
 	# 			self.tagsManager.RemoveTag(desc, tag)
 
 	# 		if menu := tileBuilder.GetContextMenu(desc):
-	# 			descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+	# 			descData: DescriptorDataImpl = self.descDataManager.GetDescriptorData(desc)
 	# 			descTagsUIDs: list[str] = descData.tags
 				
 	# 			addTagSubMenu = None
@@ -357,7 +358,7 @@ class MainWindow(QMainWindow):
 			
 	# 		tileWidgetWithTags = self._wrapWidgetWithTags(tileWidget, parent, desc)
 
-	# 		descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+	# 		descData: DescriptorDataImpl = self.descDataManager.GetDescriptorData(desc)
 	# 		tileWidgetWithTags.setToolTip(descData.note)
 			
 	# 		tileWidgetWithTags.descriptor = desc  # TODO: what-a-heck? make a setter for that
@@ -397,7 +398,7 @@ class MainWindow(QMainWindow):
 		tagsLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
 		tagsLabel.setStyleSheet("QLabel { color: gray; font-size: 10px; }")  # Style the tags label
 		
-		descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
+		descData: DescriptorDataImpl = self.descDataManager.GetDescriptorData(desc)
 		for tagUID in descData.tags:
 			if tag := self.tagsManager.GetTag(tagUID):
 				tagsLabel.setText(f"{tagsLabel.text()} <span style='color: {tag.GetColor()};'>#{tag.GetName()}</span> ")

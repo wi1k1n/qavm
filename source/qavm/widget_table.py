@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler, UID, QAVMWorkspace
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
-from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorData
+from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorDataImpl
 from qavm.manager_tags import TagsManager, Tag
 
 from qavm.window_note_editor import NoteEditorDialog
@@ -180,6 +180,10 @@ class MyTableWidget(QTableWidget):
 	def _setupTable(self, descs: list[BaseDescriptor], tableBuilder: BaseTableBuilder, parent: QMainWindow):
 		headers: list[str] = tableBuilder.GetTableCaptions()
 
+		self._descs = descs
+		self._tableBuilder = tableBuilder
+		self._headers = headers
+
 		header = MyTableViewHeader(Qt.Orientation.Horizontal, self)
 		# TODO: move this to MyTableViewHeader
 		header.setStretchLastSection(True)
@@ -206,49 +210,6 @@ class MyTableWidget(QTableWidget):
 		self.doubleClickedLeft.connect(partial(self._onTableItemDoubleClickedLeft, self, tableBuilder))
 		self.clickedMiddle.connect(partial(self._onTableItemClickedMiddle, self, tableBuilder))
 
-		"""
-		def showContextMenu(desc):
-			def assignTag(tag: Tag):
-				logger.info(f"Assigning tag {tag.GetName()} to descriptor {desc.GetUID()}")
-				self.tagsManager.AssignTag(desc, tag)
-			def removeTag(desc: BaseDescriptor, tag: Tag):
-				logger.info(f"Removing tag {tag.GetName()} from descriptor {desc.GetUID()}")
-				self.tagsManager.RemoveTag(desc, tag)
-
-			if menu := tileBuilder.GetContextMenu(desc):
-				descData: DescriptorData = self.descDataManager.GetDescriptorData(desc)
-				descTagsUIDs: list[str] = descData.tags
-				
-				addTagSubMenu = None
-				if tags := self.tagsManager.GetTags().values():
-					addTagSubMenu: QMenu = QMenu("Assign Tag", self)
-					for tag in tags:
-						if tag.GetUID() in descTagsUIDs:
-							continue
-						action = QAction(tag.GetName(), self, triggered=partial(assignTag, tag))
-						addTagSubMenu.addAction(action)
-					
-
-				removeTagsSubMenu = None
-				if descTags := [self.tagsManager.GetTag(tagUID) for tagUID in descTagsUIDs if self.tagsManager.GetTag(tagUID)]:
-					removeTagsSubMenu: QMenu = QMenu("Remove Tag", self)
-					for tag in descTags:
-						action = QAction(tag.GetName(), self, triggered=partial(removeTag, desc, tag))
-						removeTagsSubMenu.addAction(action)
-
-				if addTagSubMenu or removeTagsSubMenu:	
-					menu.addSeparator()
-				if addTagSubMenu:
-					menu.addMenu(addTagSubMenu)
-				if removeTagsSubMenu:
-					menu.addMenu(removeTagsSubMenu)
-
-				menu.addSeparator()
-				menu.addAction(QAction("Edit Note", self, triggered=partial(self._showNoteEditorDialog, desc)))
-				
-				menu.exec(QCursor.pos())
-		"""
-
 		def showContextMenu(pos):
 			selectedRowsUnique: set = {idx.row() for idx in self.selectedIndexes()}
 			if not selectedRowsUnique:
@@ -263,11 +224,15 @@ class MyTableWidget(QTableWidget):
 					def assignTag(tag: Tag):
 						logger.info(f"Assigning tag {tag.GetName()} to descriptor {desc.GetUID()}")
 						self.mainWindow.tagsManager.AssignTag(desc, tag)
+						# tableBuilder.updateTableRowRequired.emit(desc)
+						desc.descDataUpdated.emit()
 					def removeTag(desc: BaseDescriptor, tag: Tag):
 						logger.info(f"Removing tag {tag.GetName()} from descriptor {desc.GetUID()}")
 						self.mainWindow.tagsManager.RemoveTag(desc, tag)
+						# tableBuilder.updateTableRowRequired.emit(desc)
+						desc.descDataUpdated.emit()
 						
-					descData: DescriptorData = self.mainWindow.descDataManager.GetDescriptorData(desc)
+					descData: DescriptorDataImpl = self.mainWindow.descDataManager.GetDescriptorData(desc)
 					descTagsUIDs: list[str] = descData.tags
 					
 					addTagSubMenu = None
@@ -300,12 +265,10 @@ class MyTableWidget(QTableWidget):
 					menu.exec(QCursor.pos())
 
 		for r, desc in enumerate(descs):
-			for c, header in enumerate(headers):
-				tableWidgetItem = tableBuilder.GetTableCellValue(desc, c)
-				if not isinstance(tableWidgetItem, QTableWidgetItem):
-					tableWidgetItem = QTableWidgetItem(tableWidgetItem)
-				self.setItem(r, c, tableWidgetItem)
-			self.setItem(r, len(headers), QTableWidgetItem(str(r)))
+			self._populateRow(r, desc, r)
+			desc.descDataUpdated.connect(partial(self._onUpdateTableRowRequired, desc))
+
+		# tableBuilder.updateTableRowRequired.connect(self._onUpdateTableRowRequired)
 
 		# Apply per-column minimum widths after items are populated
 		colMinWidths: list[int] | None = tableBuilder.GetColumnMinimumWidths()
@@ -319,6 +282,35 @@ class MyTableWidget(QTableWidget):
 
 		self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 		self.customContextMenuRequested.connect(showContextMenu)
+
+	def _populateRow(self, row: int, desc: BaseDescriptor, descIdx: int):
+		headers: list[str] = self._headers
+		tableBuilder: BaseTableBuilder = self._tableBuilder
+		for c in range(len(headers)):
+			tableWidgetItem = tableBuilder.GetTableCellValue(desc, c)
+			if not isinstance(tableWidgetItem, QTableWidgetItem):
+				tableWidgetItem = QTableWidgetItem(tableWidgetItem)
+			self.setItem(row, c, tableWidgetItem)
+		self.setItem(row, len(headers), QTableWidgetItem(str(descIdx)))
+
+	def _onUpdateTableRowRequired(self, desc: BaseDescriptor):
+		try:
+			descIdx: int = self._descs.index(desc)
+		except ValueError:
+			return
+		descIdxColumn: int = len(self._headers)
+		targetRow: int = -1
+		for row in range(self.rowCount()):
+			item = self.item(row, descIdxColumn)
+			if item and item.text() == str(descIdx):
+				targetRow = row
+				break
+		if targetRow < 0:
+			return
+		sortingEnabled: bool = self.isSortingEnabled()
+		self.setSortingEnabled(False)
+		self._populateRow(targetRow, desc, descIdx)
+		self.setSortingEnabled(sortingEnabled)
 
 	def _onTableItemDoubleClickedLeft(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
