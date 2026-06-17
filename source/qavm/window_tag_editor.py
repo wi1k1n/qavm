@@ -42,8 +42,8 @@ class _ScopeRowWidget(QWidget):
 		layout.addWidget(QLabel("View:"))
 		layout.addWidget(self.viewCombo, 1)
 
-		removeBtn = QPushButton("✕")
-		removeBtn.setFixedWidth(28)
+		removeBtn = QPushButton("X")
+		removeBtn.setFixedWidth(48)
 		removeBtn.setToolTip("Remove this scope")
 		removeBtn.clicked.connect(lambda: onRemove(self))
 		layout.addWidget(removeBtn)

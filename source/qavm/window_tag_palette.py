@@ -116,7 +116,7 @@ class TagsPaletteWidget(QWidget):
 		self.pluginManager: PluginManager = app.GetPluginManager()
 		self.mainWindow: 'MainWindow' = mainWindow
 
-		self.setWindowTitle("Tags")
+		self.setWindowTitle("Tags Palette")
 
 		self._pluginOptions, self._softwareOptions, self._viewOptions = self._collectScopeOptions()
 
