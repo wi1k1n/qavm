@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
 	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication, QAbstractItemView, QMessageBox,
 	QDialog, QVBoxLayout, QTextBrowser, QDialogButtonBox, QLineEdit, QHBoxLayout,
-	QSizePolicy, QTableView, QTableWidgetSelectionRange, 
+	QSizePolicy, QTableView, QTableWidgetSelectionRange, QDockWidget, 
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler, UID, QAVMWorkspace
@@ -21,6 +21,7 @@ from qavm.manager_tags import TagsManager, BaseTagImpl
 from qavm.window_note_editor import NoteEditorDialog
 from qavm.window_about import AboutDialog
 from qavm.widget_table import MyTableWidget
+from qavm.windows_tags_palette import TagsPaletteWidget
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder,
@@ -100,6 +101,7 @@ class MainWindow(QMainWindow):
 		self._setupStatusBar()
 
 		self._setupCentralWidget()
+		self._setupTagsDock()
 
 	def _setupActions(self):
 		self.actionPrefs = QAction("&Preferences", self)
@@ -164,6 +166,9 @@ class MainWindow(QMainWindow):
 							self.pluginMenuItems.append(menu)  # for some reason QMenu and QAction need to live in the MainWindow, otherwise Qt gets rid of them
 						else:
 							logger.warning(f"Menu item {menu} is not a valid QMenu or QAction. Skipping.")
+
+		self.viewMenu: QMenu = QMenu("&View", self)
+		menuBar.addMenu(self.viewMenu)
 
 		helpMenu: QMenu = QMenu("&Help", self)
 		helpMenu.addAction(self.actionAbout)
@@ -265,6 +270,24 @@ class MainWindow(QMainWindow):
 		softwareSettings: SoftwareBaseSettings = swHandler.GetSettings()
 		if customViewWidget := customViewClass(softwareSettings, self):
 			self.tabsWidget.insertTab(0, customViewWidget, customViewWidget.GetName())
+
+	def _setupTagsDock(self):
+		self.tagsPalette: TagsPaletteWidget = TagsPaletteWidget(self)
+
+		self.tagsDock: QDockWidget = QDockWidget("Tags", self)
+		self.tagsDock.setObjectName("TagsPaletteDock")
+		self.tagsDock.setWidget(self.tagsPalette)
+		self.tagsDock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
+		self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.tagsDock)
+		self.tagsDock.hide()  # hidden by default; toggled via the View menu
+
+		toggleAction: QAction = self.tagsDock.toggleViewAction()
+		toggleAction.setText("Tags &Palette")
+		toggleAction.setShortcut("Ctrl+T")
+		self.viewMenu.addAction(toggleAction)
+
+		# Keep the palette's active-context filter in sync with the current tab
+		self.tabsWidget.currentChanged.connect(lambda _idx: self.tagsPalette.OnActiveContextChanged())
 
 	def _onTabChanged(self, index: int):
 		self.qavmSettings.SetSetting('last_opened_tab', index)

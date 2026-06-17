@@ -18,7 +18,7 @@ from qavm.qavmapi import (
 )
 from qavm.manager_plugin import SoftwareHandler
 from qavm.utils_gui import FlowLayout
-from qavm.utils_widgets import PopulateContextMenuTagsAndNotes
+from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptor, TAG_MIME_TYPE
 
 if TYPE_CHECKING:
 	from qavm.window_main import MainWindow
@@ -38,6 +38,8 @@ class TilesWidget(QWidget):
 
 		self.flowLayout: FlowLayout | None = None
 
+		self.setAcceptDrops(True)  # accept tag bubbles dragged from the Tags palette
+
 		tiles = self._createTiles(descs)
 		flWidget = self._createFlowLayoutWithFromWidgets(tiles)
 		scrollWidget = self._wrapWidgetInScrollArea(flWidget)
@@ -45,6 +47,39 @@ class TilesWidget(QWidget):
 		layout = QVBoxLayout(self)
 		layout.setContentsMargins(0, 0, 0, 0)
 		layout.addWidget(scrollWidget)
+
+	def dragEnterEvent(self, event):
+		if event.mimeData().hasFormat(TAG_MIME_TYPE):
+			event.acceptProposedAction()
+		else:
+			event.ignore()
+
+	def dragMoveEvent(self, event):
+		if event.mimeData().hasFormat(TAG_MIME_TYPE):
+			event.acceptProposedAction()
+		else:
+			event.ignore()
+
+	def dropEvent(self, event):
+		if not event.mimeData().hasFormat(TAG_MIME_TYPE):
+			event.ignore()
+			return
+		tagUID: str = bytes(event.mimeData().data(TAG_MIME_TYPE).data()).decode('utf-8')
+		desc: BaseDescriptor | None = self._findDescriptorForChild(self.childAt(event.position().toPoint()))
+		if desc is None:
+			event.ignore()
+			return
+		AssignTagUIDToDescriptor(desc, tagUID)
+		event.acceptProposedAction()
+
+	def _findDescriptorForChild(self, widget: QWidget | None) -> BaseDescriptor | None:
+		w = widget
+		while w is not None and w is not self:
+			descUID = w.property("descriptor_uid")
+			if descUID:
+				return next((d for d in self.descs if d.GetUID() == descUID), None)
+			w = w.parentWidget()
+		return None
 
 	def _showContextMenu(self, desc: BaseDescriptor):
 		if menu := self.tileBuilder.GetContextMenu(desc):

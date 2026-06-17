@@ -77,11 +77,12 @@ class TagScope(object):
 		return True
 	
 class BaseTagImpl(BaseTag):
-	def __init__(self, uid: str, name: str, color: str, tagScopes: list[TagScope] = list()) -> None:
+	def __init__(self, uid: str, name: str, color: str, tagScopes: list[TagScope] = list(), order: int = 0) -> None:
 		self.uid: str = uid
 		self.name: str = name
 		self.color: str = color
 		self.tagScopes: list[TagScope] = tagScopes  # empty is the same as global scope
+		self.order: int = order  # display order in the tags palette (lower comes first)
 
 	def GetUID(self) -> str:
 		return self.uid
@@ -94,6 +95,12 @@ class BaseTagImpl(BaseTag):
 	
 	def GetScopes(self) -> list[TagScope]:
 		return self.tagScopes
+
+	def GetOrder(self) -> int:
+		return self.order
+
+	def SetOrder(self, order: int) -> None:
+		self.order = order
 
 	def IsApplicableInContext(self, pluginID: str, softwareID: str, viewUID: str) -> bool:
 		""" Returns True if the tag is applicable in the given plugin/software/view context. An empty scope list means global (always applicable). """
@@ -111,20 +118,22 @@ class BaseTagImpl(BaseTag):
 				uid=data['uid'],
 				name=data['name'],
 				color=data['color'],
-				tagScopes=[TagScope.Deserialize(scope) for scope in scopes]
+				tagScopes=[TagScope.Deserialize(scope) for scope in scopes],
+				order=int(data.get('order', 0))  # backward-compatible: default order to 0 if missing
 			)
 		raise ValueError(f'Invalid tag data: {data}. Expected keys: uid, name, color, tagScopes')
 	
-	def Serialize(self) -> dict[str, str]:
+	def Serialize(self) -> dict[str, str | int]:
 		return {
 			'uid': self.uid,
 			'name': self.name,
 			'color': self.color,
-			'tagScopes': json.dumps([scope.Serialize() for scope in self.tagScopes])
+			'tagScopes': json.dumps([scope.Serialize() for scope in self.tagScopes]),
+			'order': self.order
 		}
 
 	def __repr__(self) -> str:
-		return f'BaseTag(uid={self.uid}, name={self.name}, color={self.color}, tagScopes={self.tagScopes})'
+		return f'BaseTag(uid={self.uid}, name={self.name}, color={self.color}, tagScopes={self.tagScopes}, order={self.order})'
 	
 	def __eq__(self, other: object) -> bool:
 		if not isinstance(other, BaseTagImpl):
@@ -132,7 +141,8 @@ class BaseTagImpl(BaseTag):
 		return (self.uid == other.uid and
 				self.name == other.name and
 				self.color == other.color and
-				self.tagScopes == other.tagScopes)
+				self.tagScopes == other.tagScopes and
+				self.order == other.order)
 
 class TagsManager(object):
 	def __init__(self, tagsDataFilepath: Path, descDataManager: DescriptorDataManager) -> None:
@@ -187,6 +197,28 @@ class TagsManager(object):
 
 	def GetTags(self) -> dict[str, BaseTagImpl]:
 		return self.tags
+
+	def GetTagsOrdered(self) -> list[BaseTagImpl]:
+		""" Returns the tags sorted by their display order (ascending). """
+		return sorted(self.tags.values(), key=lambda tag: tag.GetOrder())
+
+	def ReorderTags(self, orderedTagUIDs: list[str]) -> None:
+		""" Reassigns the display order of tags based on the given list of tag UIDs and persists the change. """
+		if not isinstance(orderedTagUIDs, list):
+			raise TypeError(f'Expected list, got {type(orderedTagUIDs)}')
+		order: int = 0
+		for tagUID in orderedTagUIDs:
+			tag: BaseTagImpl | None = self.tags.get(tagUID, None)
+			if tag is None:
+				continue
+			tag.SetOrder(order)
+			order += 1
+		# Any tags not present in orderedTagUIDs keep being appended at the end
+		for tag in self.tags.values():
+			if tag.GetUID() not in orderedTagUIDs:
+				tag.SetOrder(order)
+				order += 1
+		self.SaveTags()
 	
 	def GetTag(self, tagUID: str) -> BaseTagImpl | None:
 		if not isinstance(tagUID, str):
@@ -196,9 +228,20 @@ class TagsManager(object):
 	def AddTag(self, tag: BaseTagImpl) -> None:
 		if not isinstance(tag, BaseTagImpl):
 			raise TypeError(f'Expected BaseTagImpl, got {type(tag)}')
-		if tag in self.tags:
+		if tag.GetUID() in self.tags:
 			logger.warning(f'BaseTag {tag} already exists, skipping addition')
 			return
+		nextOrder: int = (max((t.GetOrder() for t in self.tags.values()), default=-1) + 1)
+		tag.SetOrder(nextOrder)
+		self.tags[tag.GetUID()] = tag
+		self.SaveTags()
+
+	def UpdateTag(self, tag: BaseTagImpl) -> None:
+		""" Persists changes made to an existing tag (e.g. after editing name/color/scopes). """
+		if not isinstance(tag, BaseTagImpl):
+			raise TypeError(f'Expected BaseTagImpl, got {type(tag)}')
+		if tag.GetUID() not in self.tags:
+			raise ValueError(f'BaseTag {tag.GetUID()} does not exist in tags manager')
 		self.tags[tag.GetUID()] = tag
 		self.SaveTags()
 

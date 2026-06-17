@@ -1,5 +1,5 @@
-from PyQt6.QtCore import Qt, QSize, QRect, QPoint
-from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen
+from PyQt6.QtCore import Qt, QSize, QRect, QPoint, QPropertyAnimation
+from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen, QFont
 from PyQt6.QtWidgets import QLabel, QLayout, QWidget, QWidgetItem
 
 
@@ -107,3 +107,46 @@ class BubbleWidget(QLabel):
 		p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 		p.drawRoundedRect(penWidth, penWidth, self.width() - penWidth * 2, self.height() - penWidth * 2, self.rounding, self.rounding)
 		super().paintEvent(evt)
+
+# Copied from experiments (fadein_tooltip) and adapted for production use
+class FadeTooltip(QLabel):
+	""" A tooltip-like label that fades in/out. Supports rich text (HTML). """
+	def __init__(self, parent: QWidget | None = None):
+		super().__init__(parent, Qt.WindowType.ToolTip)
+		self.setWindowFlags(Qt.WindowType.ToolTip)
+		self.setStyleSheet("background-color: #2b2b2b; color: #f0f0f0; border: 1px solid #555; padding: 6px; border-radius: 4px;")
+		self.setFont(QFont("Arial", 10))
+		self.setTextFormat(Qt.TextFormat.RichText)
+		self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+		self.animation = QPropertyAnimation(self, b"windowOpacity")
+		self.animation.setDuration(300)
+		self.animation.finished.connect(self._onAnimationFinished)
+		self._fadingOut: bool = False
+
+	def showText(self, text: str, pos: QPoint):
+		self._fadingOut = False
+		self.setText(text)
+		self.adjustSize()
+		self.move(pos)
+		self.setWindowOpacity(0.0)
+		self.show()
+
+		self.animation.stop()
+		self.animation.setStartValue(self.windowOpacity())
+		self.animation.setEndValue(1.0)
+		self.animation.start()
+
+	def hideWithFade(self):
+		if not self.isVisible():
+			return
+		self._fadingOut = True
+		self.animation.stop()
+		self.animation.setStartValue(self.windowOpacity())
+		self.animation.setEndValue(0.0)
+		self.animation.start()
+
+	def _onAnimationFinished(self):
+		if self._fadingOut:
+			self.hide()
+			self._fadingOut = False

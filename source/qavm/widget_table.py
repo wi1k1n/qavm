@@ -26,7 +26,7 @@ from qavm.qavmapi import (
 )
 from qavm.qavmapi.utils import PlatformMacOS, PlatformWindows, PlatformLinux
 from qavm.utils_gui import FlowLayout
-from qavm.utils_widgets import PopulateContextMenuTagsAndNotes
+from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptor, TAG_MIME_TYPE
 from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion, GetQAVMVersionVariant
 
 import qavm.logs as logs
@@ -145,7 +145,42 @@ class MyTableWidget(QTableWidget):
 		self.swHandler: SoftwareHandler = swHandler
 		self.viewUID: str = viewUID
 
+		self.setAcceptDrops(True)  # accept tag bubbles dragged from the Tags palette
+
 		self._setupTable(descs, tableBuilder, parent)
+
+	def dragEnterEvent(self, event):
+		if event.mimeData().hasFormat(TAG_MIME_TYPE):
+			event.acceptProposedAction()
+		else:
+			event.ignore()
+
+	def dragMoveEvent(self, event):
+		if event.mimeData().hasFormat(TAG_MIME_TYPE):
+			event.acceptProposedAction()
+		else:
+			event.ignore()
+
+	def dropEvent(self, event):
+		if not event.mimeData().hasFormat(TAG_MIME_TYPE):
+			event.ignore()
+			return
+		tagUID: str = bytes(event.mimeData().data(TAG_MIME_TYPE).data()).decode('utf-8')
+		row: int = self.indexAt(event.position().toPoint()).row()
+		if row < 0:
+			event.ignore()
+			return
+		descIdxItem = self.item(row, len(self._headers))
+		if descIdxItem is None:
+			event.ignore()
+			return
+		descIdx: int = int(descIdxItem.text())
+		if descIdx < 0 or descIdx >= len(self._descs):
+			event.ignore()
+			return
+		desc: BaseDescriptor = self._descs[descIdx]
+		AssignTagUIDToDescriptor(desc, tagUID)
+		event.acceptProposedAction()
 
 	def mousePressEvent(self, event: QMouseEvent):
 		if event.button() == Qt.MouseButton.LeftButton:
