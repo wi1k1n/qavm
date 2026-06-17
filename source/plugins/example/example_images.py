@@ -124,9 +124,6 @@ class ExampleTileBuilderImages(BaseTileBuilder, ExampleContextMenuBase):
 		animatedBorderWidget = self._wrapWidgetInAnimatedBorder(descWidget, borderColor, isProcessRunning, parent)
 		return animatedBorderWidget
 	
-	# def UpdateTileWidget(self, descriptor: BaseDescriptor, widget: QWidget) -> QWidget:
-	# 	return widget
-	
 	def _createDescWidget(self, desc: ExampleDescriptorImages, parent: QWidget):
 		descWidget = QWidget(parent)
 

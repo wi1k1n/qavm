@@ -478,8 +478,8 @@ class BaseQualifier(object):
 
 class BaseDescriptor(QObject):
 	""" Base class for software descriptors. Descriptor is used to represent the software among other plugin parts, such as TileBuilder, TableBuilder, ContextMenu, etc. """
-	updated = pyqtSignal()
-	descDataUpdated = pyqtSignal()
+	# updated = pyqtSignal()
+	descDataUpdated = pyqtSignal()  # data in the corresponding BaseDescriptorData has changed
 
 	# TODO: rename dirPath to path, as now it also can be a file
 	def __init__(self, dirPath: Path, settings: SoftwareBaseSettings, fileContents: dict[str, str | bytes]):
@@ -537,15 +537,15 @@ class BaseDescriptor(QObject):
 class BaseDescriptorData(object):
 	def __init__(self) -> None:
 		self.tags: list[str] = []  # List of tag UIDs
-		self.noteVisible: str = ''  # A small note (purpose: to be visible on the descriptor tile)
-		self.note: str = ''  # The full note text, which can be edited in the note editor dialog
+		self.noteSmall: str = ''  # A small note (purpose: to be visible on the descriptor tile)
+		self.noteDetail: str = ''  # The full note text, which can be edited in the note editor dialog
 	
 	def GetTags(self) -> list[str]:
 		return self.tags
-	def GetNoteVisible(self) -> str:
-		return self.noteVisible
-	def GetNote(self) -> str:
-		return self.note
+	def GetNoteSmall(self) -> str:
+		return self.noteSmall
+	def GetNoteDetail(self) -> str:
+		return self.noteDetail
 
 class DescriptonrDataAccessor(object):
 	def GetDescriptorData(self, desc: BaseDescriptor) -> BaseDescriptorData:
@@ -580,10 +580,6 @@ class BaseTileBuilder(BaseBuilder):
 	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:
 		""" Creates a tile widget for the descriptor. """
 		return QLabel(str(descriptor.dirPath), parent)
-	
-	# def UpdateTileWidget(self, descriptor: BaseDescriptor, widget: QWidget) -> QWidget:
-	# 	""" Updates the tile widget with the descriptor data. """
-	# 	return widget
 
 class BaseTableBuilder(BaseBuilder):
 	updateTableRequired = pyqtSignal()  # is emitted when whole table needs to be updated

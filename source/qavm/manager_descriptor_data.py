@@ -8,8 +8,8 @@ class DescriptorDataImpl(BaseDescriptorData):
 		""" Serializes the descriptor data to a dictionary. """
 		return {
 			'tags': self.tags,
-			'noteVisible': self.noteVisible,
-			'note': self.note
+			'noteSmall': self.noteSmall,
+			'noteDetail': self.noteDetail
 		}
 	
 	# TODO: refactor this to a more generic implementation
@@ -23,14 +23,14 @@ class DescriptorDataImpl(BaseDescriptorData):
 			if not isinstance(data['tags'], list):
 				raise TypeError(f'Expected list for tags, got {type(data["tags"])}')
 			descData.tags = data['tags']
-		if 'noteVisible' in data:
-			if not isinstance(data['noteVisible'], str):
-				raise TypeError(f'Expected str for noteVisible, got {type(data["noteVisible"])}')
-			descData.noteVisible = data['noteVisible']
-		if 'note' in data:
-			if not isinstance(data['note'], str):
-				raise TypeError(f'Expected str for note, got {type(data["note"])}')
-			descData.note = data['note']
+		if 'noteSmall' in data:
+			if not isinstance(data['noteSmall'], str):
+				raise TypeError(f'Expected str for noteSmall, got {type(data["noteSmall"])}')
+			descData.noteSmall = data['noteSmall']
+		if 'noteDetail' in data:
+			if not isinstance(data['noteDetail'], str):
+				raise TypeError(f'Expected str for noteDetail, got {type(data["noteDetail"])}')
+			descData.noteDetail = data['noteDetail']
 		return descData
 
 class DescriptonrDataAccessorImpl(DescriptonrDataAccessor):

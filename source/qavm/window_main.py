@@ -204,9 +204,6 @@ class MainWindow(QMainWindow):
 			for viewUID in customViews:
 				self._createCustomView(swHandler, viewUID)
 
-		# self.UpdateTilesWidget()
-		# self.UpdateTableWidget()
-
 		# TODO: FreeMove view is currently not implemented
 
 		self.setCentralWidget(self.tabsWidget)
@@ -379,8 +376,7 @@ class MainWindow(QMainWindow):
 		"""
 		noteEditor = NoteEditorDialog(desc, self)
 		if noteEditor.exec() == QDialog.DialogCode.Accepted:
-			# TODO: Emit signal to update descriptor in views
-			pass
+			desc.descDataUpdated.emit()
 	
 	
 	def _wrapWidgetWithTags(self, widget: QWidget, parent: QWidget, desc: BaseDescriptor) -> QWidget:

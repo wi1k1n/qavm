@@ -30,7 +30,7 @@ class NoteEditorDialog(QDialog):
 		self.enableSmallTextCheckbox.stateChanged.connect(self._toggleSmallTextField)
 
 		self.smallTextField = QTextEdit()
-		self.smallTextField.setText(descData.noteVisible)
+		self.smallTextField.setText(descData.noteSmall)
 		self.smallTextField.setPlaceholderText("Enter visible text...")
 		self.smallTextField.setFixedHeight(50)
 
@@ -39,7 +39,7 @@ class NoteEditorDialog(QDialog):
 
 		# Note field
 		self.noteField = QTextEdit()
-		self.noteField.setText(descData.note)
+		self.noteField.setText(descData.noteDetail)
 		self.noteField.setPlaceholderText("Enter note (supports basic HTML formatting)...")
 
 		# Buttons
@@ -65,8 +65,8 @@ class NoteEditorDialog(QDialog):
 	def accept(self) -> None:
 		"""Override accept to save changes before closing."""
 		descData: DescriptorDataImpl = self.descDataManager.GetDescriptorData(self.descriptor)
-		descData.noteVisible = self.smallTextField.toPlainText()
-		descData.note = self.noteField.toPlainText()
+		descData.noteSmall = self.smallTextField.toPlainText()
+		descData.noteDetail = self.noteField.toPlainText()
 		self.descDataManager.SetDescriptorData(self.descriptor, descData)
 		self.descDataManager.SaveData()
 		super().accept()

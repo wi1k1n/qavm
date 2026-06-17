@@ -1,5 +1,6 @@
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PyQt6.QtWidgets import (
 	QMainWindow, QMenu, QWidget, QScrollArea, QVBoxLayout, 
@@ -18,6 +19,9 @@ from qavm.qavmapi import (
 from qavm.utils_gui import FlowLayout
 from qavm.utils_widgets import PopulateContextMenuTagsAndNotes
 
+if TYPE_CHECKING:
+	from qavm.window_main import MainWindow
+	
 import qavm.logs as logs
 logger = logs.logger
 
@@ -27,7 +31,7 @@ class TilesWidget(QWidget):
 
 		self.descs = descs
 		self.tileBuilder = tileBuilder
-		self.mainWindow: QMainWindow = parent
+		self.mainWindow: 'MainWindow' = parent
 
 		self.flowLayout: FlowLayout | None = None
 
