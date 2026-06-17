@@ -21,7 +21,7 @@ from qavm.manager_tags import TagsManager, BaseTagImpl
 from qavm.window_note_editor import NoteEditorDialog
 from qavm.window_about import AboutDialog
 from qavm.widget_table import MyTableWidget
-from qavm.windows_tags_palette import TagsPaletteWidget
+from qavm.window_tag_palette import TagsPaletteWidget
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder,
