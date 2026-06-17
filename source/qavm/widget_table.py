@@ -138,10 +138,12 @@ class MyTableWidget(QTableWidget):
 	doubleClickedRight = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
 	doubleClickedMiddle = pyqtSignal(int, int, Qt.KeyboardModifier)  # row, col, modifiers
 
-	def __init__(self, descs: list[BaseDescriptor], tableBuilder: BaseTableBuilder, parent: QMainWindow):
+	def __init__(self, descs: list[BaseDescriptor], tableBuilder: BaseTableBuilder, swHandler: SoftwareHandler, viewUID: str, parent: QMainWindow):
 		super().__init__(parent)
 		
 		self.mainWindow: QMainWindow = parent
+		self.swHandler: SoftwareHandler = swHandler
+		self.viewUID: str = viewUID
 
 		self._setupTable(descs, tableBuilder, parent)
 
@@ -221,7 +223,7 @@ class MyTableWidget(QTableWidget):
 				descIdx: int = int(item.text())
 				desc: BaseDescriptor = descs[descIdx]
 				if menu := tableBuilder.GetContextMenu(desc):
-					PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self)
+					PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID)
 					menu.exec(QCursor.pos())
 
 		for r, desc in enumerate(descs):

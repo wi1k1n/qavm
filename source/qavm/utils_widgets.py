@@ -15,8 +15,10 @@ import qavm.logs as logs
 logger = logs.logger
 
 
-def PopulateContextMenuTagsAndNotes(menu: QMenu, desc: BaseDescriptor, mainWindow: 'MainWindow', parent: QWidget):
-	""" Adds the shared 'Assign Tag' / 'Remove Tag' submenus and the 'Edit Note' action to the given context menu. """
+def PopulateContextMenuTagsAndNotes(menu: QMenu, desc: BaseDescriptor, mainWindow: 'MainWindow', parent: QWidget, pluginID: str, softwareID: str, viewUID: str):
+	""" Adds the shared 'Assign Tag' / 'Remove Tag' submenus and the 'Edit Note' action to the given context menu.
+
+	Only tags whose scopes are applicable to the given plugin/software/view context are offered in the 'Assign Tag' submenu. """
 	def assignTag(tag: Tag):
 		logger.info(f"Assigning tag {tag.GetName()} to descriptor {desc.GetUID()}")
 		mainWindow.tagsManager.AssignTag(desc, tag)
@@ -35,8 +37,12 @@ def PopulateContextMenuTagsAndNotes(menu: QMenu, desc: BaseDescriptor, mainWindo
 		for tag in tags:
 			if tag.GetUID() in descTagsUIDs:
 				continue
+			if not tag.IsApplicableInContext(pluginID, softwareID, viewUID):
+				continue
 			action = QAction(tag.GetName(), parent, triggered=partial(assignTag, tag))
 			addTagSubMenu.addAction(action)
+		if addTagSubMenu.isEmpty():
+			addTagSubMenu = None
 
 	removeTagsSubMenu: QMenu | None = None
 	if descTags := [mainWindow.tagsManager.GetTag(tagUID) for tagUID in descTagsUIDs if mainWindow.tagsManager.GetTag(tagUID)]:

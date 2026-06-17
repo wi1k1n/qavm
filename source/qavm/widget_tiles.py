@@ -16,6 +16,7 @@ from PyQt6.QtCore import (
 from qavm.qavmapi import (
 	BaseDescriptor, BaseTileBuilder,
 )
+from qavm.manager_plugin import SoftwareHandler
 from qavm.utils_gui import FlowLayout
 from qavm.utils_widgets import PopulateContextMenuTagsAndNotes
 
@@ -26,11 +27,13 @@ import qavm.logs as logs
 logger = logs.logger
 
 class TilesWidget(QWidget):
-	def __init__(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, parent: QWidget):
+	def __init__(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder, swHandler: SoftwareHandler, viewUID: str, parent: QWidget):
 		super().__init__(parent)
 
 		self.descs = descs
 		self.tileBuilder = tileBuilder
+		self.swHandler: SoftwareHandler = swHandler
+		self.viewUID: str = viewUID
 		self.mainWindow: 'MainWindow' = parent
 
 		self.flowLayout: FlowLayout | None = None
@@ -45,7 +48,7 @@ class TilesWidget(QWidget):
 
 	def _showContextMenu(self, desc: BaseDescriptor):
 		if menu := self.tileBuilder.GetContextMenu(desc):
-			PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self)
+			PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID)
 			menu.exec(QCursor.pos())
 
 	def _setupTileWidget(self, desc: BaseDescriptor, tileWidget: QWidget) -> QWidget:

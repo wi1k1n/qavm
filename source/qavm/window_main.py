@@ -240,7 +240,7 @@ class MainWindow(QMainWindow):
 		
 		descs: list[BaseDescriptor] = self._prepareDescriptors(swHandler, viewUID, tileBuilder)
 
-		if tilesView := TilesWidget(descs, tileBuilder, parent=self):
+		if tilesView := TilesWidget(descs, tileBuilder, swHandler, viewUID, parent=self):
 			self.tabsWidget.insertTab(0, tilesView, tileBuilder.GetName())
 			# self.tabsWidget.addTabWithUid(tilesView, tileBuilder.GetName(), viewUID+descUID)
 			
@@ -253,7 +253,7 @@ class MainWindow(QMainWindow):
 		
 		descs: list[BaseDescriptor] = self._prepareDescriptors(swHandler, viewUID, tableBuilder)
 		
-		self.tableWidget: MyTableWidget = MyTableWidget(descs, tableBuilder, parent=self)
+		self.tableWidget: MyTableWidget = MyTableWidget(descs, tableBuilder, swHandler, viewUID, parent=self)
 		self.tabsWidget.insertTab(0, self.tableWidget, tableBuilder.GetName())
 		# self.tabsWidget.addTabWithUid(tableWidget, tableBuilder.GetName(), viewUID+descUID)
 
