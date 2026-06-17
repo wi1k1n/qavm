@@ -1,9 +1,35 @@
 import json
 from pathlib import Path
-from typing import Any
-from qavm.qavmapi import BaseDescriptor, BaseDescriptorData, DescriptonrDataAccessor
+from typing import TYPE_CHECKING, Any
+
+from PyQt6.QtWidgets import (
+	QApplication,
+)
+
+from qavm.qavmapi import BaseDescriptor, BaseDescriptorData, BaseTag, DescriptonrDataAccessor
+
+if TYPE_CHECKING:
+	from qavm.manager_tags import TagsManager, BaseTagImpl
 
 class DescriptorDataImpl(BaseDescriptorData):
+	def __init__(self) -> None:
+		self.tags: list[str] = []  # List of tag UIDs
+		self.noteSmall: str = ''  # A small note (purpose: to be visible on the descriptor tile)
+		self.noteDetail: str = ''  # The full note text, which can be edited in the note editor dialog
+		
+	def GetTags(self) -> list[BaseTag]:
+		tagsManager: TagsManager = QApplication.instance().GetTagsManager()
+		tags: list[BaseTag | None] = [tagsManager.GetTag(tagUID) for tagUID in self.tags]
+		return [tag for tag in tags if tag]  # Filter out None values in case of missing tags
+	
+	def GetTagsScoped(self, pluginID: str, softwareID: str, viewUID: str) -> list[BaseTag]:
+		return [tag for tag in self.GetTags() if tag and tag.IsApplicableInContext(pluginID, softwareID, viewUID)]
+		
+	def GetNoteSmall(self) -> str:
+		return self.noteSmall
+	def GetNoteDetail(self) -> str:
+		return self.noteDetail
+	
 	def Serialize(self) -> dict[str, Any]:
 		""" Serializes the descriptor data to a dictionary. """
 		return {
@@ -43,7 +69,6 @@ class DescriptonrDataAccessorImpl(DescriptonrDataAccessor):
 class DescriptorDataManager(object):
 	def __init__(self, dataFilepath: Path) -> None:
 		self.dataFilepath: Path = dataFilepath
-		# self.data_old: dict[str, Any] = {'__qavm__': {}}
 		self.data: dict[str, DescriptorDataImpl] = {}  # UID -> DescriptorDataImpl
 		self.descDataAccessor: DescriptonrDataAccessorImpl = DescriptonrDataAccessorImpl(self)
 

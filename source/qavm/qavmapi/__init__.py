@@ -534,18 +534,31 @@ class BaseDescriptor(QObject):
 			dirType = 'J'
 		return dirType
 	
-class BaseDescriptorData(object):
-	def __init__(self) -> None:
-		self.tags: list[str] = []  # List of tag UIDs
-		self.noteSmall: str = ''  # A small note (purpose: to be visible on the descriptor tile)
-		self.noteDetail: str = ''  # The full note text, which can be edited in the note editor dialog
+class BaseTag(object):
+	def GetUID(self) -> str:
+		return ''
+
+	def GetName(self) -> str:
+		return ''
 	
-	def GetTags(self) -> list[str]:
-		return self.tags
+	def GetColor(self) -> str:
+		return ''
+
+	def IsApplicableInContext(self, pluginID: str, softwareID: str, viewUID: str) -> bool:
+		""" Returns True if the tag is applicable in the given plugin/software/view context. An empty scope list means global (always applicable). """
+		return True
+	
+class BaseDescriptorData(object):
+	def GetTags(self) -> list[BaseTag]:
+		""" Returns all tags associated with the descriptor. """
+		return []
+	def GetTagsScoped(self, pluginID: str, softwareID: str, viewUID: str) -> list[BaseTag]:
+		""" Returns tags applicable for the given plugin/software/view context. """
+		return []
 	def GetNoteSmall(self) -> str:
-		return self.noteSmall
+		return ''
 	def GetNoteDetail(self) -> str:
-		return self.noteDetail
+		return ''
 
 class DescriptonrDataAccessor(object):
 	def GetDescriptorData(self, desc: BaseDescriptor) -> BaseDescriptorData:

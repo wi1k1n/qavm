@@ -16,7 +16,7 @@ from qavm.manager_plugin import PluginManager, SoftwareHandler, UID, QAVMWorkspa
 from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.widget_tiles import TilesWidget
 from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorDataImpl
-from qavm.manager_tags import TagsManager, Tag
+from qavm.manager_tags import TagsManager, BaseTagImpl
 
 from qavm.window_note_editor import NoteEditorDialog
 from qavm.window_about import AboutDialog
