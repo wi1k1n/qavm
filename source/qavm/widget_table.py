@@ -26,6 +26,7 @@ from qavm.qavmapi import (
 )
 from qavm.qavmapi.utils import PlatformMacOS, PlatformWindows, PlatformLinux
 from qavm.utils_gui import FlowLayout
+from qavm.utils_widgets import PopulateContextMenuTagsAndNotes
 from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion, GetQAVMVersionVariant
 
 import qavm.logs as logs
@@ -220,48 +221,7 @@ class MyTableWidget(QTableWidget):
 				descIdx: int = int(item.text())
 				desc: BaseDescriptor = descs[descIdx]
 				if menu := tableBuilder.GetContextMenu(desc):
-					##############################
-					def assignTag(tag: Tag):
-						logger.info(f"Assigning tag {tag.GetName()} to descriptor {desc.GetUID()}")
-						self.mainWindow.tagsManager.AssignTag(desc, tag)
-						# tableBuilder.updateTableRowRequired.emit(desc)
-						desc.descDataUpdated.emit()
-					def removeTag(desc: BaseDescriptor, tag: Tag):
-						logger.info(f"Removing tag {tag.GetName()} from descriptor {desc.GetUID()}")
-						self.mainWindow.tagsManager.RemoveTag(desc, tag)
-						# tableBuilder.updateTableRowRequired.emit(desc)
-						desc.descDataUpdated.emit()
-						
-					descData: DescriptorDataImpl = self.mainWindow.descDataManager.GetDescriptorData(desc)
-					descTagsUIDs: list[str] = descData.tags
-					
-					addTagSubMenu = None
-					if tags := self.mainWindow.tagsManager.GetTags().values():
-						addTagSubMenu: QMenu = QMenu("Assign Tag", self)
-						for tag in tags:
-							if tag.GetUID() in descTagsUIDs:
-								continue
-							action = QAction(tag.GetName(), self, triggered=partial(assignTag, tag))
-							addTagSubMenu.addAction(action)
-						
-
-					removeTagsSubMenu = None
-					if descTags := [self.mainWindow.tagsManager.GetTag(tagUID) for tagUID in descTagsUIDs if self.mainWindow.tagsManager.GetTag(tagUID)]:
-						removeTagsSubMenu: QMenu = QMenu("Remove Tag", self)
-						for tag in descTags:
-							action = QAction(tag.GetName(), self, triggered=partial(removeTag, desc, tag))
-							removeTagsSubMenu.addAction(action)
-
-					if addTagSubMenu or removeTagsSubMenu:	
-						menu.addSeparator()
-					if addTagSubMenu:
-						menu.addMenu(addTagSubMenu)
-					if removeTagsSubMenu:
-						menu.addMenu(removeTagsSubMenu)
-
-					menu.addSeparator()
-					menu.addAction(QAction("Edit Note", self, triggered=partial(self.mainWindow._showNoteEditorDialog, desc)))
-					##############################
+					PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self)
 					menu.exec(QCursor.pos())
 
 		for r, desc in enumerate(descs):
