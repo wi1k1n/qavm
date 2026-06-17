@@ -103,8 +103,10 @@ class ExampleContextMenuBase(object):
 class ExampleTileBuilderImages(BaseTileBuilder, ExampleContextMenuBase):
 	def __init__(self, settings: SoftwareBaseSettings):
 		super().__init__(settings)
+
 		# From BaseTileBuilder:
 		# self.settings: SoftwareBaseSettings
+		# self.descDataAccessor: DescriptonrDataAccessor
 		# self.themeData: dict
 
 		self.settings.settingChanged.connect(self._onSettingsChanged)
@@ -191,8 +193,9 @@ class ExampleTileBuilderImages(BaseTileBuilder, ExampleContextMenuBase):
 		return animBorderWidget
 
 	def _onSettingsChanged(self, settingName: str, newValue: Any):
-		if settingName == 'tile_size':
-			self.updateTileRequired.emit()
+		# if settingName == 'tile_size':
+		# 	self.updateTileRequired.emit()
+		pass
 
 class ExampleTableBuilderImages(BaseTableBuilder):
 	def GetName(self) -> str:

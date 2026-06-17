@@ -241,7 +241,6 @@ class MainWindow(QMainWindow):
 		descs: list[BaseDescriptor] = self._prepareDescriptors(swHandler, viewUID, tileBuilder)
 
 		if tilesView := TilesWidget(descs, tileBuilder, parent=self):
-			# tileBuilder.updateTileRequired.connect(partial(self._updateTilesWidget, descs, tileBuilder))
 			self.tabsWidget.insertTab(0, tilesView, tileBuilder.GetName())
 			# self.tabsWidget.addTabWithUid(tilesView, tileBuilder.GetName(), viewUID+descUID)
 			
@@ -255,7 +254,6 @@ class MainWindow(QMainWindow):
 		descs: list[BaseDescriptor] = self._prepareDescriptors(swHandler, viewUID, tableBuilder)
 		
 		self.tableWidget: MyTableWidget = MyTableWidget(descs, tableBuilder, parent=self)
-		# tableWidget.itemSelectionChanged.connect(partial(self._tableItemFocusBuggedWorkaround, tableWidget))
 		self.tabsWidget.insertTab(0, self.tableWidget, tableBuilder.GetName())
 		# self.tabsWidget.addTabWithUid(tableWidget, tableBuilder.GetName(), viewUID+descUID)
 
@@ -273,10 +271,6 @@ class MainWindow(QMainWindow):
 		self.qavmSettings.Save()  # TODO: should save now or later once per all changes?
 
 		self.tableWidget.clearFocus()
-		
-	# def _updateTilesWidget(self, descs: list[BaseDescriptor], tileBuilder: BaseTileBuilder):
-	# 	for desc in descs:
-	# 		tileBuilder.UpdateTileWidget()
 	
 	# def _tableItemFocusBuggedWorkaround(self, tableWidget: QTableWidget):
 	# 	"""

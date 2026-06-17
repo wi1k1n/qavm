@@ -86,13 +86,3 @@ class DescriptorDataManager(object):
 		if not isinstance(data, dict):
 			raise TypeError(f'Expected dict, got {type(data)}')
 		return {descUID: DescriptorDataImpl.Deserialize(dd) for descUID, dd in data.items()}
-
-	# def LoadDescriptorsData(self, workspace: 'QAVMWorkspace') -> None:
-	# 	if not workspace:
-	# 		return
-		
-	# 	plugins, _ = workspace.GetInvolvedPlugins()
-	# 	for plugin in plugins:
-	# 		for (sID, swHandler) in plugin.GetSoftwareHandlers().items():
-	# 			descClasses: dict[str, type[BaseDescriptor]] = swHandler.GetDescriptorClasses()
-	# 			print(f'Loading descriptors for {swHandler.GetName()} ({len(descClasses)} classes)')

@@ -228,8 +228,6 @@ class MyTableWidget(QTableWidget):
 			self._populateRow(r, desc, r)
 			desc.descDataUpdated.connect(partial(self._onUpdateTableRowRequired, desc))
 
-		# tableBuilder.updateTableRowRequired.connect(self._onUpdateTableRowRequired)
-
 		# Apply per-column minimum widths after items are populated
 		colMinWidths: list[int] | None = tableBuilder.GetColumnMinimumWidths()
 		if colMinWidths:

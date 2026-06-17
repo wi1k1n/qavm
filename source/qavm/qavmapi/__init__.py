@@ -575,16 +575,11 @@ class BaseBuilder(QWidget):
 		return None
 
 class BaseTileBuilder(BaseBuilder):
-	updateTileRequired = pyqtSignal()  # is emitted when tiles need to be updated
-
 	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:
 		""" Creates a tile widget for the descriptor. """
 		return QLabel(str(descriptor.dirPath), parent)
 
 class BaseTableBuilder(BaseBuilder):
-	updateTableRequired = pyqtSignal()  # is emitted when whole table needs to be updated
-	# updateTableRowRequired = pyqtSignal(BaseDescriptor)  # is emitted when a certain row needs to be updated, int - row index
-
 	def GetTableCaptions(self) -> list[str]:
 		return ['Path']
 	
