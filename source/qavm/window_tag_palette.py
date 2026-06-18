@@ -134,14 +134,21 @@ class TagsPaletteWidget(QWidget):
 		mainLayout.addWidget(scrollArea, 1)
 
 		self._applyPreset(ScopePreset.ACTIVE_SOFTWARE)
+		self.filterSection.setVisible(False)  # ACTIVE_SOFTWARE is not Custom
 		self.RefreshTags()
 
 	# region Setup
 	def _buildFilterBar(self) -> QVBoxLayout:
 		layout = QVBoxLayout()
+		layout.setContentsMargins(0, 0, 0, 0)
+		layout.setSpacing(4)
 
+		# Top row: Add Tag button + preset combo (always visible)
 		topRow = QHBoxLayout()
-		topRow.addWidget(QLabel("Filter:"))
+		self.addTagButton: QPushButton = QPushButton("+ Add Tag")
+		self.addTagButton.clicked.connect(self._onAddTag)
+		topRow.addWidget(self.addTagButton)
+
 		self.presetCombo: QComboBox = QComboBox()
 		self.presetCombo.addItem("All", ScopePreset.ALL)
 		self.presetCombo.addItem("Active Plugin(s)", ScopePreset.ACTIVE_PLUGIN)
@@ -149,24 +156,24 @@ class TagsPaletteWidget(QWidget):
 		self.presetCombo.addItem("Custom", ScopePreset.CUSTOM)
 		self.presetCombo.currentIndexChanged.connect(self._onPresetChanged)
 		topRow.addWidget(self.presetCombo, 1)
-
-		self.addTagButton: QPushButton = QPushButton("+ Add Tag")
-		self.addTagButton.clicked.connect(self._onAddTag)
-		topRow.addWidget(self.addTagButton)
 		layout.addLayout(topRow)
 
-		dropdownRow = QHBoxLayout()
+		# Filter dropdowns — visible only when preset is Custom, stacked vertically
+		self.filterSection: QWidget = QWidget()
+		filterLayout = QVBoxLayout(self.filterSection)
+		filterLayout.setContentsMargins(0, 2, 0, 2)
+		filterLayout.setSpacing(4)
+
 		self.pluginCombo: QComboBox = self._makeFilterCombo(self._pluginOptions)
 		self.softwareCombo: QComboBox = self._makeFilterCombo(self._softwareOptions)
 		self.viewCombo: QComboBox = self._makeFilterCombo(self._viewOptions)
-		dropdownRow.addWidget(QLabel("Plugin:"))
-		dropdownRow.addWidget(self.pluginCombo, 1)
-		dropdownRow.addWidget(QLabel("Software:"))
-		dropdownRow.addWidget(self.softwareCombo, 1)
-		dropdownRow.addWidget(QLabel("View:"))
-		dropdownRow.addWidget(self.viewCombo, 1)
-		layout.addLayout(dropdownRow)
+		for labelText, combo in (("Plugin:", self.pluginCombo), ("Software:", self.softwareCombo), ("View:", self.viewCombo)):
+			row = QHBoxLayout()
+			row.addWidget(QLabel(labelText))
+			row.addWidget(combo, 1)
+			filterLayout.addLayout(row)
 
+		layout.addWidget(self.filterSection)
 		return layout
 
 	def _makeFilterCombo(self, options: list[str]) -> QComboBox:
@@ -245,6 +252,7 @@ class TagsPaletteWidget(QWidget):
 		preset: ScopePreset = self.presetCombo.currentData()
 		if preset != ScopePreset.CUSTOM:
 			self._applyPreset(preset)
+		self.filterSection.setVisible(preset == ScopePreset.CUSTOM)
 		self.RefreshTags()
 
 	def _onDropdownChanged(self):
