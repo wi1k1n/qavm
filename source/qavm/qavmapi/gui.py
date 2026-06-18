@@ -401,7 +401,6 @@ class TagBubblesFlowWidget(QWidget):
 	MARGIN: int = 2
 	BUBBLE_ROUNDING: float = 10.0
 	BUBBLE_MARGIN: int = 5
-	OVERFLOW_COLOR: QColor | None = None
 
 	def __init__(self, tags: list, maxHeight: int, parent: QWidget | None = None):
 		super().__init__(parent)
@@ -434,7 +433,10 @@ class TagBubblesFlowWidget(QWidget):
 		if self._overflowBubble is None:
 			lbl = QLabel('', self)
 			lbl.setContentsMargins(self.BUBBLE_MARGIN, self.BUBBLE_MARGIN, self.BUBBLE_MARGIN, self.BUBBLE_MARGIN)
-			lbl.setStyleSheet('color: #9e9e9e; background: transparent;')
+			accent_color = '#9e9e9e'
+			if themeData := GetThemeData():
+				accent_color = themeData.get('primaryColor', '#ffffff')
+			lbl.setStyleSheet(f'color: {accent_color}; background: transparent; border: 1px solid {accent_color}; border-radius: {int(self.BUBBLE_ROUNDING)}px;')
 			lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 			self._overflowBubble = lbl
 		return self._overflowBubble
