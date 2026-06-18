@@ -396,9 +396,9 @@ class TagBubblesFlowWidget(QWidget):
 	bubbles) are transparent for mouse events so the underlying table still handles row selection,
 	context menus and tag drag-n-drop. Intended to be returned from BaseTableBuilder.GetTableCellValue
 	and consumed via QTableWidget.setCellWidget. """
-	HSPACING: int = 4
-	VSPACING: int = 4
-	MARGIN: int = 3
+	HSPACING: int = 2
+	VSPACING: int = 2
+	MARGIN: int = 2
 	BUBBLE_ROUNDING: float = 10.0
 	BUBBLE_MARGIN: int = 5
 	OVERFLOW_COLOR: QColor = QColor('#9e9e9e')

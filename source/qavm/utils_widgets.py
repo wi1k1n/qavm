@@ -46,10 +46,13 @@ class TagBubbleWidget(BubbleWidget):
 	""" A colorful bubble representing a tag. Supports drag (to assign), hover tooltip and a context menu. """
 	editRequested = pyqtSignal(object)    # emits BaseTagImpl
 	deleteRequested = pyqtSignal(object)  # emits BaseTagImpl
+	
+	BUBBLE_ROUNDING: float = 17.0
+	BUBBLE_MARGIN: int = 11
 
 	def __init__(self, tag: BaseTagImpl, draggable: bool = True, contextMenuEnabled: bool = True, parent: QWidget | None = None):
 		bgColor: QColor | None = QColor(tag.GetColor()) if tag.GetColor() else None
-		super().__init__(tag.GetName(), bgColor=bgColor, rounding=14, margin=7)
+		super().__init__(tag.GetName(), bgColor=bgColor, rounding=self.BUBBLE_ROUNDING, margin=self.BUBBLE_MARGIN)
 		if parent is not None:
 			self.setParent(parent)
 

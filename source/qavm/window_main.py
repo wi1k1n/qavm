@@ -274,10 +274,11 @@ class MainWindow(QMainWindow):
 	def _setupTagsDock(self):
 		self.tagsPalette: TagsPaletteWidget = TagsPaletteWidget(self)
 
-		self.tagsDock: QDockWidget = QDockWidget("Tags", self)
+		self.tagsDock: QDockWidget = QDockWidget("Tags Palette", self)
 		self.tagsDock.setObjectName("TagsPaletteDock")
 		self.tagsDock.setWidget(self.tagsPalette)
-		self.tagsDock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
+		# self.tagsDock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
+		self.tagsDock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)
 		self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.tagsDock)
 		self.tagsDock.hide()  # hidden by default; toggled via the View menu
 
