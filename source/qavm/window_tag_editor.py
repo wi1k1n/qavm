@@ -12,6 +12,8 @@ from PyQt6.QtWidgets import (
 
 from qavm.manager_tags import TagsManager, BaseTagImpl, TagScope
 from qavm.manager_plugin import PluginManager, QAVMWorkspace, SoftwareHandler
+from qavm.utils_gui import DistinguishableColorGenerator
+from qavm.utils_widgets import _PickContrastingTextColor
 
 if TYPE_CHECKING:
 	pass
@@ -81,7 +83,8 @@ class _ScopeRowWidget(QWidget):
 
 class TagEditorDialog(QDialog):
 	""" Modal dialog to create or edit a tag (name, color, scopes). """
-	def __init__(self, tag: BaseTagImpl | None = None, parent: QWidget | None = None) -> None:
+	def __init__(self, tag: BaseTagImpl | None = None, parent: QWidget | None = None,
+				 existingTags: list[BaseTagImpl] | None = None, initialScope: TagScope | None = None) -> None:
 		super().__init__(parent)
 
 		app = QApplication.instance()
@@ -91,32 +94,33 @@ class TagEditorDialog(QDialog):
 
 		self.editTag: BaseTagImpl | None = tag
 		self.resultTag: BaseTagImpl | None = None
-		self._color: str = tag.GetColor() if tag else '#3498db'
+		if tag:
+			self._color: str = tag.GetColor()
+		else:
+			# Auto-pick a color that is the most distinguishable from the currently visible tags.
+			existingColors: list[QColor] = [QColor(t.GetColor()) for t in (existingTags or []) if t.GetColor()]
+			self._color = DistinguishableColorGenerator().GenerateColor(existingColors).name()
 
 		self.setModal(True)
 		self.setWindowTitle("Edit Tag" if tag else "New Tag")
-		self.resize(640, 420)
+		self.resize(960, 320)
 
 		self._pluginOptions, self._softwareOptions, self._viewOptions = self._collectScopeOptions()
 
 		mainLayout = QVBoxLayout(self)
 
 		formLayout = QFormLayout()
+		nameRow = QHBoxLayout()
 		self.nameField: QLineEdit = QLineEdit(tag.GetName() if tag else '')
 		self.nameField.setPlaceholderText("Tag name...")
-		formLayout.addRow("Name:", self.nameField)
-
-		colorRow = QHBoxLayout()
-		self.colorButton: QPushButton = QPushButton("Pick Color…")
+		nameRow.addWidget(self.nameField, 1)
+		self.colorButton: QPushButton = QPushButton()
+		self.colorButton.setFixedWidth(96)
 		self.colorButton.clicked.connect(self._pickColor)
-		self.colorPreview: QLabel = QLabel()
-		self.colorPreview.setFixedSize(48, 24)
-		colorRow.addWidget(self.colorButton)
-		colorRow.addWidget(self.colorPreview)
-		colorRow.addStretch(1)
-		formLayout.addRow("Color:", colorRow)
+		nameRow.addWidget(self.colorButton)
+		formLayout.addRow("Name:", nameRow)
 		mainLayout.addLayout(formLayout)
-		self._updateColorPreview()
+		self._updateColorButton()
 
 		# Scopes section
 		scopesGroup = QGroupBox("Scopes (empty list = global / applies everywhere)")
@@ -142,6 +146,9 @@ class TagEditorDialog(QDialog):
 		if tag:
 			for scope in tag.GetScopes():
 				self._addScopeRow(scope)
+		elif initialScope is not None:
+			# A brand new tag starts with a single scope that mirrors the current palette filter.
+			self._addScopeRow(initialScope)
 
 		buttonBox = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
 		buttonBox.accepted.connect(self.accept)
@@ -180,14 +187,37 @@ class TagEditorDialog(QDialog):
 
 	def _pickColor(self):
 		initial = QColor(self._color) if self._color else QColor('#3498db')
-		color = QColorDialog.getColor(initial, self, "Pick Tag Color")
-		if color.isValid():
-			self._color = color.name()
-			self._updateColorPreview()
+		dialog = QColorDialog(initial, self)
+		dialog.setWindowTitle("Pick Tag Color")
+		dialog.setOption(QColorDialog.ColorDialogOption.DontUseNativeDialog, True)
+		
+		# workaround for issue with values being clipped
+		dialog.setStyleSheet("""
+			QColorDialog QSpinBox,
+			QColorDialog QDoubleSpinBox {
+				padding-left: 2px;
+				padding-right: 2px;
+				min-width: 48px;
+			}
 
-	def _updateColorPreview(self):
-		self.colorPreview.setStyleSheet(f'background-color: {self._color}; border: 1px solid #555;')
-		self.colorPreview.setToolTip(self._color)
+			QColorDialog QLineEdit {
+				padding-left: 2px;
+				padding-right: 2px;
+			}
+		""")
+
+		if dialog.exec():
+			color = dialog.selectedColor()
+			if color.isValid():
+				self._color = color.name()
+				self._updateColorButton()
+
+	def _updateColorButton(self):
+		bgColor: QColor = QColor(self._color)
+		textColor: QColor = _PickContrastingTextColor(bgColor)
+		self.colorButton.setText(self._color)
+		self.colorButton.setStyleSheet(f'background-color: {bgColor.name()}; color: {textColor.name()};')
+		self.colorButton.setToolTip(self._color)
 
 	def GetResultTag(self) -> BaseTagImpl | None:
 		return self.resultTag

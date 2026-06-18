@@ -263,7 +263,15 @@ class TagsPaletteWidget(QWidget):
 		self.RefreshTags()
 
 	def _onAddTag(self):
-		dialog = TagEditorDialog(None, self)
+		pluginFilter: str = self.pluginCombo.currentData() or ''
+		softwareFilter: str = self.softwareCombo.currentData() or ''
+		viewFilter: str = self.viewCombo.currentData() or ''
+		visibleTags: list[BaseTagImpl] = [
+			tag for tag in self.tagsManager.GetTagsOrdered()
+			if _tagMatchesFilter(tag, pluginFilter, softwareFilter, viewFilter)
+		]
+		initialScope: TagScope = TagScope(pluginFilter, softwareFilter, viewFilter)
+		dialog = TagEditorDialog(None, self, existingTags=visibleTags, initialScope=initialScope)
 		if dialog.exec():
 			self.RefreshTags()
 

@@ -1,3 +1,6 @@
+import math
+import random
+
 from PyQt6.QtCore import Qt, QSize, QRect, QPoint, QPropertyAnimation
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen, QFont
 from PyQt6.QtWidgets import QLabel, QLayout, QWidget, QWidgetItem
@@ -150,3 +153,118 @@ class FadeTooltip(QLabel):
 		if self._fadingOut:
 			self.hide()
 			self._fadingOut = False
+
+
+class DistinguishableColorGenerator:
+	""" Generates perceptually distinguishable colors using the OKLab / OKLCh color space.
+
+	Reusable helper: build a fixed palette of pleasant candidate colors once, then ask for the
+	candidate that is the most perceptually distinct from a set of already-used colors. """
+
+	_LIGHTNESS_VALUES: tuple[float, ...] = (0.66, 0.72, 0.78, 0.84)
+	_CHROMA_VALUES: tuple[float, ...] = (0.10, 0.13, 0.16)
+	_HUE_STEP_DEGREES: int = 4
+
+	def __init__(self) -> None:
+		self._candidates: list[tuple[int, int, int]] = self._GenerateCandidateColors()
+		self._candidateOklab: dict[tuple[int, int, int], tuple[float, float, float]] = {
+			rgb: self._RGBToOklab(rgb) for rgb in self._candidates
+		}
+
+	def GenerateColor(self, existingColors: list[QColor] | None = None) -> QColor:
+		""" Returns the candidate color that is most perceptually distinguishable from all existingColors.
+		If no existing colors are given, a random candidate is returned. """
+		existingRGB: list[tuple[int, int, int]] = [
+			(c.red(), c.green(), c.blue()) for c in (existingColors or []) if c is not None and c.isValid()
+		]
+		if not existingRGB:
+			return QColor(*random.choice(self._candidates))
+
+		existingOklab: list[tuple[float, float, float]] = [self._RGBToOklab(rgb) for rgb in existingRGB]
+		bestRGB: tuple[int, int, int] = max(
+			self._candidates,
+			key=lambda rgb: min(
+				self._OklabDistance(self._candidateOklab[rgb], existing)
+				for existing in existingOklab
+			),
+		)
+		return QColor(*bestRGB)
+
+	def GenerateColors(self, count: int, existingColors: list[QColor] | None = None) -> list[QColor]:
+		""" Returns count colors, each maximally distinguishable from the existing ones and from each other. """
+		if count <= 0:
+			return []
+		accumulated: list[QColor] = list(existingColors or [])
+		result: list[QColor] = []
+		for _ in range(count):
+			color: QColor = self.GenerateColor(accumulated)
+			result.append(color)
+			accumulated.append(color)
+		return result
+
+	# region Color math (sRGB <-> linear <-> OKLab / OKLCh)
+	@classmethod
+	def _GenerateCandidateColors(cls) -> list[tuple[int, int, int]]:
+		candidates: list[tuple[int, int, int]] = []
+		for lightness in cls._LIGHTNESS_VALUES:
+			for chroma in cls._CHROMA_VALUES:
+				for hue in range(0, 360, cls._HUE_STEP_DEGREES):
+					rgb = cls._OklchToRGB(lightness, chroma, hue)
+					if rgb is not None:
+						candidates.append(rgb)
+		return candidates
+
+	@staticmethod
+	def _SRGBToLinear(c: int) -> float:
+		v = c / 255.0
+		return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+
+	@staticmethod
+	def _LinearToSRGB(c: float) -> int:
+		if c <= 0.0031308:
+			c = 12.92 * c
+		else:
+			c = 1.055 * (c ** (1.0 / 2.4)) - 0.055
+		return round(max(0.0, min(1.0, c)) * 255)
+
+	@classmethod
+	def _RGBToOklab(cls, rgb: tuple[int, int, int]) -> tuple[float, float, float]:
+		r, g, b = (cls._SRGBToLinear(c) for c in rgb)
+
+		l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b
+		m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b
+		s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b
+
+		l_, m_, s_ = math.cbrt(l), math.cbrt(m), math.cbrt(s)
+
+		return (
+			0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+			1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+			0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+		)
+
+	@classmethod
+	def _OklchToRGB(cls, lightness: float, chroma: float, hueDegrees: float) -> tuple[int, int, int] | None:
+		hue = math.radians(hueDegrees)
+		a = chroma * math.cos(hue)
+		b = chroma * math.sin(hue)
+
+		l_ = lightness + 0.3963377774 * a + 0.2158037573 * b
+		m_ = lightness - 0.1055613458 * a - 0.0638541728 * b
+		s_ = lightness - 0.0894841775 * a - 1.2914855480 * b
+
+		l, m, s = l_ ** 3, m_ ** 3, s_ ** 3
+
+		r = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s
+		g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s
+		b = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+
+		if not all(0.0 <= channel <= 1.0 for channel in (r, g, b)):
+			return None
+
+		return cls._LinearToSRGB(r), cls._LinearToSRGB(g), cls._LinearToSRGB(b)
+
+	@staticmethod
+	def _OklabDistance(c1: tuple[float, float, float], c2: tuple[float, float, float]) -> float:
+		return math.sqrt(sum((a - b) ** 2 for a, b in zip(c1, c2)))
+	# endregion
