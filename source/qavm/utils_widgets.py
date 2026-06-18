@@ -29,7 +29,6 @@ def AssignTagUIDToDescriptor(desc: BaseDescriptor, tagUID: str) -> bool:
 		logger.warning(f"Cannot assign tag: unknown tag UID {tagUID}")
 		return False
 	tagsManager.AssignTag(desc, tag)
-	desc.descDataUpdated.emit()
 	return True
 
 
@@ -114,9 +113,11 @@ class TagBubbleWidget(BubbleWidget):
 		super().leaveEvent(event)
 
 	def _showTooltip(self):
-		if self._tooltip is None:
-			self._tooltip = FadeTooltip(self)
-		self._tooltip.showText(self._buildTooltipHtml(), QCursor.pos() + QPoint(14, 18))
+		pass
+		# Temporarily disabled, DONT DELETE
+		# if self._tooltip is None:
+		# 	self._tooltip = FadeTooltip(self)
+		# self._tooltip.showText(self._buildTooltipHtml(), QCursor.pos() + QPoint(14, 18))
 
 	def _buildTooltipHtml(self) -> str:
 		colorStr: str = self.tag.GetColor() or '#000000'
@@ -159,11 +160,9 @@ def PopulateContextMenuTagsAndNotes(menu: QMenu, desc: BaseDescriptor, mainWindo
 	def assignTag(tag: BaseTagImpl):
 		logger.info(f"Assigning tag {tag.GetName()} to descriptor {desc.GetUID()}")
 		mainWindow.tagsManager.AssignTag(desc, tag)
-		desc.descDataUpdated.emit()
 	def removeTag(desc: BaseDescriptor, tag: BaseTagImpl):
 		logger.info(f"Removing tag {tag.GetName()} from descriptor {desc.GetUID()}")
 		mainWindow.tagsManager.RemoveTag(desc, tag)
-		desc.descDataUpdated.emit()
 
 	descData: DescriptorDataImpl = mainWindow.descDataManager.GetDescriptorData(desc)
 	descTagsUIDs: list[str] = descData.tags

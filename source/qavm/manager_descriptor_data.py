@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterable
 
 from PyQt6.QtWidgets import (
 	QApplication,
@@ -86,6 +86,28 @@ class DescriptorDataManager(object):
 			raise TypeError(f'Expected DescriptorDataImpl, got {type(data)}')
 		descUID: str = desc.GetUID()
 		self.data[descUID] = data
+
+	def NotifyDescriptorsDataUpdated(self, descUIDs: 'Iterable[str]') -> None:
+		""" Emits descDataUpdated on every live descriptor whose UID is in descUIDs, so all subscribed views re-render. """
+		descUIDsSet: set[str] = set(descUIDs)
+		if not descUIDsSet:
+			return
+		app = QApplication.instance()
+		getAllDescriptors = getattr(app, 'GetAllSoftwareDescriptors', None)
+		if getAllDescriptors is None:
+			return
+		for desc in getAllDescriptors():
+			if desc.GetUID() in descUIDsSet:
+				desc.descDataUpdated.emit()
+
+	def NotifyAllDescriptorsDataUpdated(self) -> None:
+		""" Emits descDataUpdated on every live descriptor, so all subscribed views re-render. """
+		app = QApplication.instance()
+		getAllDescriptors = getattr(app, 'GetAllSoftwareDescriptors', None)
+		if getAllDescriptors is None:
+			return
+		for desc in getAllDescriptors():
+			desc.descDataUpdated.emit()
 
 	def LoadData(self) -> None:
 		if not self.dataFilepath.exists():

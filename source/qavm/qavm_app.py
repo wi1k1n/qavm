@@ -125,6 +125,14 @@ class QAVMApp(QApplication):
 		self.LoadSoftwareDescriptors(swHandler)
 		return self.softwareDescriptors[swHandler]
 	
+	def GetAllSoftwareDescriptors(self) -> list[BaseDescriptor]:
+		""" Returns a flat list of all currently loaded descriptors across all software handlers. """
+		allDescriptors: list[BaseDescriptor] = list()
+		for descsMap in self.softwareDescriptors.values():
+			for descs in descsMap.values():
+				allDescriptors.extend(descs)
+		return allDescriptors
+	
 	def ResetSoftwareDescriptors(self) -> None:
 		self.softwareDescriptors = dict()
 

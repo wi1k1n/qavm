@@ -237,21 +237,35 @@ class TagsManager(object):
 		self.SaveTags()
 
 	def UpdateTag(self, tag: BaseTagImpl) -> None:
-		""" Persists changes made to an existing tag (e.g. after editing name/color/scopes). """
+		""" Persists changes made to an existing tag (e.g. after editing name/color/scopes) and refreshes affected descriptors. """
 		if not isinstance(tag, BaseTagImpl):
 			raise TypeError(f'Expected BaseTagImpl, got {type(tag)}')
 		if tag.GetUID() not in self.tags:
 			raise ValueError(f'BaseTag {tag.GetUID()} does not exist in tags manager')
 		self.tags[tag.GetUID()] = tag
 		self.SaveTags()
+		# Name/color/scope changes affect how the tag renders on every descriptor that has it assigned
+		affectedDescUIDs: list[str] = [descUID for descUID, descData in self.descDataManager.data.items() if tag.GetUID() in descData.tags]
+		self.descDataManager.NotifyDescriptorsDataUpdated(affectedDescUIDs)
 
-	def DeleteTag(self, tag: BaseTagImpl) -> None:
+	def DeleteTag(self, tag: BaseTagImpl, dontUpdateDescriptors: bool = False) -> None:
 		if not isinstance(tag, BaseTagImpl):
 			raise TypeError(f'Expected BaseTagImpl, got {type(tag)}')
-		if tag.GetUID() not in self.tags:
+		tagUID = tag.GetUID()
+		if tagUID not in self.tags:
 			return
-		del self.tags[tag.GetUID()]
+		# Purge the tag UID from every descriptor that has it assigned
+		affectedDescUIDs: list[str] = []
+		for descUID, descData in self.descDataManager.data.items():
+			if tagUID in descData.tags:
+				descData.tags.remove(tagUID)
+				affectedDescUIDs.append(descUID)
+		if affectedDescUIDs:
+			self.descDataManager.SaveData()
+		del self.tags[tagUID]
 		self.SaveTags()
+		if not dontUpdateDescriptors:
+			self.descDataManager.NotifyDescriptorsDataUpdated(affectedDescUIDs)
 
 	def RemoveTag(self, desc: BaseDescriptor, tag: BaseTagImpl) -> None:
 		if not isinstance(tag, BaseTagImpl):
@@ -264,6 +278,7 @@ class TagsManager(object):
 			descData.tags.remove(tag.GetUID())
 			self.descDataManager.SetDescriptorData(desc, descData)
 			self.descDataManager.SaveData()
+			self.descDataManager.NotifyDescriptorsDataUpdated([desc.GetUID()])
 	
 	def AssignTag(self, desc: BaseDescriptor, tag: BaseTagImpl) -> None:
 		if not isinstance(desc, BaseDescriptor):
@@ -279,3 +294,4 @@ class TagsManager(object):
 			descData.tags.append(tag.GetUID())
 			self.descDataManager.SetDescriptorData(desc, descData)
 			self.descDataManager.SaveData()
+			self.descDataManager.NotifyDescriptorsDataUpdated([desc.GetUID()])
