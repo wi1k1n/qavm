@@ -409,6 +409,7 @@ class TagBubblesFlowWidget(QWidget):
 		self.setAutoFillBackground(False)
 
 		self._tagNames: list[str] = [tag.GetName() for tag in tags]
+		self._tagOrders: list[int] = [tag.GetOrder() for tag in tags]
 		self._bubbles: list[BubbleWidget] = [
 			self._createBubble(tag.GetName(), QColor(tag.GetColor()) if tag.GetColor() else None)
 			for tag in tags
@@ -417,7 +418,7 @@ class TagBubblesFlowWidget(QWidget):
 
 	def GetSortKey(self) -> str:
 		""" Returns a stable key used to sort the Tags column (comma-joined, lower-cased tag names). """
-		return ', '.join(self._tagNames).lower()
+		return ', '.join(map(str, self._tagOrders)).lower()
 
 	def _createBubble(self, text: str, bgColor: QColor | None) -> BubbleWidget:
 		bubble: BubbleWidget = BubbleWidget(text, bgColor=bgColor, rounding=self.BUBBLE_ROUNDING, margin=self.BUBBLE_MARGIN)

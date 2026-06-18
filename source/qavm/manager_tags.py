@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from enum import StrEnum
 
+from PyQt6.QtCore import QTimer
+
 from qavm.manager_plugin import UID
 from qavm.qavmapi import BaseDescriptor, BaseTag
 
@@ -202,7 +204,7 @@ class TagsManager(object):
 		""" Returns the tags sorted by their display order (ascending). """
 		return sorted(self.tags.values(), key=lambda tag: tag.GetOrder())
 
-	def ReorderTags(self, orderedTagUIDs: list[str]) -> None:
+	def ReorderTags(self, orderedTagUIDs: list[str], dontUpdateDescriptors: bool = False) -> None:
 		""" Reassigns the display order of tags based on the given list of tag UIDs and persists the change. """
 		if not isinstance(orderedTagUIDs, list):
 			raise TypeError(f'Expected list, got {type(orderedTagUIDs)}')
@@ -219,6 +221,10 @@ class TagsManager(object):
 				tag.SetOrder(order)
 				order += 1
 		self.SaveTags()
+		if not dontUpdateDescriptors:
+			# Reordering tags affects how they render on every descriptor that has them assigned, so we need to update all of them
+			affectedDescUIDs: list[str] = [descUID for descUID, descData in self.descDataManager.data.items() if any(tagUID in descData.tags for tagUID in self.tags.keys())]
+			QTimer.singleShot(0, lambda: self.descDataManager.NotifyDescriptorsDataUpdated(affectedDescUIDs))  # timer to avoid "label stuck to cursor issue"
 	
 	def GetTag(self, tagUID: str) -> BaseTagImpl | None:
 		if not isinstance(tagUID, str):
