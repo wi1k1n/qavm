@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, SoftwareBaseSettings, BaseTableBuilder,
-	BaseCustomView,	QualifierIdentificationConfig, BaseMenuItem, QIConfigTargetType, 
+	BaseCustomView,	QualifierIdentificationConfig, BaseMenuItem, QIConfigTargetType, TableColumnInfo, 
 )
 from qavm.qavmapi.gui import (
 	StaticBorderWidget, RunningBorderWidget, PathTableWidgetItem, 
@@ -225,27 +225,23 @@ class ExampleTileBuilderPNG(ExampleTileBuilderBoth):
 class ExampleTableBuilderEXE(BaseTableBuilder):
 	def GetSupportedDescriptorTypes(self, descriptorTypes: list[str]) -> list[str]:
 		return ['exe']
-	
-	def GetTableCaptions(self) -> list[str]:
-		return ['Folder name', 'Version', 'Path']
-	
-	def GetTableCellValue(self, desc: ExampleDescriptorEXE, col: int) -> str | QTableWidgetItem:
-		if col == 0:
-			return desc.dirPath.name
-		if col == 1:
-			return "unknown"
-		if col == 2:
-			return PathTableWidgetItem(desc.dirPath)
-		return ''
+
+	def GetTableColumnInfo(self) -> list[TableColumnInfo]:
+		return [
+			TableColumnInfo('Folder name', lambda desc: desc.dirPath.name),
+			TableColumnInfo('Version', lambda desc: "unknown"),
+			TableColumnInfo('Path', lambda desc: PathTableWidgetItem(desc.dirPath)),
+		]
 	
 class ExampleTableBuilderPNG(ExampleTableBuilderEXE):
 	def GetSupportedDescriptorTypes(self, descriptorTypes: list[str]) -> list[str]:
 		return ['png']
 	
-	def GetTableCellValue(self, desc: ExampleDescriptorEXE, col: int) -> str | QTableWidgetItem:
-		if col == 0:
-			return '(dll) ' + desc.dirPath.name
-		return super().GetTableCellValue(desc, col)
+	# TODO: this class has not been adapted to use new GetTableColumnInfo function
+	# def GetTableCellValue(self, desc: ExampleDescriptorEXE, col: int) -> str | QTableWidgetItem:
+	# 	if col == 0:
+	# 		return '(dll) ' + desc.dirPath.name
+	# 	return super().GetTableCellValue(desc, col)
 
 class ExampleSettings(SoftwareBaseSettings):
 	def GetSettingsVersion(self) -> int:

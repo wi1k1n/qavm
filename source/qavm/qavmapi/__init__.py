@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
 	QLineEdit, QComboBox, QApplication, QCheckBox, QSpinBox, QStackedLayout,
 )
 from PyQt6.QtGui import (
-	QKeyEvent, QAction, 
+	QKeyEvent, QAction,
 )
 
 from qavm.qavmapi import utils
@@ -592,19 +592,28 @@ class BaseTileBuilder(BaseBuilder):
 		""" Creates a tile widget for the descriptor. """
 		return QLabel(str(descriptor.dirPath), parent)
 
+class TableColumnInfo(object):
+	def __init__(self,
+			  title: str,
+			  cellDataGetter = lambda desc: str(desc.dirPath),
+			  tooltip: str = '',
+			  minWidth: int = 0,
+			  defaultWidthShare: float = 0,
+			  isResizable: bool = True
+			  ):
+		self.title = title
+		self.cellDataGetter = cellDataGetter
+		self.tooltip = tooltip
+		self.minWidth = minWidth
+		self.defaultWidthShare = defaultWidthShare
+		self.isResizable = isResizable
+
 class BaseTableBuilder(BaseBuilder):
-	def GetTableCaptions(self) -> list[str]:
-		return ['Path']
-	
-	def GetTableCellValue(self, desc: BaseDescriptor, col: int) -> str | QTableWidgetItem | QWidget:
-		return str(desc.dirPath)
-	
 	def GetItemDelegateClass(self) -> QStyledItemDelegate.__class__:
 		return QStyledItemDelegate
 	
-	def GetColumnMinimumWidths(self) -> list[int] | None:
-		"""Returns per-column minimum widths. None means use default for all columns."""
-		return None
+	def GetTableColumnInfo(self) -> list[TableColumnInfo]:
+		return []
 
 	def GetRowMaximumHeight(self) -> int:
 		""" Returns the maximum height (in pixels) a table row may grow to when a cell hosts a

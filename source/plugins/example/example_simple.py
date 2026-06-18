@@ -7,7 +7,7 @@ from typing import Optional
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, SoftwareBaseSettings, BaseTableBuilder,
-	QualifierIdentificationConfig, QIConfigTargetType,
+	QualifierIdentificationConfig, QIConfigTargetType, TableColumnInfo,
 )
 from qavm.qavmapi.gui import (
 	NumberTableWidgetItem, PathTableWidgetItem, 
@@ -55,17 +55,12 @@ class ContextBase(object):
 		desc.updated_old.emit()
 
 class SimpleTableBuilder(BaseTableBuilder, ContextBase):
-	def GetTableCaptions(self) -> list[str]:
-		return ['Files count', 'Folders count', 'Path']
-	
-	def GetTableCellValue(self, desc: SimpleDescriptor, col: int) -> str | QTableWidgetItem:
-		if col == 0:
-			return NumberTableWidgetItem(desc.filesCount)
-		if col == 1:
-			return NumberTableWidgetItem(desc.foldersCount)
-		if col == 2:
-			return PathTableWidgetItem(desc.dirPath)
-		return ''
+	def GetTableColumnInfo(self) -> list[TableColumnInfo]:
+		return [
+			TableColumnInfo('Files count', lambda desc: NumberTableWidgetItem(desc.filesCount)),
+			TableColumnInfo('Folders count', lambda desc: NumberTableWidgetItem(desc.foldersCount)),
+			TableColumnInfo('Path', lambda desc: PathTableWidgetItem(desc.dirPath)),
+		]
 	
 	def GetContextMenu(self, desc: BaseDescriptor) -> Optional[QMenu]:
 		return self._getContextMenu(desc)

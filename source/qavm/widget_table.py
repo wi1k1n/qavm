@@ -22,7 +22,7 @@ from qavm.window_about import AboutDialog
 
 from qavm.qavmapi import (
 	BaseDescriptor, BaseSettings, BaseTileBuilder, BaseTableBuilder,
-	BaseCustomView, SoftwareBaseSettings, BaseMenuItem, BaseBuilder, 
+	BaseCustomView, SoftwareBaseSettings, BaseMenuItem, BaseBuilder, TableColumnInfo
 )
 from qavm.qavmapi.utils import PlatformMacOS, PlatformWindows, PlatformLinux
 from qavm.utils_gui import FlowLayout
@@ -182,7 +182,7 @@ class MyTableWidget(QTableWidget):
 		if row < 0:
 			event.ignore()
 			return
-		descIdxItem = self.item(row, len(self._headers))
+		descIdxItem = self.item(row, len(self._tableInfos))
 		if descIdxItem is None:
 			event.ignore()
 			return
@@ -228,11 +228,11 @@ class MyTableWidget(QTableWidget):
 		super().mouseDoubleClickEvent(event)
 
 	def _setupTable(self, descs: list[BaseDescriptor], tableBuilder: BaseTableBuilder, parent: QMainWindow):
-		headers: list[str] = tableBuilder.GetTableCaptions()
-
 		self._descs = descs
 		self._tableBuilder = tableBuilder
-		self._headers = headers
+		self._tableInfos: list[TableColumnInfo] = tableBuilder.GetTableColumnInfo()
+
+		headers: list[str] = list(map(lambda info: info.title, self._tableInfos))
 
 		header = MyTableViewHeader(Qt.Orientation.Horizontal, self)
 		# TODO: move this to MyTableViewHeader
@@ -278,7 +278,7 @@ class MyTableWidget(QTableWidget):
 			desc.descDataUpdated.connect(partial(self._onUpdateTableRowRequired, desc))
 
 		# Apply per-column minimum widths after items are populated
-		colMinWidths: list[int] | None = tableBuilder.GetColumnMinimumWidths()
+		colMinWidths: list[int] = list(map(lambda info: info.minWidth, self._tableInfos))
 		if colMinWidths:
 			hdr = self.horizontalHeader()
 			for col in range(min(len(colMinWidths), len(headers))):
@@ -286,6 +286,8 @@ class MyTableWidget(QTableWidget):
 				if minW > 0:
 					hdr.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
 					hdr.resizeSection(col, max(hdr.sectionSize(col), minW))
+					
+		header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
 
 		# Cell widgets (e.g. tag bubbles) wrap based on column width and need realignment on sort.
 		header.sectionResized.connect(self._onSectionResized)
@@ -296,10 +298,8 @@ class MyTableWidget(QTableWidget):
 		self.customContextMenuRequested.connect(showContextMenu)
 
 	def _populateRow(self, row: int, desc: BaseDescriptor, descIdx: int):
-		headers: list[str] = self._headers
-		tableBuilder: BaseTableBuilder = self._tableBuilder
-		for c in range(len(headers)):
-			cellValue = tableBuilder.GetTableCellValue(desc, c)
+		for c, tableInfo in enumerate(self._tableInfos):
+			cellValue = tableInfo.cellDataGetter(desc) if callable(tableInfo.cellDataGetter) else ''
 			if isinstance(cellValue, QWidget):
 				getSortKey = getattr(cellValue, 'GetSortKey', None)
 				sortKey: str = str(getSortKey()) if callable(getSortKey) else ''
@@ -311,7 +311,7 @@ class MyTableWidget(QTableWidget):
 				if not isinstance(cellValue, QTableWidgetItem):
 					cellValue = QTableWidgetItem(cellValue)
 				self.setItem(row, c, cellValue)
-		self.setItem(row, len(headers), QTableWidgetItem(str(descIdx)))
+		self.setItem(row, len(self._tableInfos), QTableWidgetItem(str(descIdx)))
 		self._adjustRowHeight(row)
 
 	def _adjustRowHeight(self, row: int):
@@ -319,7 +319,7 @@ class MyTableWidget(QTableWidget):
 		maxHeight: int = self._tableBuilder.GetRowMaximumHeight()
 		desiredHeight: int = 0
 		hasWidget: bool = False
-		for c in range(len(self._headers)):
+		for c in range(len(self._tableInfos)):
 			widget: QWidget | None = self.cellWidget(row, c)
 			if widget is not None and widget.hasHeightForWidth():
 				hasWidget = True
@@ -342,8 +342,7 @@ class MyTableWidget(QTableWidget):
 
 		QTableWidget does not move cell widgets when sorting, so after a sort the widgets must be rebuilt
 		to stay aligned with their rows. """
-		descIdxColumn: int = len(self._headers)
-		tableBuilder: BaseTableBuilder = self._tableBuilder
+		descIdxColumn: int = len(self._tableInfos)
 		for row in range(self.rowCount()):
 			item = self.item(row, descIdxColumn)
 			if item is None:
@@ -353,8 +352,8 @@ class MyTableWidget(QTableWidget):
 			except ValueError:
 				continue
 			desc: BaseDescriptor = self._descs[descIdx]
-			for c in range(len(self._headers)):
-				cellValue = tableBuilder.GetTableCellValue(desc, c)
+			for c, tableInfo in enumerate(self._tableInfos):
+				cellValue = tableInfo.cellDataGetter(desc) if callable(tableInfo.cellDataGetter) else ''
 				if isinstance(cellValue, QWidget):
 					self.setCellWidget(row, c, cellValue)
 				elif self.cellWidget(row, c) is not None:
@@ -371,7 +370,7 @@ class MyTableWidget(QTableWidget):
 			descIdx: int = self._descs.index(desc)
 		except ValueError:
 			return
-		descIdxColumn: int = len(self._headers)
+		descIdxColumn: int = len(self._tableInfos)
 		targetRow: int = -1
 		for row in range(self.rowCount()):
 			item = self.item(row, descIdxColumn)
@@ -388,15 +387,15 @@ class MyTableWidget(QTableWidget):
 	def _onTableItemDoubleClickedLeft(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
 			return
-		app = QApplication.instance()
-		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
+		# app = QApplication.instance()
+		# descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
 		# tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, True, 0, QApplication.keyboardModifiers())
 
 	def _onTableItemClickedMiddle(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
 			return
-		app = QApplication.instance()
-		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
+		# app = QApplication.instance()
+		# descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
 		# tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
 
 	def showEvent(self, event):

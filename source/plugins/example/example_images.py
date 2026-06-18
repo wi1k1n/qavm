@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from qavm.qavmapi import (
 	BaseQualifier, BaseDescriptor, BaseTileBuilder, SoftwareBaseSettings, BaseTableBuilder,
-	BaseCustomView,	QualifierIdentificationConfig, BaseMenuItem, QIConfigTargetType, 
+	BaseCustomView,	QualifierIdentificationConfig, BaseMenuItem, QIConfigTargetType, TableColumnInfo, 
 )
 from qavm.qavmapi.gui import (
 	StaticBorderWidget, RunningBorderWidget, PathTableWidgetItem, NumberTableWidgetItem, 
@@ -201,20 +201,13 @@ class ExampleTableBuilderImages(BaseTableBuilder):
 	def GetName(self) -> str:
 		return '(Example) Table Images'
 	
-	def GetTableCaptions(self) -> list[str]:
-		return ['Name', 'Size', 'Resolution', 'Path']
-	
-	def GetTableCellValue(self, desc: ExampleDescriptorImages, col: int) -> str | QTableWidgetItem:
-		if col == 0:
-			return desc.dirPath.name
-		elif col == 1:
-			# return f'{desc.fileSize / 1024:.1f} KB'
-			return NumberTableWidgetItem(desc.fileSize / 1024, '{} KB')
-		elif col == 2:
-			return f'{desc.imageResolution[0]}x{desc.imageResolution[1]}' if desc.imageResolution else 'unknown'
-		elif col == 3:
-			return PathTableWidgetItem(desc.dirPath)
-		return ''
+	def GetTableColumnInfo(self) -> list[TableColumnInfo]:
+		return [
+			TableColumnInfo('Name', lambda desc: desc.dirPath.name),
+			TableColumnInfo('Size', lambda desc: NumberTableWidgetItem(desc.fileSize / 1024, '{} KB')),
+			TableColumnInfo('Resolution', lambda desc: f'{desc.imageResolution[0]}x{desc.imageResolution[1]}' if desc.imageResolution else 'unknown'),
+			TableColumnInfo('Path', lambda desc: PathTableWidgetItem(desc.dirPath)),
+		]
 
 class ExampleSettingsImages(SoftwareBaseSettings):
 	def GetSettingsVersion(self) -> int:
