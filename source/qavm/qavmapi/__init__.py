@@ -598,14 +598,14 @@ class TableColumnInfo(object):
 			  cellDataGetter = lambda desc: str(desc.dirPath),
 			  tooltip: str = '',
 			  minWidth: int = 0,
-			  defaultWidthShare: float = 0,
+			  defaultWidth: int = 0,
 			  isResizable: bool = True
 			  ):
 		self.title = title
 		self.cellDataGetter = cellDataGetter
 		self.tooltip = tooltip
 		self.minWidth = minWidth
-		self.defaultWidthShare = defaultWidthShare
+		self.defaultWidth = defaultWidth
 		self.isResizable = isResizable
 
 class BaseTableBuilder(BaseBuilder):

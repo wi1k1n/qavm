@@ -44,6 +44,17 @@ class MyTableViewHeader(QHeaderView):
 
 		self._mousePressedPos = None
 		self._mousePressedSection = -1
+		self._sectionMinimumWidths: list[int] = []
+
+		self.sectionResized.connect(self._enforceMinWidth)
+
+	def SetSectionMinimumWidths(self, minWidths: list[int]):
+		self._sectionMinimumWidths = minWidths
+		
+	def _enforceMinWidth(self, logicalIndex, oldSize, newSize):
+		min_width = self._sectionMinimumWidths[logicalIndex] if logicalIndex < len(self._sectionMinimumWidths) else None
+		if min_width is not None and newSize < min_width:
+			self.resizeSection(logicalIndex, min_width)
 
 	def paintSection(self, painter: QPainter, rect: QRect, logicalIndex: int):
 		super().paintSection(painter, rect, logicalIndex)
@@ -277,15 +288,14 @@ class MyTableWidget(QTableWidget):
 			self._populateRow(r, desc, r)
 			desc.descDataUpdated.connect(partial(self._onUpdateTableRowRequired, desc))
 
-		# Apply per-column minimum widths after items are populated
-		colMinWidths: list[int] = list(map(lambda info: info.minWidth, self._tableInfos))
-		if colMinWidths:
-			hdr = self.horizontalHeader()
-			for col in range(min(len(colMinWidths), len(headers))):
-				minW = colMinWidths[col]
-				if minW > 0:
-					hdr.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
-					hdr.resizeSection(col, max(hdr.sectionSize(col), minW))
+		# Apply per-column widths info after items are populated
+		header.SetSectionMinimumWidths(list(map(lambda info: info.minWidth, self._tableInfos)))
+		colDefaultWidths: list[int] = list(map(lambda info: info.defaultWidth, self._tableInfos))
+		if len(colDefaultWidths) == len(headers):
+			for col, defW in enumerate(colDefaultWidths):
+				if defW > 0:
+					header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+					header.resizeSection(col, defW)
 					
 		header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
 
