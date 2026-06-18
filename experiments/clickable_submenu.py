@@ -8,7 +8,7 @@ class ClickableSubmenuMenu(QMenu):
         super().__init__(*args, **kwargs)
         self.click_handlers = {}
 
-    def set_click_handler(self, action: QAction, handler):
+    def setClickHandler(self, action: QAction, handler):
         self.click_handlers[action] = handler
 
     def mouseReleaseEvent(self, event):
@@ -40,7 +40,7 @@ class MainWindow(QMainWindow):
         a1_action = main_menu.addMenu(submenu_a1)
 
         # Click directly on "A1"
-        main_menu.set_click_handler(a1_action, self.on_a1)
+        main_menu.setClickHandler(a1_action, self.on_a1)
 
     def on_a1(self):
         print("A1 clicked")

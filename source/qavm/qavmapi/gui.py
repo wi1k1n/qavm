@@ -8,10 +8,10 @@ from PyQt6.QtCore import (
 from PyQt6.QtWidgets import (
 	QApplication, QFrame, QPlainTextEdit, QPushButton, QVBoxLayout, QLabel, QTableWidgetItem, QListWidget, QScrollBar,
 	QListWidgetItem, QLineEdit, QComboBox, QSizePolicy, QStyledItemDelegate, QStyleOptionViewItem,
-	QStyledItemDelegate, QHBoxLayout, QDialog, QWidget
+	QStyledItemDelegate, QHBoxLayout, QDialog, QWidget, QMenu
 )
 from PyQt6.QtGui import (
-	QColor, QKeyEvent, QMouseEvent, QCursor, QPainter, QPalette, QLinearGradient, QGradient,
+	QColor, QKeyEvent, QMouseEvent, QCursor, QPainter, QPalette, QLinearGradient, QGradient, QAction
 )
 
 import pyperclip
@@ -378,6 +378,28 @@ class RunningDescriptorAnimatedRowGradientDelegate(AnimatedRowGradientDelegate):
 			return False
 		
 		return qutils.IsProcessRunning(descs[descIdx].UID)
+
+class ClickableSubmenuMenu(QMenu):
+	"""A QMenu subclass that allows the top-level menu entry to be clicked while
+	also exposing a submenu. Based on clickable_submenu.py experiment.
+	"""
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.click_handlers: dict[QAction, callable] = {}
+
+	def setClickHandler(self, action: QAction, handler: callable):
+		self.click_handlers[action] = handler
+
+	def mouseReleaseEvent(self, event):
+		action = self.actionAt(event.position().toPoint())
+		if action in self.click_handlers:
+			try:
+				self.click_handlers[action]()
+			except Exception:
+				print('ClickableSubmenuMenu: click handler failed')
+			self.close()
+			return
+		super().mouseReleaseEvent(event)
 
 
 def _PickContrastingTextColor(bgColor: QColor | None) -> QColor:
