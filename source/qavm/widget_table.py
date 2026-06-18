@@ -398,6 +398,19 @@ class MyTableWidget(QTableWidget):
 		app = QApplication.instance()
 		descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
 		# tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
+
+	def showEvent(self, event):
+		# When the table becomes visible/activated (for example when switching tabs),
+		# the layout may change — recompute row heights after the show event so
+		# variable-height cell widgets wrap correctly.
+		super().showEvent(event)
+		QTimer.singleShot(0, self._recomputeAllRowHeights)
+
+	def focusInEvent(self, event):
+		# Also recompute when the widget receives focus, which can happen when
+		# the user activates the table inside a container.
+		super().focusInEvent(event)
+		QTimer.singleShot(0, self._recomputeAllRowHeights)
 	
 
 
