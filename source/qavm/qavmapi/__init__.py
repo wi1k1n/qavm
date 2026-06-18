@@ -478,7 +478,7 @@ class BaseQualifier(object):
 
 class BaseDescriptor(QObject):
 	""" Base class for software descriptors. Descriptor is used to represent the software among other plugin parts, such as TileBuilder, TableBuilder, ContextMenu, etc. """
-	# updated = pyqtSignal()
+	updated_old = pyqtSignal()  # this is deprecated, DONT REMOVE: keep until overhaul is done
 	descDataUpdated = pyqtSignal()  # data in the corresponding BaseDescriptorData has changed
 
 	# TODO: rename dirPath to path, as now it also can be a file

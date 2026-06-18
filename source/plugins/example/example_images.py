@@ -98,7 +98,7 @@ class ExampleContextMenuBase(object):
 	# def _run(self, desc: ExampleDescriptorImages, arguments: list[str] = []):
 	# 	if desc.targetPaths:
 	# 		StartProcess(desc.UID, desc.targetPaths[0], arguments)
-	# 		desc.updated.emit()
+	# 		desc.updated_old.emit()
 
 class ExampleTileBuilderImages(BaseTileBuilder, ExampleContextMenuBase):
 	def __init__(self, settings: SoftwareBaseSettings):

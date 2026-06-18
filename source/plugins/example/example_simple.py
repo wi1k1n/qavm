@@ -52,7 +52,7 @@ class ContextBase(object):
 	def _showDescriptor(self, desc: SimpleDescriptor):
 		# This method can be used to show the descriptor in a custom way, e.g. open a dialog with details.
 		QMessageBox.information(None, 'Descriptor Info', f'Directory: {desc.dirPath}\nFiles: {desc.filesCount}\nFolders: {desc.foldersCount}')
-		desc.updated.emit()
+		desc.updated_old.emit()
 
 class SimpleTableBuilder(BaseTableBuilder, ContextBase):
 	def GetTableCaptions(self) -> list[str]:

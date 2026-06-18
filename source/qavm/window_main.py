@@ -368,7 +368,7 @@ class MainWindow(QMainWindow):
 	# 			menu.exec(QCursor.pos())
 
 	# 	for desc in descs:
-	# 		# desc.updated.connect(partial(self._onDescriptorUpdated, desc))
+	# 		# desc.updated_old.connect(partial(self._onDescriptorUpdated, desc))
 	# 		tileWidget = tileBuilder.CreateTileWidget(desc, parent)
 			
 	# 		tileWidgetWithTags = self._wrapWidgetWithTags(tileWidget, parent, desc)
