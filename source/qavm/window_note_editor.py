@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
 	QPushButton, QApplication, 
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QKeySequence, QKeyEvent, QShortcut
 
 from qavm.manager_descriptor_data import DescriptorDataManager, DescriptorDataImpl
 from qavm.qavmapi import BaseDescriptor
@@ -24,23 +25,59 @@ class NoteEditorDialog(QDialog):
 		# Layouts
 		mainLayout = QVBoxLayout()
 
-		# Small text field
-		self.enableSmallTextCheckbox = QCheckBox("Enable small text")
-		self.enableSmallTextCheckbox.setChecked(True)
-		self.enableSmallTextCheckbox.stateChanged.connect(self._toggleSmallTextField)
+		# allow inner class to reference the dialog instance
+		parent_dialog = self
 
-		self.smallTextField = QTextEdit()
+		# Custom text edits to handle Tab/Enter behaviour
+		class _CustomTextEdit(QTextEdit):
+			def __init__(self, *args, is_small: bool = False, **kwargs):
+				super().__init__(*args, **kwargs)
+				self._is_small = is_small
+
+			def keyPressEvent(self, event: QKeyEvent) -> None:
+				key = event.key()
+				mods = event.modifiers()
+				# Handle Tab: move focus to next widget (use dialog's focus chain)
+				if key == Qt.Key.Key_Tab and not (mods & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier)):
+					if parent_dialog is not None:
+						parent_dialog.focusNextPrevChild(True)
+					else:
+						self.focusNextPrevChild(True)
+					return
+
+				# For the small text field: Enter should move focus to next field, Shift+Enter inserts newline
+				if self._is_small and (key in (Qt.Key.Key_Return, Qt.Key.Key_Enter)):
+					if mods & Qt.KeyboardModifier.ControlModifier:
+						# Let global shortcut handle save; ignore here
+						return
+					if mods & Qt.KeyboardModifier.ShiftModifier:
+						super().keyPressEvent(event)
+						return
+					# plain Enter -> move focus to the detailed note field
+					if parent_dialog is not None and hasattr(parent_dialog, 'noteField'):
+						parent_dialog.noteField.setFocus()
+					else:
+						self.focusNextPrevChild(True)
+					return
+
+				# Default behaviour
+				super().keyPressEvent(event)
+
+		self.smallTextField = _CustomTextEdit(is_small=True)
 		self.smallTextField.setText(descData.noteSmall)
 		self.smallTextField.setPlaceholderText("Enter visible text...")
 		self.smallTextField.setFixedHeight(50)
+		# Let Tab change focus by default
+		self.smallTextField.setTabChangesFocus(True)
 
-		mainLayout.addWidget(self.enableSmallTextCheckbox)
 		mainLayout.addWidget(self.smallTextField)
 
 		# Note field
-		self.noteField = QTextEdit()
+		self.noteField = _CustomTextEdit()
 		self.noteField.setText(descData.noteDetail)
 		self.noteField.setPlaceholderText("Enter note (supports basic HTML formatting)...")
+		# Let Tab change focus by default
+		self.noteField.setTabChangesFocus(True)
 
 		# Buttons
 		buttonLayout = QHBoxLayout()
@@ -58,9 +95,15 @@ class NoteEditorDialog(QDialog):
 
 		self.setLayout(mainLayout)
 
-	def _toggleSmallTextField(self, state: int):
-		"""Enable or disable the small text field based on the checkbox state."""
-		self.smallTextField.setVisible(state == Qt.CheckState.Checked.value)
+		# Set explicit tab order to ensure rotation: small -> detailed -> save -> cancel -> small
+		QWidget.setTabOrder(self.smallTextField, self.noteField)
+		QWidget.setTabOrder(self.noteField, self.saveButton)
+		QWidget.setTabOrder(self.saveButton, self.cancelButton)
+		QWidget.setTabOrder(self.cancelButton, self.smallTextField)
+
+		# Ctrl+Enter anywhere should trigger Save
+		QShortcut(QKeySequence('Ctrl+Return'), self, activated=self.accept)
+		QShortcut(QKeySequence('Ctrl+Enter'), self, activated=self.accept)
 	
 	def accept(self) -> None:
 		"""Override accept to save changes before closing."""
