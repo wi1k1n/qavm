@@ -401,7 +401,7 @@ class TagBubblesFlowWidget(QWidget):
 	MARGIN: int = 2
 	BUBBLE_ROUNDING: float = 10.0
 	BUBBLE_MARGIN: int = 5
-	OVERFLOW_COLOR: QColor = QColor('#9e9e9e')
+	OVERFLOW_COLOR: QColor | None = None
 
 	def __init__(self, tags: list, maxHeight: int, parent: QWidget | None = None):
 		super().__init__(parent)
@@ -427,9 +427,16 @@ class TagBubblesFlowWidget(QWidget):
 		bubble.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 		return bubble
 
-	def _ensureOverflowBubble(self) -> BubbleWidget:
+	def _ensureOverflowBubble(self) -> QWidget:
+		"""Create a lightweight overflow label with no background/border.
+		This appears as plain "+N" text (no bubble background).
+		"""
 		if self._overflowBubble is None:
-			self._overflowBubble = self._createBubble('', self.OVERFLOW_COLOR)
+			lbl = QLabel('', self)
+			lbl.setContentsMargins(self.BUBBLE_MARGIN, self.BUBBLE_MARGIN, self.BUBBLE_MARGIN, self.BUBBLE_MARGIN)
+			lbl.setStyleSheet('color: #9e9e9e; background: transparent;')
+			lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+			self._overflowBubble = lbl
 		return self._overflowBubble
 
 	def _doLayout(self, width: int, apply: bool) -> int:
@@ -494,7 +501,8 @@ class TagBubblesFlowWidget(QWidget):
 			if self._overflowBubble is not None and id(self._overflowBubble) not in visible:
 				self._overflowBubble.setVisible(False)
 
-		return min(y + lineHeight + m, maxH)
+		# add a tiny padding to avoid clipping by table cell borders/rounding
+		return min(y + lineHeight + m + self.MARGIN * 2 + self.VSPACING * 2, maxH)
 
 	def hasHeightForWidth(self) -> bool:
 		return True
