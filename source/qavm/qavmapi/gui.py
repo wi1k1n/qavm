@@ -470,8 +470,25 @@ class HoverFadeTooltipWidget(QWidget):
 			if self._persistentTooltip:
 				self._tooltip.mouseEntered.connect(self._hideTimer.stop)
 				self._tooltip.mouseLeft.connect(self._onTooltipLeft)
+		# Stop any pending hide and compute a position that centers the tooltip
+		# horizontally on the cursor (with a small vertical offset). Clamp to
+		# the primary screen's available geometry so the tooltip remains on-screen.
 		self._hideTimer.stop()
-		self._tooltip.showText(tooltipHtml, QCursor.pos() + QPoint(14, 18))
+		# Pre-measure the tooltip size by setting the text and adjusting.
+		self._tooltip.setText(tooltipHtml)
+		self._tooltip.adjustSize()
+		tip_w = self._tooltip.width()
+		tip_h = self._tooltip.height()
+		cursor_pos = QCursor.pos()
+		x = cursor_pos.x() - tip_w // 2
+		y = cursor_pos.y() + 18
+		# Clamp to primary screen available geometry if possible
+		screen = QApplication.primaryScreen()
+		if screen is not None:
+			geo = screen.availableGeometry()
+			x = max(geo.left(), min(x, geo.right() - tip_w))
+			y = max(geo.top(), min(y, geo.bottom() - tip_h))
+		self._tooltip.showText(tooltipHtml, QPoint(x, y))
 
 	def _onTooltipLeft(self) -> None:
 		# Cursor left the persistent tooltip; dismiss it after the grace period (cancelled if it returns).
