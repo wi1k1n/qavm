@@ -232,7 +232,7 @@ class TagEditorDialog(QDialog):
 			return
 
 		scopes: list[TagScope] = [row.GetScope() for row in self._scopeRows]
-		description: str = self.descriptionField.text().strip()
+		description: str = self.descriptionField.toPlainText().strip()
 
 		if self.editTag is not None:
 			self.editTag.name = name
