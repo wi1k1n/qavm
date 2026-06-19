@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
 	QStyledItemDelegate, QHBoxLayout, QDialog, QWidget, QMenu
 )
 from PyQt6.QtGui import (
-	QColor, QKeyEvent, QMouseEvent, QCursor, QPainter, QPalette, QLinearGradient, QGradient, QAction
+	QColor, QKeyEvent, QMouseEvent, QCursor, QPainter, QPalette, QLinearGradient, QGradient, QAction, QFont
 )
 
 import pyperclip
@@ -411,7 +411,50 @@ def _PickContrastingTextColor(bgColor: QColor | None) -> QColor:
 	return QColor('black') if luminance > 0.55 else QColor('white')
 
 
-class TagBubblesFlowWidget(QWidget):
+class HoverFadeTooltipWidget(QWidget):
+	""" Base QWidget that lazily shows a rich-text FadeTooltip after the mouse hovers for TOOLTIP_DELAY_MS.
+
+	Subclasses drive the hover timer from their own mouse handlers via _ScheduleTooltip() / _CancelTooltip()
+	and supply the tooltip content by overriding _GetTooltipHtml() (return None or '' to suppress it). This
+	centralises the hover-timer + FadeTooltip plumbing that is otherwise duplicated across widgets. """
+	TOOLTIP_DELAY_MS: int = 500
+
+	def __init__(self, parent: QWidget | None = None):
+		super().__init__(parent)
+		self.setMouseTracking(True)
+		self._tooltip: FadeTooltip | None = None
+		self._hoverTimer: QTimer = QTimer(self)
+		self._hoverTimer.setSingleShot(True)
+		self._hoverTimer.timeout.connect(self._showTooltip)
+
+	def _ScheduleTooltip(self) -> None:
+		""" (Re)starts the hover delay timer after which the tooltip is shown. """
+		self._hoverTimer.start(self.TOOLTIP_DELAY_MS)
+
+	def _CancelTooltip(self) -> None:
+		""" Stops any pending tooltip and fades out the visible one. """
+		self._hoverTimer.stop()
+		if self._tooltip:
+			self._tooltip.hideWithFade()
+
+	def _GetTooltipHtml(self) -> str | None:
+		""" Returns the rich-text (HTML) tooltip content, or None/'' to suppress the tooltip. """
+		return None
+
+	def _showTooltip(self) -> None:
+		tooltipHtml: str | None = self._GetTooltipHtml()
+		if not tooltipHtml:
+			return
+		if self._tooltip is None:
+			self._tooltip = FadeTooltip(self)
+		self._tooltip.showText(tooltipHtml, QCursor.pos() + QPoint(14, 18))
+
+	def leaveEvent(self, event):
+		self._CancelTooltip()
+		super().leaveEvent(event)
+
+
+class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 	""" Flow-laid-out collection of colorful tag bubbles for use inside table cells and tiles.
 
 	Bubbles wrap onto multiple lines so none are clipped horizontally. The total height is capped by
@@ -425,13 +468,11 @@ class TagBubblesFlowWidget(QWidget):
 	MARGIN: int = 2
 	BUBBLE_ROUNDING: float = 10.0
 	BUBBLE_MARGIN: int = 5
-	TOOLTIP_DELAY_MS: int = 500
 
 	def __init__(self, tags: list, maxHeight: int, parent: QWidget | None = None):
 		super().__init__(parent)
 		self._maxHeight: int = max(maxHeight, 1)
 		self.setAutoFillBackground(False)
-		self.setMouseTracking(True)
 
 		self._tags: list = list(tags)
 		self._tagNames: list[str] = [tag.GetName() for tag in tags]
@@ -443,10 +484,6 @@ class TagBubblesFlowWidget(QWidget):
 		self._overflowBubble: BubbleWidget | None = None
 
 		self._hoveredIndex: int = -1
-		self._tooltip: FadeTooltip | None = None
-		self._hoverTimer: QTimer = QTimer(self)
-		self._hoverTimer.setSingleShot(True)
-		self._hoverTimer.timeout.connect(self._showTooltip)
 
 	def GetSortKey(self) -> str:
 		""" Returns a stable key used to sort the Tags column (comma-joined, lower-cased tag names). """
@@ -576,11 +613,9 @@ class TagBubblesFlowWidget(QWidget):
 		idx: int = self._tagIndexAt(event.pos())
 		if idx != self._hoveredIndex:
 			self._hoveredIndex = idx
-			self._hoverTimer.stop()
-			if self._tooltip:
-				self._tooltip.hideWithFade()
+			self._CancelTooltip()
 			if idx >= 0:
-				self._hoverTimer.start(self.TOOLTIP_DELAY_MS)
+				self._ScheduleTooltip()
 		# Let the underlying table/tile keep handling hover and rubber-band selection.
 		event.ignore()
 
@@ -590,9 +625,7 @@ class TagBubblesFlowWidget(QWidget):
 		if isCtrlLeft:
 			idx: int = self._tagIndexAt(event.pos())
 			if idx >= 0:
-				self._hoverTimer.stop()
-				if self._tooltip:
-					self._tooltip.hideWithFade()
+				self._CancelTooltip()
 				event.accept()
 				self._openTagEditor(self._tags[idx])
 				return
@@ -601,9 +634,6 @@ class TagBubblesFlowWidget(QWidget):
 
 	def leaveEvent(self, event):
 		self._hoveredIndex = -1
-		self._hoverTimer.stop()
-		if self._tooltip:
-			self._tooltip.hideWithFade()
 		super().leaveEvent(event)
 
 	def _openTagEditor(self, tag) -> None:
@@ -611,13 +641,10 @@ class TagBubblesFlowWidget(QWidget):
 		from qavm.window_tag_editor import OpenTagEditorDialog
 		OpenTagEditorDialog(tag, self)
 
-	def _showTooltip(self) -> None:
+	def _GetTooltipHtml(self) -> str | None:
 		if self._hoveredIndex < 0 or self._hoveredIndex >= len(self._tags):
-			return
-		tag = self._tags[self._hoveredIndex]
-		if self._tooltip is None:
-			self._tooltip = FadeTooltip(self)
-		self._tooltip.showText(self._buildTooltipHtml(tag), QCursor.pos() + QPoint(14, 18))
+			return None
+		return self._buildTooltipHtml(self._tags[self._hoveredIndex])
 
 	def _buildTooltipHtml(self, tag) -> str:
 		""" Tooltip: hovered tag's description, a separator, then the full list of the descriptor's tags. """
@@ -645,6 +672,63 @@ class TagBubblesFlowWidget(QWidget):
 		)
 		return table_html
 	# endregion
+
+
+class DescNotesWidget(HoverFadeTooltipWidget):
+	""" Displays a descriptor's small note as a single label and, on hover, shows a FadeTooltip with the
+	small note followed by the rich-text (HTML) detailed note.
+
+	In the common case it renders just like a plain note label. Mouse interactions other than hover are
+	forwarded to the underlying table/tile so row selection, context menus and drag-n-drop keep working.
+	Intended to be used both as a tile widget and as a table cell widget (via QTableWidget.setCellWidget);
+	GetSortKey enables sorting the Note column. """
+	MARGIN: int = 0
+
+	def __init__(self, noteSmall: str, noteDetail: str = '', parent: QWidget | None = None,
+				alignment: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignCenter, font: QFont | None = None):
+		super().__init__(parent)
+		self._noteSmall: str = noteSmall or ''
+		self._noteDetail: str = noteDetail or ''
+
+		layout: QVBoxLayout = QVBoxLayout(self)
+		layout.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
+		layout.setSpacing(0)
+
+		self._label: QLabel = QLabel(self._noteSmall, self)
+		self._label.setAlignment(alignment)
+		self._label.setWordWrap(True)
+		if font is not None:
+			self._label.setFont(font)
+		# The label is decorative; all mouse events go through the container (and on to the table/tile).
+		self._label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+		layout.addWidget(self._label)
+
+	def GetSortKey(self) -> str:
+		""" Returns a stable key used to sort the Note column (lower-cased small note). """
+		return self._noteSmall.lower()
+
+	def mouseMoveEvent(self, event: QMouseEvent):
+		if self._noteSmall or self._noteDetail:
+			self._ScheduleTooltip()
+		# Let the underlying table/tile keep handling hover and rubber-band selection.
+		event.ignore()
+
+	def mousePressEvent(self, event: QMouseEvent):
+		# Clicks, context menus and drags belong to the table/tile underneath.
+		event.ignore()
+
+	def _GetTooltipHtml(self) -> str | None:
+		if not self._noteSmall and not self._noteDetail:
+			return None
+		parts: list[str] = []
+		if self._noteSmall:
+			parts.append(f'<div><b>{html.escape(self._noteSmall)}</b></div>')
+		if self._noteDetail:
+			if self._noteSmall:
+				parts.append('<hr style="margin:6px 0;">')
+			# The detailed note supports basic HTML formatting, so render it as rich text (unescaped).
+			parts.append(f'<div>{self._noteDetail}</div>')
+		return ''.join(parts)
 
 
 DEFAULT_THEME_MODE = 'light'  # Default theme mode, can be 'light' or 'dark'
