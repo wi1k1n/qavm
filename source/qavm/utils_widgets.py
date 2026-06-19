@@ -8,7 +8,7 @@ from PyQt6.QtCore import Qt, QMimeData, QPoint, QObject, QEvent, pyqtSignal
 from qavm.manager_tags import BaseTagImpl, TagScope
 from qavm.qavmapi import BaseDescriptor
 from qavm.utils_gui import BubbleWidget
-from qavm.qavmapi.gui import GetThemeData, ClickableSubmenuMenu, HoverFadeTooltipMixin, LinkifyTextIfEnabled
+from qavm.qavmapi.gui import GetThemeData, ClickableSubmenuMenu, HoverFadeTooltipMixin
 
 if TYPE_CHECKING:
 	from qavm.window_main import MainWindow

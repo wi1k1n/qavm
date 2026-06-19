@@ -12,7 +12,7 @@ from PyQt6.QtGui import QAction, QColor, QDrag, QPainter, QPixmap, QMouseEvent
 
 from qavm.manager_tags import TagsManager, BaseTagImpl, TagScope
 from qavm.manager_plugin import PluginManager, UID
-from qavm.qavmapi.gui import _PickContrastingTextColor, GetThemeData, HoverFadeTooltipMixin, LinkifyTextIfEnabled, QColor
+from qavm.qavmapi.gui import _PickContrastingTextColor, GetThemeData, HoverFadeTooltipMixin, PlainTextToTooltipHtml, QColor
 from qavm.utils_gui import BubbleWidget, FlowLayout
 from qavm.utils_widgets import TAG_MIME_TYPE
 from qavm.window_tag_editor import TagEditorDialog, OpenTagEditorDialog, EMPTY_OPTION_LABEL
@@ -166,7 +166,7 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 
 		# Optional description spans full width
 		if description := self.tag.GetDescription():
-			rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};">{LinkifyTextIfEnabled(description)}</td></tr>')
+			rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};">{PlainTextToTooltipHtml(description)}</td></tr>')
 
 		scopes: list[TagScope] = self.tag.GetScopes()
 		_append_scope_rows(rows, scopes, colorPrimary)

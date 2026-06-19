@@ -709,7 +709,7 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 
 		header: str = f'{swatch(tag.GetColor())} <b>{html.escape(tag.GetName())}</b>'
 		if description := tag.GetDescription() if hasattr(tag, 'GetDescription') else '':
-			header += f'<div style="margin-top:4px;margin-bottom:6px;">{LinkifyTextIfEnabled(html.escape(description))}</div>'
+			header += f'<div style="margin-top:4px;margin-bottom:6px;">{PlainTextToTooltipHtml(description)}</div>'
 
 		# Build a simple table for the tag list: marker | color | name
 		rows: list[str] = []
@@ -732,7 +732,7 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 
 class DescNotesWidget(HoverFadeTooltipWidget):
 	""" Displays a descriptor's small note as a single label and, on hover, shows a FadeTooltip with the
-	small note followed by the rich-text (HTML) detailed note.
+	small note followed by the detailed note (rendered as escaped plain text).
 
 	In the common case it renders just like a plain note label. Mouse interactions other than hover are
 	forwarded to the underlying table/tile so row selection, context menus and drag-n-drop keep working.
@@ -790,8 +790,8 @@ class DescNotesWidget(HoverFadeTooltipWidget):
 		if self._noteDetail:
 			if self._noteSmall:
 				parts.append('<hr style="margin:6px 0;">')
-			# The detailed note supports basic HTML formatting, so render it as rich text (unescaped).
-			parts.append(f'<div>{LinkifyTextIfEnabled(self._noteDetail)}</div>')
+			# The detailed note is plain text entered by the user; escape it and keep its line breaks.
+			parts.append(f'<div>{PlainTextToTooltipHtml(self._noteDetail)}</div>')
 		return ''.join(parts)
 
 
@@ -830,10 +830,10 @@ def LinkifyText(text: str) -> str:
 		return text
 	result: list[str] = []
 	pos: int = 0
-	for anchorMatch in _ANCHOR_RE.finditer(text):
-		result.append(_linkifyOutsideTags(text[pos:anchorMatch.start()]))
-		result.append(anchorMatch.group(0))
-		pos = anchorMatch.end()
+	# for anchorMatch in _ANCHOR_RE.finditer(text):
+	# 	result.append(_linkifyOutsideTags(text[pos:anchorMatch.start()]))
+	# 	result.append(anchorMatch.group(0))
+	# 	pos = anchorMatch.end()
 	result.append(_linkifyOutsideTags(text[pos:]))
 	return ''.join(result)
 
@@ -850,6 +850,18 @@ def LinkifyTextIfEnabled(text: str) -> str:
 	if not text or not AreTooltipLinksClickable():
 		return text
 	return LinkifyText(text)
+
+def PlainTextToTooltipHtml(text: str) -> str:
+	""" Converts user-entered plain text (notes, tag descriptions) into safe rich text for tooltips.
+
+	The text is HTML-escaped (users never enter HTML via the note/tag editors), URLs are optionally made
+	clickable when the global setting is on, and newlines are turned into <br> so multi-line text keeps its
+	line breaks. """
+	if not text:
+		return text
+	escaped: str = html.escape(text)
+	linkified: str = LinkifyTextIfEnabled(escaped)
+	return linkified.replace('\n', '<br>')
 
 
 DEFAULT_THEME_MODE = 'light'  # Default theme mode, can be 'light' or 'dark'
