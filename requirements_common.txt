@@ -9,3 +9,4 @@ cryptography
 psutil==7.0.0
 pillow==12.2.0
 pefile==2024.8.26
+markdown==3.10.2

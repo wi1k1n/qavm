@@ -120,6 +120,7 @@ class TagEditorDialog(QDialog):
 		nameRow.addWidget(self.colorButton)
 		formLayout.addRow("Name:", nameRow)
 		self.descriptionField: QTextEdit = QTextEdit()
+		self.descriptionField.setAcceptRichText(False)
 		self.descriptionField.setPlainText(tag.GetDescription() if tag else '')
 		self.descriptionField.setPlaceholderText("Optional description...")
 		self.descriptionField.setFixedHeight(80)

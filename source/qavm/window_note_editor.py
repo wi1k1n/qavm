@@ -32,6 +32,7 @@ class NoteEditorDialog(QDialog):
 		class _CustomTextEdit(QTextEdit):
 			def __init__(self, *args, is_small: bool = False, **kwargs):
 				super().__init__(*args, **kwargs)
+				self.setAcceptRichText(False)
 				self._is_small = is_small
 
 			def keyPressEvent(self, event: QKeyEvent) -> None:

@@ -3,6 +3,7 @@ import html
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
+import markdown
 
 from PyQt6.QtCore import (
 	Qt, pyqtSignal, QPropertyAnimation, pyqtProperty, QEasingCurve, QPointF,
@@ -851,7 +852,16 @@ def LinkifyTextIfEnabled(text: str) -> str:
 		return text
 	return LinkifyText(text)
 
+def MarkdownTextToTooltipHtml(text: str) -> str:
+	""" Converts user-entered markdown text into rich text for tooltips.
+
+	Uses the markdown library to convert markdown to HTML, then linkifies any URLs in the resulting HTML
+	when the global setting is on. """
+	htmlText: str = markdown.markdown(text)
+	return LinkifyTextIfEnabled(htmlText)
+
 def PlainTextToTooltipHtml(text: str) -> str:
+	return MarkdownTextToTooltipHtml(text)
 	""" Converts user-entered plain text (notes, tag descriptions) into safe rich text for tooltips.
 
 	The text is HTML-escaped (users never enter HTML via the note/tag editors), URLs are optionally made
@@ -862,7 +872,6 @@ def PlainTextToTooltipHtml(text: str) -> str:
 	escaped: str = html.escape(text)
 	linkified: str = LinkifyTextIfEnabled(escaped)
 	return linkified.replace('\n', '<br>')
-
 
 DEFAULT_THEME_MODE = 'light'  # Default theme mode, can be 'light' or 'dark'
 DEFAULT_THEME_COLOR = 'purple'  # Default theme color, can be 'purple', 'pink', 'green', etc.
