@@ -690,10 +690,6 @@ class DescNotesWidget(HoverFadeTooltipWidget):
 		self._noteSmall: str = noteSmall or ''
 		self._noteDetail: str = noteDetail or ''
 
-		layout: QVBoxLayout = QVBoxLayout(self)
-		layout.setContentsMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN)
-		layout.setSpacing(0)
-
 		self._label: QLabel = QLabel(self._noteSmall, self)
 		self._label.setAlignment(alignment)
 		self._label.setWordWrap(True)
@@ -701,7 +697,18 @@ class DescNotesWidget(HoverFadeTooltipWidget):
 			self._label.setFont(font)
 		# The label is decorative; all mouse events go through the container (and on to the table/tile).
 		self._label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-		layout.addWidget(self._label)
+
+	def resizeEvent(self, event):
+		""" Stretch the label to cover the full widget rect so alignment applies relative to the whole area.
+		This matters in table cells where setCellWidget sizes the widget to the row height. """
+		self._label.setGeometry(self.rect())
+		super().resizeEvent(event)
+
+	def sizeHint(self) -> QSize:
+		return self._label.sizeHint()
+
+	def minimumSizeHint(self) -> QSize:
+		return self._label.minimumSizeHint()
 
 	def GetSortKey(self) -> str:
 		""" Returns a stable key used to sort the Note column (lower-cased small note). """
