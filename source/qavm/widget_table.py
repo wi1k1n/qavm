@@ -323,7 +323,10 @@ class MyTableWidget(QTableWidget):
 
 		for r, desc in enumerate(descs):
 			self._populateRow(r, desc, r)
-			desc.descDataUpdated.connect(partial(self._onUpdateTableRowRequired, desc))
+			# Connect to the bound method (a QObject slot) rather than a partial so Qt auto-disconnects
+			# this connection when the widget is destroyed (e.g. on workspace switch). Otherwise the
+			# descriptor outlives the widget and keeps firing into a deleted widget/mainWindow.
+			desc.descDataUpdated.connect(self._onUpdateTableRowRequired)
 
 		# Apply per-column widths info after items are populated
 		header.SetSectionMinimumWidths(list(map(lambda info: info.minWidth, self._tableInfos)))
@@ -515,7 +518,10 @@ class MyTableWidget(QTableWidget):
 			self.sortByColumn(sortColumn, order)
 
 
-	def _onUpdateTableRowRequired(self, desc: BaseDescriptor):
+	def _onUpdateTableRowRequired(self):
+		desc = self.sender()
+		if not isinstance(desc, BaseDescriptor):
+			return
 		try:
 			descIdx: int = self._descs.index(desc)
 		except ValueError:

@@ -111,12 +111,18 @@ class TilesWidget(QWidget):
 		for desc in descs:
 			tileWidget = self.tileBuilder.CreateTileWidget(desc, self.mainWindow)
 			self._setupTileWidget(desc, tileWidget)
-			desc.descDataUpdated.connect(partial(self._onDescDataUpdated, desc))
+			# Connect to the bound method (a QObject slot) rather than a partial so Qt auto-disconnects
+			# this connection when the widget is destroyed (e.g. on workspace switch). Otherwise the
+			# descriptor outlives the widget and keeps firing into a deleted widget/mainWindow.
+			desc.descDataUpdated.connect(self._onDescDataUpdated)
 			tiles.append(tileWidget)
 
 		return tiles
 	
-	def _onDescDataUpdated(self, desc: BaseDescriptor):
+	def _onDescDataUpdated(self):
+		desc = self.sender()
+		if not isinstance(desc, BaseDescriptor):
+			return
 		updatedWidget = self.tileBuilder.CreateTileWidget(desc, self.mainWindow)
 		if updatedWidget:
 			self._replaceTileWidget(desc, updatedWidget)
