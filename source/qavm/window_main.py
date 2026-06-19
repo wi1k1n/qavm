@@ -3,7 +3,7 @@ from pathlib import Path
 from functools import partial
 from typing import Type, Optional
 
-from PyQt6.QtCore import Qt, QMargins, QPoint, pyqtSignal
+from PyQt6.QtCore import Qt, QMargins, QPoint, QByteArray, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QMouseEvent
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
@@ -87,6 +87,7 @@ class MainWindow(QMainWindow):
 		# softwareHandler: SoftwareHandler = self.pluginManager.GetCurrentSoftwareHandler()
 
 		workspace: QAVMWorkspace = app.GetWorkspace()
+		self.workspaceID: str = workspace.GetID()
 		swHandlers, _ = workspace.GetInvolvedSoftwareHandlers()
 		swTitle: str = ', '.join([f'{sw.GetName()}' for sw in swHandlers])[:50]
 
@@ -193,7 +194,8 @@ class MainWindow(QMainWindow):
 	# TODO: this shouldn't be in constructor!
 	def _setupCentralWidget(self):
 		self.tabsWidget: MyTabWidget = MyTabWidget(self)
-		
+		self.tableWidgets: list[MyTableWidget] = []
+
 		app = QApplication.instance()
 		workspace: QAVMWorkspace = app.GetWorkspace()
 
@@ -214,7 +216,7 @@ class MainWindow(QMainWindow):
 		self.setCentralWidget(self.tabsWidget)
 
 		self.tabsWidget.currentChanged.connect(self._onTabChanged)
-		lastOpenedTab: int = self.qavmSettings.GetSetting('last_opened_tab')
+		lastOpenedTab: int = self.qavmSettings.GetWorkspaceLastOpenedTab(self.workspaceID)
 		if lastOpenedTab >= 0 and lastOpenedTab < self.tabsWidget.count():
 			self.tabsWidget.setCurrentIndex(lastOpenedTab)
 
@@ -261,6 +263,11 @@ class MainWindow(QMainWindow):
 		self.tableWidget: MyTableWidget = MyTableWidget(descs, tableBuilder, swHandler, viewUID, parent=self)
 		self.tabsWidget.insertTab(0, self.tableWidget, tableBuilder.GetName())
 		# self.tabsWidget.addTabWithUid(tableWidget, tableBuilder.GetName(), viewUID+descUID)
+		self.tableWidgets.append(self.tableWidget)
+
+		savedState: dict = self.qavmSettings.GetWorkspaceTableViewState(self.workspaceID, viewUID)
+		if savedState:
+			self.tableWidget.ApplyViewState(savedState)
 
 	def _createCustomView(self, swHandler: SoftwareHandler, viewUID: str):
 		customViewClass: Type[BaseCustomView] | None = swHandler.GetCustomViewClass(viewUID)
@@ -290,11 +297,31 @@ class MainWindow(QMainWindow):
 		# Keep the palette's active-context filter in sync with the current tab
 		self.tabsWidget.currentChanged.connect(lambda _idx: self.tagsPalette.OnActiveContextChanged())
 
+		# Restore the tags palette dock layout (visibility / floating / docked side) from the last session.
+		savedWindowState: str = self.qavmSettings.GetMainWindowState()
+		if savedWindowState:
+			self.restoreState(QByteArray.fromBase64(savedWindowState.encode('ascii')))
+
 	def _onTabChanged(self, index: int):
-		self.qavmSettings.SetSetting('last_opened_tab', index)
+		self.qavmSettings.SetWorkspaceLastOpenedTab(self.workspaceID, index)
 		self.qavmSettings.Save()  # TODO: should save now or later once per all changes?
 
-		self.tableWidget.clearFocus()
+		if getattr(self, 'tableWidget', None) is not None:
+			self.tableWidget.clearFocus()
+
+	def closeEvent(self, event):
+		self._saveUIState()
+		super().closeEvent(event)
+
+	def _saveUIState(self):
+		""" Persists per-workspace table state (sorting + column widths) and the global tags palette dock layout. """
+		for tableWidget in getattr(self, 'tableWidgets', []):
+			self.qavmSettings.SetWorkspaceTableViewState(self.workspaceID, tableWidget.viewUID, tableWidget.GetViewState())
+
+		windowStateB64: str = bytes(self.saveState().toBase64().data()).decode('ascii')
+		self.qavmSettings.SetMainWindowState(windowStateB64)
+
+		self.qavmSettings.Save()
 	
 	# def _tableItemFocusBuggedWorkaround(self, tableWidget: QTableWidget):
 	# 	"""

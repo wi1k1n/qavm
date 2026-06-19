@@ -85,7 +85,6 @@ class ColorButton(QPushButton):
 class QAVMGlobalSettings(BaseSettings):
 	CONTAINER_DEFAULTS: dict[str, Any] = {
 		# 'selected_software_uid': '',
-		'last_opened_tab': 0,
 		'app_theme': gui_utils.GetDefaultTheme(),
 		'search_paths_global': [],
 		# hideOnClose
@@ -95,6 +94,8 @@ class QAVMGlobalSettings(BaseSettings):
 		'workspaces_favorites': [], # List of favorite workspace IDs
 		'allow_custom_plugins': '',  # Whether to allow custom (unsigned) plugins for this software
 		'tooltip_links_clickable': 'tooltip_links_clickable',  # Whether to auto-detect and make links clickable in tooltips
+		'workspace_states': {},  # Per-workspace UI state (last opened tab, table sorting/column widths), keyed by workspace ID
+		'main_window_state': '',  # Base64-encoded QMainWindow state (tags palette dock visibility/floating/area)
 	}
 
 	def __init__(self, prefName: str, defaultGlobalSearchPaths: list[str]):
@@ -152,6 +153,61 @@ class QAVMGlobalSettings(BaseSettings):
 
 	def IsWorkspaceFavorite(self, wsID: str) -> bool:
 		return wsID in self.GetFavoriteWorkspaceIDs()
+
+
+	# ----------------------------- Per-workspace UI state -----------------------------
+	def GetWorkspaceState(self, wsID: str) -> dict[str, Any]:
+		""" Returns the persisted UI state for the given workspace (empty dict if none). """
+		states = self.GetSetting('workspace_states')
+		if not isinstance(states, dict):
+			return {}
+		state = states.get(wsID, {})
+		return state if isinstance(state, dict) else {}
+
+	def SetWorkspaceState(self, wsID: str, state: dict[str, Any]) -> None:
+		if not wsID:
+			return
+		states = self.GetSetting('workspace_states')
+		if not isinstance(states, dict):
+			states = {}
+		states[wsID] = state
+		self.SetSetting('workspace_states', states)
+
+	def GetWorkspaceLastOpenedTab(self, wsID: str) -> int:
+		tab = self.GetWorkspaceState(wsID).get('last_opened_tab', 0)
+		return tab if isinstance(tab, int) else 0
+
+	def SetWorkspaceLastOpenedTab(self, wsID: str, index: int) -> None:
+		state = self.GetWorkspaceState(wsID)
+		state['last_opened_tab'] = index
+		self.SetWorkspaceState(wsID, state)
+
+	def GetWorkspaceTableViewState(self, wsID: str, viewUID: str) -> dict[str, Any]:
+		tableViews = self.GetWorkspaceState(wsID).get('table_views', {})
+		if not isinstance(tableViews, dict):
+			return {}
+		viewState = tableViews.get(viewUID, {})
+		return viewState if isinstance(viewState, dict) else {}
+
+	def SetWorkspaceTableViewState(self, wsID: str, viewUID: str, viewState: dict[str, Any]) -> None:
+		if not wsID or not viewUID:
+			return
+		state = self.GetWorkspaceState(wsID)
+		tableViews = state.get('table_views', {})
+		if not isinstance(tableViews, dict):
+			tableViews = {}
+		tableViews[viewUID] = viewState
+		state['table_views'] = tableViews
+		self.SetWorkspaceState(wsID, state)
+
+	# ----------------------------- Main window / docks state -----------------------------
+	def GetMainWindowState(self) -> str:
+		""" Returns the base64-encoded QMainWindow.saveState() blob (empty string if none). """
+		state = self.GetSetting('main_window_state')
+		return state if isinstance(state, str) else ''
+
+	def SetMainWindowState(self, stateB64: str) -> None:
+		self.SetSetting('main_window_state', stateB64)
 
 
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:

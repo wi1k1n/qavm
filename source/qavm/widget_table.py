@@ -449,6 +449,41 @@ class MyTableWidget(QTableWidget):
 		# Defer until after QTableWidget finishes reordering items, then realign cell widgets.
 		QTimer.singleShot(0, self._rebuildCellWidgets)
 
+	def GetViewState(self) -> dict:
+		""" Returns the persistable UI state of the table (sorting + per-column widths). """
+		header = self.horizontalHeader()
+		columnWidths: dict[str, int] = {}
+		for col in range(len(self._tableInfos)):  # exclude the hidden descIdx column
+			columnWidths[str(col)] = self.columnWidth(col)
+		return {
+			'sort_column': header.sortIndicatorSection(),
+			'sort_order': header.sortIndicatorOrder().value,
+			'column_widths': columnWidths,
+		}
+
+	def ApplyViewState(self, state: dict):
+		""" Restores a previously persisted UI state (sorting + per-column widths). """
+		if not isinstance(state, dict):
+			return
+		header = self.horizontalHeader()
+
+		columnWidths = state.get('column_widths', {})
+		if isinstance(columnWidths, dict):
+			for colStr, width in columnWidths.items():
+				try:
+					col = int(colStr)
+				except (ValueError, TypeError):
+					continue
+				if 0 <= col < len(self._tableInfos) and isinstance(width, int) and width > 0:
+					header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+					self.setColumnWidth(col, width)
+
+		sortColumn = state.get('sort_column', -1)
+		sortOrder = state.get('sort_order', None)
+		if isinstance(sortColumn, int) and 0 <= sortColumn < len(self._tableInfos) and sortOrder is not None:
+			order = Qt.SortOrder.AscendingOrder if sortOrder == Qt.SortOrder.AscendingOrder.value else Qt.SortOrder.DescendingOrder
+			self.sortByColumn(sortColumn, order)
+
 
 	def _onUpdateTableRowRequired(self, desc: BaseDescriptor):
 		try:
