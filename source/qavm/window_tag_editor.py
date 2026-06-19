@@ -140,7 +140,7 @@ class TagEditorDialog(QDialog):
 		self.descriptionField: QTextEdit = QTextEdit()
 		self.descriptionField.setAcceptRichText(False)
 		self.descriptionField.setPlainText(tag.GetDescription() if tag else '')
-		self.descriptionField.setPlaceholderText("Optional description...")
+		self.descriptionField.setPlaceholderText("Optional description... (Markdown supported)")
 		self.descriptionField.setFixedHeight(80)
 		formLayout.addRow("Description:", self.descriptionField)
 		mainLayout.addLayout(formLayout)

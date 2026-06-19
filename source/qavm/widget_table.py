@@ -150,7 +150,9 @@ class _CellWidgetSortItem(QTableWidgetItem):
 
 	def __lt__(self, other):
 		if isinstance(other, _CellWidgetSortItem):
-			return self._sortKey < other._sortKey
+			return not other._sortKey or self._sortKey < other._sortKey
+		elif isinstance(other, QTableWidgetItem):
+			return not other.text() or self._sortKey < other.text()
 		return super().__lt__(other)
 
 # TODO: wtf, rename it please!

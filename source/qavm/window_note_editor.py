@@ -76,7 +76,7 @@ class NoteEditorDialog(QDialog):
 		# Note field
 		self.noteField = _CustomTextEdit()
 		self.noteField.setText(descData.noteDetail)
-		self.noteField.setPlaceholderText("Enter note...")
+		self.noteField.setPlaceholderText("Enter note...  (Markdown supported)")
 		# Let Tab change focus by default
 		self.noteField.setTabChangesFocus(True)
 
