@@ -8,7 +8,7 @@ from PyQt6.QtCore import Qt, QMimeData, QPoint, QObject, QEvent, pyqtSignal
 from qavm.manager_tags import BaseTagImpl, TagScope
 from qavm.qavmapi import BaseDescriptor
 from qavm.utils_gui import BubbleWidget
-from qavm.qavmapi.gui import GetThemeData, ClickableSubmenuMenu, HoverFadeTooltipMixin
+from qavm.qavmapi.gui import GetThemeData, ClickableSubmenuMenu, HoverFadeTooltipMixin, LinkifyTextIfEnabled
 
 if TYPE_CHECKING:
 	from qavm.window_main import MainWindow
@@ -55,138 +55,6 @@ def _PickContrastingTextColor(bgColor: QColor | None) -> QColor:
 	# Perceived luminance (ITU-R BT.601)
 	luminance: float = (0.299 * bgColor.red() + 0.587 * bgColor.green() + 0.114 * bgColor.blue()) / 255.0
 	return QColor('black') if luminance > 0.55 else QColor('white')
-
-
-class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
-	""" A colorful bubble representing a tag. Supports drag (to assign), hover tooltip and a context menu. """
-	editRequested = pyqtSignal(object)    # emits BaseTagImpl
-	deleteRequested = pyqtSignal(object)  # emits BaseTagImpl
-	
-	BUBBLE_ROUNDING: float = 17.0
-	BUBBLE_MARGIN: int = 11
-	TOOLTIP_DELAY_MS: int = 500
-
-	def __init__(self, tag: BaseTagImpl, draggable: bool = True, contextMenuEnabled: bool = True, parent: QWidget | None = None):
-		bgColor: QColor | None = QColor(tag.GetColor()) if tag.GetColor() else None
-		super().__init__(tag.GetName(), bgColor=bgColor, rounding=self.BUBBLE_ROUNDING, margin=self.BUBBLE_MARGIN)
-		if parent is not None:
-			self.setParent(parent)
-
-		self.tag: BaseTagImpl = tag
-		self._draggable: bool = draggable
-		self._contextMenuEnabled: bool = contextMenuEnabled
-		self._dragStartPos: QPoint | None = None
-
-		textColor: QColor = _PickContrastingTextColor(bgColor)
-		self.setStyleSheet(f'color: {textColor.name()};')
-
-		self._ctrlHeldOnPress: bool = False
-
-		self._InitHoverTooltip(persistentTooltip=True)
-
-	def GetTag(self) -> BaseTagImpl:
-		return self.tag
-
-	# region Drag
-	def mousePressEvent(self, event):
-		if event.button() == Qt.MouseButton.LeftButton:
-			self._dragStartPos = event.pos()
-			self._ctrlHeldOnPress = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
-		super().mousePressEvent(event)
-
-	def mouseReleaseEvent(self, event):
-		if event.button() == Qt.MouseButton.LeftButton:
-			# Ctrl+click (released without having started a drag) → open editor
-			if self._ctrlHeldOnPress and self._dragStartPos is not None:
-				self.editRequested.emit(self.tag)
-			self._dragStartPos = None
-			self._ctrlHeldOnPress = False
-		super().mouseReleaseEvent(event)
-
-	def mouseMoveEvent(self, event):
-		if not self._draggable or self._dragStartPos is None:
-			return super().mouseMoveEvent(event)
-		if not (event.buttons() & Qt.MouseButton.LeftButton):
-			return super().mouseMoveEvent(event)
-		if (event.pos() - self._dragStartPos).manhattanLength() < QApplication.startDragDistance():
-			return super().mouseMoveEvent(event)
-		
-		
-
-		# Drag threshold exceeded — commit to dragging; prevent editRequested on release.
-		self._dragStartPos = None
-		self._ctrlHeldOnPress = False
-
-		self._CancelTooltip()
-
-		drag: QDrag = QDrag(self)
-		mimeData: QMimeData = QMimeData()
-		mimeData.setData(TAG_MIME_TYPE, self.tag.GetUID().encode('utf-8'))
-		drag.setMimeData(mimeData)
-		drag.setPixmap(self.grab())
-		drag.setHotSpot(event.pos())
-		# MoveAction = reorder (grip-lines cursor); CopyAction = clone (Qt's built-in + cursor when Ctrl held)
-		# drag.setDragCursor(_makeReorderCursorPixmap(), Qt.DropAction.MoveAction)
-		drag.exec(Qt.DropAction.CopyAction | Qt.DropAction.MoveAction)
-	# endregion
-
-	# region Tooltip
-	def enterEvent(self, event):
-		self._ScheduleTooltip()
-		super().enterEvent(event)
-
-	def _GetTooltipHtml(self) -> str | None:
-		return self._buildTooltipHtml()
-
-	def _buildTooltipHtml(self) -> str:
-		def _append_scope_rows(rows: list[str], scopes: list[TagScope], colorPrimary: QColor):
-			"""Append scope-related rows into the provided rows list."""
-			if not scopes:
-				rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};"><i>Scope: global (&lt;all&gt;)</i></td></tr>')
-				return
-			# Scopes header
-			def getScopeLine(title: str, value: str) -> str:
-				return f'<tr><td style="padding-right:10px; white-space:nowrap; color:{colorPrimary.name()};">{title}</td><td colspan="2" style="padding-left:6px;">{value or "&lt;all&gt;"}</td></tr>'
-			
-			rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};"><i>Scopes:</i></td></tr>')
-			for scope in scopes:
-				rows.append(getScopeLine("plugin", scope.pluginID))
-				rows.append(getScopeLine("software", scope.softwareID))
-				rows.append(getScopeLine("view", scope.viewUID))
-				# spacer between scopes
-				rows.append('<tr><td colspan="2" style="height:6px"></td></tr>')
-				
-		themeData = GetThemeData()
-		colorPrimary = QColor(themeData.get('primaryColor', '#ffffff')) if themeData else QColor('#ffffff')
-		colorSecondary = QColor(themeData.get('secondaryColor', '#0f0f0f')) if themeData else QColor('#0f0f0f')
-
-		rows: list[str] = []
-		rows.append(f'<tr><td style="vertical-align:middle; font-weight:600;">{self.tag.GetName()}</td></tr>')
-
-		# Optional description spans full width
-		if description := self.tag.GetDescription():
-			rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};">{description}</td></tr>')
-
-		scopes: list[TagScope] = self.tag.GetScopes()
-		_append_scope_rows(rows, scopes, colorPrimary)
-
-		# Use theme: table background = secondary, text = primary. Keep swatch color intact.
-		table_style = f'border-collapse:collapse; margin:0; background-color:{colorSecondary.name()}; color:{colorPrimary.name()}; padding:6px; border-radius:6px;'
-		table_html = f'<table style="{table_style}">' + ''.join(rows) + '</table>'
-		return table_html
-	# endregion
-
-	# region Context menu
-	def contextMenuEvent(self, event):
-		if not self._contextMenuEnabled:
-			return super().contextMenuEvent(event)
-		self._CancelTooltip()
-		menu: QMenu = QMenu(self)
-		menu.addAction(QAction("Edit Tag", menu, triggered=lambda: self.editRequested.emit(self.tag)))
-		menu.addAction(QAction("Delete Tag", menu, triggered=lambda: self.deleteRequested.emit(self.tag)))
-		menu.exec(event.globalPos())
-	# endregion
-
 
 class _MenuActionClickFilter(QObject):
 	""" Event filter that invokes a handler when a specific (submenu) action in a plain QMenu is clicked.

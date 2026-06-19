@@ -1,5 +1,6 @@
 import datetime as dt
 import html
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -708,7 +709,7 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 
 		header: str = f'{swatch(tag.GetColor())} <b>{html.escape(tag.GetName())}</b>'
 		if description := tag.GetDescription() if hasattr(tag, 'GetDescription') else '':
-			header += f'<div style="margin-top:4px;margin-bottom:6px;">{html.escape(description)}</div>'
+			header += f'<div style="margin-top:4px;margin-bottom:6px;">{LinkifyTextIfEnabled(html.escape(description))}</div>'
 
 		# Build a simple table for the tag list: marker | color | name
 		rows: list[str] = []
@@ -790,8 +791,65 @@ class DescNotesWidget(HoverFadeTooltipWidget):
 			if self._noteSmall:
 				parts.append('<hr style="margin:6px 0;">')
 			# The detailed note supports basic HTML formatting, so render it as rich text (unescaped).
-			parts.append(f'<div>{self._noteDetail}</div>')
+			parts.append(f'<div>{LinkifyTextIfEnabled(self._noteDetail)}</div>')
 		return ''.join(parts)
+
+
+_ANCHOR_RE = re.compile(r'<a\b[^>]*>.*?</a>', re.IGNORECASE | re.DOTALL)
+_TAG_RE = re.compile(r'<[^>]+>')
+_URL_RE = re.compile(r'(?:https?://|www\.)[^\s<>"\'\)\]]+', re.IGNORECASE)
+
+def _linkifyPlainText(text: str) -> str:
+	def _repl(match: re.Match) -> str:
+		url: str = match.group(0)
+		trailing: str = ''
+		while url and url[-1] in '.,;:!?\'")]}':
+			trailing = url[-1] + trailing
+			url = url[:-1]
+		if not url:
+			return match.group(0)
+		href: str = url if url.lower().startswith(('http://', 'https://')) else f'http://{url}'
+		return f'<a href="{href}">{url}</a>{trailing}'
+	return _URL_RE.sub(_repl, text)
+
+def _linkifyOutsideTags(text: str) -> str:
+	""" Linkifies URLs found in the text nodes only, leaving existing HTML tags untouched. """
+	result: list[str] = []
+	pos: int = 0
+	for tagMatch in _TAG_RE.finditer(text):
+		result.append(_linkifyPlainText(text[pos:tagMatch.start()]))
+		result.append(tagMatch.group(0))
+		pos = tagMatch.end()
+	result.append(_linkifyPlainText(text[pos:]))
+	return ''.join(result)
+
+def LinkifyText(text: str) -> str:
+	""" Wraps bare URLs (http(s):// or www.) in <a> tags, skipping URLs already inside <a>...</a> anchors
+	and inside HTML tags. Intended for rich-text tooltips. """
+	if not text:
+		return text
+	result: list[str] = []
+	pos: int = 0
+	for anchorMatch in _ANCHOR_RE.finditer(text):
+		result.append(_linkifyOutsideTags(text[pos:anchorMatch.start()]))
+		result.append(anchorMatch.group(0))
+		pos = anchorMatch.end()
+	result.append(_linkifyOutsideTags(text[pos:]))
+	return ''.join(result)
+
+def AreTooltipLinksClickable() -> bool:
+	""" Returns whether the global setting to make tooltip links clickable is enabled. """
+	try:
+		app = QApplication.instance()
+		return bool(app.GetSettingsManager().GetQAVMSettings().GetTooltipLinksClickable())
+	except Exception:
+		return False
+
+def LinkifyTextIfEnabled(text: str) -> str:
+	""" Linkifies URLs in the given rich text when the 'tooltip_links_clickable' global setting is on. """
+	if not text or not AreTooltipLinksClickable():
+		return text
+	return LinkifyText(text)
 
 
 DEFAULT_THEME_MODE = 'light'  # Default theme mode, can be 'light' or 'dark'

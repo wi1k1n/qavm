@@ -94,6 +94,7 @@ class QAVMGlobalSettings(BaseSettings):
 		'search_paths_global_dont_dive_after_match': True, # Whether to include subfolders of a matched search path in global search paths or not
 		'workspaces_favorites': [], # List of favorite workspace IDs
 		'allow_custom_plugins': '',  # Whether to allow custom (unsigned) plugins for this software
+		'tooltip_links_clickable': 'tooltip_links_clickable',  # Whether to auto-detect and make links clickable in tooltips
 	}
 
 	def __init__(self, prefName: str, defaultGlobalSearchPaths: list[str]):
@@ -145,6 +146,9 @@ class QAVMGlobalSettings(BaseSettings):
 
 	def GetCustomPluginsAllowed(self) -> bool:
 		return self.GetSetting('allow_custom_plugins') == 'custom_plugins_allowed'
+
+	def GetTooltipLinksClickable(self) -> bool:
+		return self.GetSetting('tooltip_links_clickable') == 'tooltip_links_clickable'
 
 	def IsWorkspaceFavorite(self, wsID: str) -> bool:
 		return wsID in self.GetFavoriteWorkspaceIDs()
@@ -213,6 +217,12 @@ class QAVMGlobalSettings(BaseSettings):
 		self.allowCustomPluginsCheckbox.toggled.connect(self._onAllowCustomPluginsToggled)
 		layout.addWidget(self.allowCustomPluginsCheckbox)
 
+		self.tooltipLinksClickableCheckbox = QCheckBox('Clickable links in tooltips', widget)
+		self.tooltipLinksClickableCheckbox.setToolTip('Automatically detect URLs in note/tag tooltips and make them clickable')
+		self.tooltipLinksClickableCheckbox.setChecked(self.GetTooltipLinksClickable())
+		self.tooltipLinksClickableCheckbox.toggled.connect(self._onTooltipLinksClickableToggled)
+		layout.addWidget(self.tooltipLinksClickableCheckbox)
+
 		return widget
 	
 	def _onAllowCustomPluginsToggled(self, checked: bool):
@@ -233,6 +243,9 @@ class QAVMGlobalSettings(BaseSettings):
 				self.allowCustomPluginsCheckbox.blockSignals(False)
 				return
 		self.SetSetting('allow_custom_plugins', 'custom_plugins_allowed' if checked else '')
+
+	def _onTooltipLinksClickableToggled(self, checked: bool):
+		self.SetSetting('tooltip_links_clickable', 'tooltip_links_clickable' if checked else '')
 
 	def _selectAndAddSearchPath(self):
 		""" Opens a file dialog to select a directory and adds it to the search paths. """
