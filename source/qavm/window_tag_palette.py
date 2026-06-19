@@ -223,22 +223,32 @@ class _TagFlowContainer(QWidget):
 		event.acceptProposedAction()
 
 	def _computeDropIndex(self, pos: QPoint) -> int:
-		""" Computes the insertion index in reading order based on the drop position. """
+		""" Computes the insertion index in the global tag order based on the drop position.
+
+		The flow layout only holds the currently visible (filtered) bubbles, so the layout
+		index does not match the global tag order the reorder handlers operate on. We therefore
+		derive the insertion index from the dropped-after tag's global order, not its layout index. """
 		index: int = 0
 		for i in range(self.flowLayout.count()):
 			item = self.flowLayout.itemAt(i)
 			if item is None:
 				continue
 			widget = item.widget()
-			if widget is None:
+			if not isinstance(widget, TagBubbleWidget):
 				continue
+			order: int = widget.GetTag().GetOrder()
 			geo = widget.geometry()
-			center = geo.center()
-			# 'before' if on an earlier row, or same row and left of center
-			if center.y() < pos.y() - geo.height() / 2:
-				index = i + 1
-			elif abs(center.y() - pos.y()) <= geo.height() and center.x() < pos.x():
-				index = i + 1
+			# Classify the drop relative to this widget's row using the widget's actual
+			# vertical band, so the row test is consistent regardless of where inside the
+			# row the cursor is released.
+			if pos.y() > geo.bottom():
+				# Drop is on a row below this widget → widget comes before the drop.
+				index = order + 1
+			elif pos.y() >= geo.top():
+				# Same row as this widget → 'before' if the drop is right of its center.
+				if pos.x() >= geo.center().x():
+					index = order + 1
+			# else: pos.y() < geo.top() → widget is on a row below the drop; never before it.
 		return index
 
 
