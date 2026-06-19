@@ -12,7 +12,7 @@ from PyQt6.QtGui import QAction, QColor, QDrag, QPainter, QPixmap, QMouseEvent
 
 from qavm.manager_tags import TagsManager, BaseTagImpl, TagScope
 from qavm.manager_plugin import PluginManager, UID
-from qavm.qavmapi.gui import _PickContrastingTextColor, GetThemeData, HoverFadeTooltipMixin, PlainTextToTooltipHtml, QColor
+from qavm.qavmapi.gui import GetThemeData, HoverFadeTooltipMixin, PlainTextToTooltipHtml, PickContrastingTextColor
 from qavm.utils_gui import BubbleWidget, FlowLayout
 from qavm.utils_widgets import TAG_MIME_TYPE
 from qavm.window_tag_editor import TagEditorDialog, OpenTagEditorDialog, EMPTY_OPTION_LABEL
@@ -78,7 +78,7 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 		self._contextMenuEnabled: bool = contextMenuEnabled
 		self._dragStartPos: QPoint | None = None
 
-		textColor: QColor = _PickContrastingTextColor(bgColor)
+		textColor: QColor = PickContrastingTextColor(bgColor)
 		self.setStyleSheet(f'color: {textColor.name()};')
 
 		self._ctrlHeldOnPress: bool = False

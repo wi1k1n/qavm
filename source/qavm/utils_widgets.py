@@ -47,15 +47,6 @@ def AssignTagUIDToDescriptor(desc: BaseDescriptor, tagUID: str) -> bool:
 	tagsManager.AssignTag(desc, tag)
 	return True
 
-
-def _PickContrastingTextColor(bgColor: QColor | None) -> QColor:
-	""" Returns black or white depending on the perceived luminance of the background color. """
-	if bgColor is None:
-		return QColor('black')
-	# Perceived luminance (ITU-R BT.601)
-	luminance: float = (0.299 * bgColor.red() + 0.587 * bgColor.green() + 0.114 * bgColor.blue()) / 255.0
-	return QColor('black') if luminance > 0.55 else QColor('white')
-
 class _MenuActionClickFilter(QObject):
 	""" Event filter that invokes a handler when a specific (submenu) action in a plain QMenu is clicked.
 

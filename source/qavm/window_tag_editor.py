@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
 from qavm.manager_tags import TagsManager, BaseTagImpl, TagScope
 from qavm.manager_plugin import PluginManager, QAVMWorkspace, SoftwareHandler
 from qavm.utils_gui import DistinguishableColorGenerator
-from qavm.utils_widgets import _PickContrastingTextColor
+from qavm.qavmapi.gui import PickContrastingTextColor
 
 if TYPE_CHECKING:
 	pass
@@ -80,6 +80,24 @@ class _ScopeRowWidget(QWidget):
 			viewUID=self._comboValue(self.viewCombo),
 		)
 
+"""
+# TODO: create markdown text edit widget that supports conventional markdown shortcuts
+| Action        |                     Windows/Linux |                           macOS | Markdown inserted     |
+| ------------- | --------------------------------: | ------------------------------: | --------------------- |
+| Bold          |                          `Ctrl+B` |                         `Cmd+B` | `**text**`            |
+| Italic        |                          `Ctrl+I` |                         `Cmd+I` | `*text*` or `_text_`  |
+| Underline     |                          `Ctrl+U` |                         `Cmd+U` | Not standard Markdown |
+| Link          |                          `Ctrl+K` |                         `Cmd+K` | `[text](url)`         |
+| Inline code   |        `Ctrl+E` or `Ctrl+Shift+C` |        `Cmd+E` or `Cmd+Shift+C` | `` `code` ``          |
+| Code block    |  `Ctrl+Shift+K` / editor-specific | `Cmd+Shift+K` / editor-specific | ` ``` `               |
+| Heading       |                  `Ctrl+Alt+1/2/3` |                 `Cmd+Alt+1/2/3` | `#`, `##`, `###`      |
+| Bullet list   |        `Ctrl+Shift+8` or `Ctrl+L` |        `Cmd+Shift+8` or `Cmd+L` | `- item`              |
+| Numbered list |                    `Ctrl+Shift+7` |                   `Cmd+Shift+7` | `1. item`             |
+| Quote         | `Ctrl+Shift+.` or editor-specific |                   `Cmd+Shift+.` | `> quote`             |
+| Strikethrough |   `Alt+Shift+5` / editor-specific | `Cmd+Shift+X` / editor-specific | `~~text~~`            |
+| Preview       |                    `Ctrl+Shift+V` |                   `Cmd+Shift+V` | rendered view         |
+
+"""
 
 class TagEditorDialog(QDialog):
 	""" Modal dialog to create or edit a tag (name, color, scopes). """
@@ -223,7 +241,7 @@ class TagEditorDialog(QDialog):
 
 	def _updateColorButton(self):
 		bgColor: QColor = QColor(self._color)
-		textColor: QColor = _PickContrastingTextColor(bgColor)
+		textColor: QColor = PickContrastingTextColor(bgColor)
 		self.colorButton.setText(self._color)
 		self.colorButton.setStyleSheet(f'background-color: {bgColor.name()}; color: {textColor.name()};')
 		self.colorButton.setToolTip(self._color)

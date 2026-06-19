@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
 	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication, QAbstractItemView, QMessageBox,
 	QDialog, QVBoxLayout, QTextBrowser, QDialogButtonBox, QLineEdit, QHBoxLayout,
-	QSizePolicy, QTableView, QTableWidgetSelectionRange, 
+	QSizePolicy, QTableView, QTableWidgetSelectionRange, QStyle, QStyleOptionViewItem,
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler, UID, QAVMWorkspace
@@ -25,7 +25,7 @@ from qavm.qavmapi import (
 	BaseCustomView, SoftwareBaseSettings, BaseMenuItem, BaseBuilder, TableColumnInfo
 )
 from qavm.qavmapi.utils import PlatformMacOS, PlatformWindows, PlatformLinux
-from qavm.qavmapi.gui import TagBubblesFlowWidget
+from qavm.qavmapi.gui import TagBubblesFlowWidget, GetThemeData, IsThemeDark
 from qavm.utils_gui import FlowLayout
 from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptor, TAG_MIME_TYPE
 from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion, GetQAVMVersionVariant
@@ -249,6 +249,29 @@ class MyTableWidget(QTableWidget):
 
 		super().mouseDoubleClickEvent(event)
 
+	def keyPressEvent(self, event):
+		if event.key() == Qt.Key.Key_N and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+			desc: BaseDescriptor | None = self._selectedRowDescriptor()
+			if desc is not None:
+				self.mainWindow._showNoteEditorDialog(desc)
+				event.accept()
+				return
+		super().keyPressEvent(event)
+
+	def _selectedRowDescriptor(self) -> BaseDescriptor | None:
+		""" Returns the descriptor for the currently selected row, or None if there is no valid selection. """
+		selectedRows: set = {idx.row() for idx in self.selectedIndexes()}
+		if not selectedRows:
+			return None
+		row: int = selectedRows.pop()
+		descIdxItem = self.item(row, len(self._tableInfos))
+		if descIdxItem is None:
+			return None
+		descIdx: int = int(descIdxItem.text())
+		if descIdx < 0 or descIdx >= len(self._descs):
+			return None
+		return self._descs[descIdx]
+
 	def _setupTable(self, descs: list[BaseDescriptor], tableBuilder: BaseTableBuilder, parent: QMainWindow):
 		self._descs = descs
 		self._tableBuilder = tableBuilder
@@ -276,8 +299,10 @@ class MyTableWidget(QTableWidget):
 		self.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 		self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
 		self.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-		self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+		self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
 		self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+
+		self._applyRowSelectionStyle()
 
 		self.doubleClickedLeft.connect(partial(self._onTableItemDoubleClickedLeft, self, tableBuilder))
 		self.clickedMiddle.connect(partial(self._onTableItemClickedMiddle, self, tableBuilder))
@@ -318,6 +343,28 @@ class MyTableWidget(QTableWidget):
 
 		self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 		self.customContextMenuRequested.connect(showContextMenu)
+
+	def _applyRowSelectionStyle(self):
+		""" Forces a single, uniform selection color for the whole row.
+
+		qt_material styles `QTableView::item:selected:focus` (the current cell) brighter than the rest of
+		the `:selected` row, so with ClickFocus the clicked cell stands out. Overriding both states with the
+		same color makes selection appear per-row instead of per-cell. """
+		themeData = GetThemeData() or {}
+		primaryLightColor: QColor = QColor(themeData.get('primaryLightColor') or "#677bec")
+		S_MLT = 0.8
+		L_MLT = 0.5 if IsThemeDark() else 1.0
+		primaryLightColor.setHsl(primaryLightColor.hue(), int(primaryLightColor.saturation() * S_MLT), int(primaryLightColor.lightness() * L_MLT))
+
+		primaryTextColor: str = themeData.get('primaryTextColor') or '#ffffff'
+		self.setStyleSheet(
+			f'QTableView::item:selected, QTableView::item:selected:focus {{'
+			f' background-color: {primaryLightColor.name()};'
+			f' selection-background-color: {primaryLightColor.name()};'
+			f' color: {primaryTextColor};'
+			f' selection-color: {primaryTextColor};'
+			f' }}'
+		)
 
 	def _populateRow(self, row: int, desc: BaseDescriptor, descIdx: int):
 		for c, tableInfo in enumerate(self._tableInfos):

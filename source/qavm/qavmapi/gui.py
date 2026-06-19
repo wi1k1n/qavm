@@ -406,7 +406,7 @@ class ClickableSubmenuMenu(QMenu):
 		super().mouseReleaseEvent(event)
 
 
-def _PickContrastingTextColor(bgColor: QColor | None) -> QColor:
+def PickContrastingTextColor(bgColor: QColor | None) -> QColor:
 	""" Returns black or white depending on the perceived luminance (ITU-R BT.601) of the background color. """
 	if bgColor is None:
 		return QColor('black')
@@ -549,7 +549,7 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 	def _createBubble(self, text: str, bgColor: QColor | None) -> BubbleWidget:
 		bubble: BubbleWidget = BubbleWidget(text, bgColor=bgColor, rounding=self.BUBBLE_ROUNDING, margin=self.BUBBLE_MARGIN)
 		bubble.setParent(self)
-		bubble.setStyleSheet(f'color: {_PickContrastingTextColor(bgColor).name()};')
+		bubble.setStyleSheet(f'color: {PickContrastingTextColor(bgColor).name()};')
 		bubble.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 		return bubble
 
