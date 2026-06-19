@@ -357,12 +357,28 @@ class MyTableWidget(QTableWidget):
 		primaryLightColor.setHsl(primaryLightColor.hue(), int(primaryLightColor.saturation() * S_MLT), int(primaryLightColor.lightness() * L_MLT))
 
 		primaryTextColor: str = themeData.get('primaryTextColor') or '#ffffff'
+
+		# qt_material's `QHeaderView::section` uses a large `padding: 0 24px`, which clips the (centered)
+		# header title on both sides even when the column is wide enough. Reduce the horizontal padding
+		# while re-specifying the section's background/borders so qt_material's styling isn't dropped.
+		secondaryColor: str = themeData.get('secondaryColor') or '#31363b'
+		secondaryDarkColor: str = themeData.get('secondaryDarkColor') or '#232629'
+		secondaryTextColor: str = themeData.get('secondaryTextColor') or '#e0e0e0'
+
 		self.setStyleSheet(
 			f'QTableView::item:selected, QTableView::item:selected:focus {{'
 			f' background-color: {primaryLightColor.name()};'
 			f' selection-background-color: {primaryLightColor.name()};'
 			f' color: {primaryTextColor};'
 			f' selection-color: {primaryTextColor};'
+			f' }}'
+			f'QHeaderView::section {{'
+			f' padding: 0 4px;'
+			f' background-color: {secondaryColor};'
+			f' color: {secondaryTextColor};'
+			f' text-transform: uppercase;'
+			f' border-right: 1px solid {secondaryDarkColor};'
+			f' border-bottom: 1px solid {secondaryDarkColor};'
 			f' }}'
 		)
 
