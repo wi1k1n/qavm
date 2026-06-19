@@ -2,7 +2,7 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from PyQt6.QtWidgets import QMenu, QWidget, QApplication
-from PyQt6.QtGui import QAction, QColor, QDrag, QCursor
+from PyQt6.QtGui import QAction, QColor, QDrag, QCursor, QPainter, QPixmap
 from PyQt6.QtCore import Qt, QMimeData, QPoint, QTimer, pyqtSignal
 
 from qavm.manager_tags import BaseTagImpl, TagScope
@@ -19,6 +19,21 @@ logger = logs.logger
 
 # Custom MIME type used when dragging a tag bubble onto a drop target (table row / tile).
 TAG_MIME_TYPE: str = 'application/x-qavm-tag-uid'
+
+
+def _makeReorderCursorPixmap() -> QPixmap:
+	""" Returns a small 'grip lines' pixmap used as the drag cursor for reorder (MoveAction) drags. """
+	size = 20
+	pm = QPixmap(size, size)
+	pm.fill(Qt.GlobalColor.transparent)
+	painter = QPainter(pm)
+	painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+	painter.setPen(QColor(72, 72, 72))
+	cx, cy, half = size // 2, size // 2, 6
+	for dy in (-4, 0, 4):
+		painter.drawLine(cx - half, cy + dy, cx + half, cy + dy)
+	painter.end()
+	return pm
 
 
 def AssignTagUIDToDescriptor(desc: BaseDescriptor, tagUID: str) -> bool:
@@ -67,6 +82,8 @@ class TagBubbleWidget(BubbleWidget):
 
 		self.setMouseTracking(True)
 
+		self._ctrlHeldOnPress: bool = False
+
 		self._hoverTimer: QTimer = QTimer(self)
 		self._hoverTimer.setSingleShot(True)
 		self._hoverTimer.timeout.connect(self._showTooltip)
@@ -77,14 +94,18 @@ class TagBubbleWidget(BubbleWidget):
 	# region Drag
 	def mousePressEvent(self, event):
 		if event.button() == Qt.MouseButton.LeftButton:
-			# Ctrl+Left click => request edit for this tag
-			if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-				# don't start a drag when requesting edit
-				self._dragStartPos = None
-				self.editRequested.emit(self.tag)
-				return
 			self._dragStartPos = event.pos()
+			self._ctrlHeldOnPress = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
 		super().mousePressEvent(event)
+
+	def mouseReleaseEvent(self, event):
+		if event.button() == Qt.MouseButton.LeftButton:
+			# Ctrl+click (released without having started a drag) → open editor
+			if self._ctrlHeldOnPress and self._dragStartPos is not None:
+				self.editRequested.emit(self.tag)
+			self._dragStartPos = None
+			self._ctrlHeldOnPress = False
+		super().mouseReleaseEvent(event)
 
 	def mouseMoveEvent(self, event):
 		if not self._draggable or self._dragStartPos is None:
@@ -93,6 +114,12 @@ class TagBubbleWidget(BubbleWidget):
 			return super().mouseMoveEvent(event)
 		if (event.pos() - self._dragStartPos).manhattanLength() < QApplication.startDragDistance():
 			return super().mouseMoveEvent(event)
+		
+		
+
+		# Drag threshold exceeded — commit to dragging; prevent editRequested on release.
+		self._dragStartPos = None
+		self._ctrlHeldOnPress = False
 
 		self._hoverTimer.stop()
 		if self._tooltip:
@@ -104,8 +131,9 @@ class TagBubbleWidget(BubbleWidget):
 		drag.setMimeData(mimeData)
 		drag.setPixmap(self.grab())
 		drag.setHotSpot(event.pos())
-		drag.exec(Qt.DropAction.CopyAction)
-		self._dragStartPos = None
+		# MoveAction = reorder (grip-lines cursor); CopyAction = clone (Qt's built-in + cursor when Ctrl held)
+		# drag.setDragCursor(_makeReorderCursorPixmap(), Qt.DropAction.MoveAction)
+		drag.exec(Qt.DropAction.CopyAction | Qt.DropAction.MoveAction)
 	# endregion
 
 	# region Tooltip

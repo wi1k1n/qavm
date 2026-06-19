@@ -1,4 +1,5 @@
 from __future__ import annotations
+import uuid
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
@@ -59,6 +60,7 @@ def _tagMatchesFilter(tag: BaseTagImpl, pluginFilter: str, softwareFilter: str, 
 class _TagFlowContainer(QWidget):
 	""" Holds the tag bubbles in a FlowLayout and accepts drops of tag bubbles to reorder them. """
 	reorderRequested = pyqtSignal(str, int)  # (draggedTagUID, targetIndex)
+	cloneRequested = pyqtSignal(str, int)    # (draggedTagUID, targetIndex) — Ctrl+drop clones the tag
 
 	def __init__(self, parent: QWidget | None = None):
 		super().__init__(parent)
@@ -83,7 +85,10 @@ class _TagFlowContainer(QWidget):
 			return
 		draggedUID: str = bytes(event.mimeData().data(TAG_MIME_TYPE).data()).decode('utf-8')
 		targetIndex: int = self._computeDropIndex(event.position().toPoint())
-		self.reorderRequested.emit(draggedUID, targetIndex)
+		if event.dropAction() == Qt.DropAction.CopyAction:
+			self.cloneRequested.emit(draggedUID, targetIndex)
+		else:
+			self.reorderRequested.emit(draggedUID, targetIndex)
 		event.acceptProposedAction()
 
 	def _computeDropIndex(self, pos: QPoint) -> int:
@@ -127,6 +132,7 @@ class TagsPaletteWidget(QWidget):
 
 		self.container: _TagFlowContainer = _TagFlowContainer()
 		self.container.reorderRequested.connect(self._onReorderRequested)
+		self.container.cloneRequested.connect(self._onCloneTagAtIndex)
 
 		# Refresh whenever tags change anywhere (palette, table/tiles tag bubbles, ...).
 		self.tagsManager.tagsChanged.connect(self.RefreshTags)
@@ -302,6 +308,28 @@ class TagsPaletteWidget(QWidget):
 		targetIndex = max(0, min(targetIndex, len(orderedUIDs)))
 		orderedUIDs.insert(targetIndex, draggedUID)
 		self.tagsManager.ReorderTags(orderedUIDs)  # palette refreshes via tagsManager.tagsChanged
+
+	def _onCloneTagAtIndex(self, draggedUID: str, targetIndex: int):
+		""" Ctrl+drop: create a new tag that is an exact copy of the dragged one, inserted at targetIndex. """
+		sourceTag: BaseTagImpl | None = self.tagsManager.GetTag(draggedUID)
+		if sourceTag is None:
+			return
+		# Snapshot the ordered list BEFORE the new tag exists, then splice the new UID in.
+		orderedUIDs: list[str] = [tag.GetUID() for tag in self.tagsManager.GetTagsOrdered()]
+		newUID: str = str(uuid.uuid4())
+		targetIndex = max(0, min(targetIndex, len(orderedUIDs)))
+		orderedUIDs.insert(targetIndex, newUID)
+		cloneTag = BaseTagImpl(
+			uid=newUID,
+			name=sourceTag.GetName(),
+			color=sourceTag.GetColor(),
+			tagScopes=list(sourceTag.GetScopes()),
+			description=sourceTag.GetDescription()
+		)
+		self.tagsManager.blockSignals(True)
+		self.tagsManager.AddTag(cloneTag)        # appends at end; tagsChanged suppressed
+		self.tagsManager.blockSignals(False)
+		self.tagsManager.ReorderTags(orderedUIDs, True)  # moves clone to correct position, emits tagsChanged once
 	# endregion
 
 	def OnActiveContextChanged(self):
@@ -320,6 +348,7 @@ class TagsPaletteWidget(QWidget):
 				continue
 			w = item.widget()
 			if w is not None:
+				w.hide()
 				w.setParent(None)
 				w.deleteLater()
 
