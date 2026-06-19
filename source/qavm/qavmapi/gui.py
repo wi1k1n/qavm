@@ -487,8 +487,8 @@ class HoverFadeTooltipMixin(QWidget if TYPE_CHECKING else object):
 		cursor_pos = QCursor.pos()
 		x = cursor_pos.x() - tip_w // 2
 		y = cursor_pos.y() + 18
-		# Clamp to primary screen available geometry if possible
-		screen = QApplication.primaryScreen()
+		
+		screen = QApplication.screenAt(cursor_pos) or QApplication.primaryScreen()
 		if screen is not None:
 			geo = screen.availableGeometry()
 			x = max(geo.left(), min(x, geo.right() - tip_w))
