@@ -1,6 +1,7 @@
 import datetime as dt
 import html
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import (
 	Qt, pyqtSignal, QPropertyAnimation, pyqtProperty, QEasingCurve, QPointF,
@@ -411,20 +412,22 @@ def _PickContrastingTextColor(bgColor: QColor | None) -> QColor:
 	return QColor('black') if luminance > 0.55 else QColor('white')
 
 
-class HoverFadeTooltipWidget(QWidget):
-	""" Base QWidget that lazily shows a rich-text FadeTooltip after the mouse hovers for TOOLTIP_DELAY_MS.
+class HoverFadeTooltipMixin(QWidget if TYPE_CHECKING else object):
+	""" Mixin that lazily shows a rich-text FadeTooltip after the mouse hovers for TOOLTIP_DELAY_MS.
 
-	Subclasses drive the hover timer from their own mouse handlers via _ScheduleTooltip() / _CancelTooltip()
-	and supply the tooltip content by overriding _GetTooltipHtml() (return None or '' to suppress it). This
-	centralises the hover-timer + FadeTooltip plumbing that is otherwise duplicated across widgets.
+	Mix into any QWidget subclass (e.g. QWidget, QLabel) and call _InitHoverTooltip() from the host's
+	__init__. Subclasses drive the hover timer from their own mouse handlers via _ScheduleTooltip() /
+	_CancelTooltip() and supply the tooltip content by overriding _GetTooltipHtml() (return None or ''
+	to suppress it). This centralises the hover-timer + FadeTooltip plumbing that is otherwise duplicated
+	across widgets.
 
 	When persistentTooltip=True the tooltip becomes interactive (selectable text, clickable links) and stays
 	visible while the cursor is over either this widget or the tooltip itself, so the user can move onto it. """
 	TOOLTIP_DELAY_MS: int = 300
 	TOOLTIP_PERSIST_GRACE_MS: int = 250  # time to travel from the widget onto the persistent tooltip
 
-	def __init__(self, parent: QWidget | None = None, persistentTooltip: bool = False):
-		super().__init__(parent)
+	def _InitHoverTooltip(self, persistentTooltip: bool = False) -> None:
+		""" Sets up the hover/hide timers and tooltip state. Call from the host widget's __init__. """
 		self.setMouseTracking(True)
 		self._persistentTooltip: bool = persistentTooltip
 		self._tooltip: FadeTooltip | None = None
@@ -497,6 +500,13 @@ class HoverFadeTooltipWidget(QWidget):
 	def leaveEvent(self, event):
 		self._CancelTooltip()
 		super().leaveEvent(event)
+
+
+class HoverFadeTooltipWidget(HoverFadeTooltipMixin, QWidget):
+	""" QWidget that lazily shows a rich-text FadeTooltip on hover (see HoverFadeTooltipMixin). """
+	def __init__(self, parent: QWidget | None = None, persistentTooltip: bool = False):
+		super().__init__(parent)
+		self._InitHoverTooltip(persistentTooltip)
 
 
 class TagBubblesFlowWidget(HoverFadeTooltipWidget):

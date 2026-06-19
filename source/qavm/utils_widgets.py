@@ -2,13 +2,13 @@ from functools import partial
 from typing import TYPE_CHECKING, Callable
 
 from PyQt6.QtWidgets import QMenu, QWidget, QApplication, QMessageBox
-from PyQt6.QtGui import QAction, QColor, QDrag, QCursor, QPainter, QPixmap, QMouseEvent
-from PyQt6.QtCore import Qt, QMimeData, QPoint, QTimer, QObject, QEvent, pyqtSignal
+from PyQt6.QtGui import QAction, QColor, QDrag, QPainter, QPixmap, QMouseEvent
+from PyQt6.QtCore import Qt, QMimeData, QPoint, QObject, QEvent, pyqtSignal
 
 from qavm.manager_tags import BaseTagImpl, TagScope
 from qavm.qavmapi import BaseDescriptor
-from qavm.utils_gui import BubbleWidget, FadeTooltip
-from qavm.qavmapi.gui import GetThemeData, ClickableSubmenuMenu
+from qavm.utils_gui import BubbleWidget
+from qavm.qavmapi.gui import GetThemeData, ClickableSubmenuMenu, HoverFadeTooltipMixin
 
 if TYPE_CHECKING:
 	from qavm.window_main import MainWindow
@@ -57,13 +57,14 @@ def _PickContrastingTextColor(bgColor: QColor | None) -> QColor:
 	return QColor('black') if luminance > 0.55 else QColor('white')
 
 
-class TagBubbleWidget(BubbleWidget):
+class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 	""" A colorful bubble representing a tag. Supports drag (to assign), hover tooltip and a context menu. """
 	editRequested = pyqtSignal(object)    # emits BaseTagImpl
 	deleteRequested = pyqtSignal(object)  # emits BaseTagImpl
 	
 	BUBBLE_ROUNDING: float = 17.0
 	BUBBLE_MARGIN: int = 11
+	TOOLTIP_DELAY_MS: int = 500
 
 	def __init__(self, tag: BaseTagImpl, draggable: bool = True, contextMenuEnabled: bool = True, parent: QWidget | None = None):
 		bgColor: QColor | None = QColor(tag.GetColor()) if tag.GetColor() else None
@@ -75,18 +76,13 @@ class TagBubbleWidget(BubbleWidget):
 		self._draggable: bool = draggable
 		self._contextMenuEnabled: bool = contextMenuEnabled
 		self._dragStartPos: QPoint | None = None
-		self._tooltip: FadeTooltip | None = None
 
 		textColor: QColor = _PickContrastingTextColor(bgColor)
 		self.setStyleSheet(f'color: {textColor.name()};')
 
-		self.setMouseTracking(True)
-
 		self._ctrlHeldOnPress: bool = False
 
-		self._hoverTimer: QTimer = QTimer(self)
-		self._hoverTimer.setSingleShot(True)
-		self._hoverTimer.timeout.connect(self._showTooltip)
+		self._InitHoverTooltip()
 
 	def GetTag(self) -> BaseTagImpl:
 		return self.tag
@@ -121,9 +117,7 @@ class TagBubbleWidget(BubbleWidget):
 		self._dragStartPos = None
 		self._ctrlHeldOnPress = False
 
-		self._hoverTimer.stop()
-		if self._tooltip:
-			self._tooltip.hideWithFade()
+		self._CancelTooltip()
 
 		drag: QDrag = QDrag(self)
 		mimeData: QMimeData = QMimeData()
@@ -138,19 +132,11 @@ class TagBubbleWidget(BubbleWidget):
 
 	# region Tooltip
 	def enterEvent(self, event):
-		self._hoverTimer.start(500)
+		self._ScheduleTooltip()
 		super().enterEvent(event)
 
-	def leaveEvent(self, event):
-		self._hoverTimer.stop()
-		if self._tooltip:
-			self._tooltip.hideWithFade()
-		super().leaveEvent(event)
-
-	def _showTooltip(self):
-		if self._tooltip is None:
-			self._tooltip = FadeTooltip(self)
-		self._tooltip.showText(self._buildTooltipHtml(), QCursor.pos() + QPoint(14, 18))
+	def _GetTooltipHtml(self) -> str | None:
+		return self._buildTooltipHtml()
 
 	def _buildTooltipHtml(self) -> str:
 		def _append_scope_rows(rows: list[str], scopes: list[TagScope], colorPrimary: QColor):
@@ -194,9 +180,7 @@ class TagBubbleWidget(BubbleWidget):
 	def contextMenuEvent(self, event):
 		if not self._contextMenuEnabled:
 			return super().contextMenuEvent(event)
-		self._hoverTimer.stop()
-		if self._tooltip:
-			self._tooltip.hideWithFade()
+		self._CancelTooltip()
 		menu: QMenu = QMenu(self)
 		menu.addAction(QAction("Edit Tag", menu, triggered=lambda: self.editRequested.emit(self.tag)))
 		menu.addAction(QAction("Delete Tag", menu, triggered=lambda: self.deleteRequested.emit(self.tag)))
