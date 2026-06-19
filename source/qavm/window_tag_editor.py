@@ -3,7 +3,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QShortcut, QKeySequence
 from PyQt6.QtWidgets import (
 	QApplication, QTextEdit, QWidget, QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel,
 	QLineEdit, QPushButton, QComboBox, QColorDialog, QScrollArea, QGroupBox,
@@ -121,6 +121,7 @@ class TagEditorDialog(QDialog):
 		formLayout.addRow("Name:", nameRow)
 		self.descriptionField: QTextEdit = QTextEdit(tag.GetDescription() if tag else '')
 		self.descriptionField.setPlaceholderText("Optional description...")
+		self.descriptionField.setFixedHeight(80)
 		formLayout.addRow("Description:", self.descriptionField)
 		mainLayout.addLayout(formLayout)
 		self._updateColorButton()
@@ -157,6 +158,9 @@ class TagEditorDialog(QDialog):
 		buttonBox.accepted.connect(self.accept)
 		buttonBox.rejected.connect(self.reject)
 		mainLayout.addWidget(buttonBox)
+		
+		QShortcut(QKeySequence('Ctrl+Return'), self, activated=self.accept)
+		QShortcut(QKeySequence('Ctrl+Enter'), self, activated=self.accept)
 
 	def _collectScopeOptions(self) -> tuple[list[str], list[str], list[str]]:
 		pluginOptions: set[str] = set()
@@ -255,7 +259,7 @@ def OpenTagEditorDialog(tag: BaseTagImpl, parent: QWidget | None = None) -> bool
 	Shared entry point so that every place that lets the user edit a tag (tags palette, table/tiles tag
 	bubbles, ...) triggers the exact same persistence + propagation path (TagsManager.UpdateTag, which
 	refreshes affected descriptors and emits tagsChanged). """
-	
+
 	# Ensure the dialog is parented to a top-level window. If caller passed a child
 	# widget (e.g. a small cell widget), parenting to that widget can cause the
 	# dialog to be embedded or clipped by the parent's layout on some platforms.

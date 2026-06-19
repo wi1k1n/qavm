@@ -318,5 +318,4 @@ def PopulateContextMenuTagsAndNotes(menu: QMenu, desc: BaseDescriptor, mainWindo
 	tagsAction: QAction = menu.addMenu(tagsMenu)
 	# _InstallMenuActionClickHandler(menu, tagsAction, openTagsPalette)
 
-	menu.addSeparator()
-	menu.addAction(QAction("Edit Note", parent, triggered=partial(mainWindow._showNoteEditorDialog, desc)))
+	menu.addAction(QAction("Note", parent, triggered=partial(mainWindow._showNoteEditorDialog, desc)))
