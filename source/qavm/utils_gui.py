@@ -1,7 +1,7 @@
 import math
 import random
 
-from PyQt6.QtCore import Qt, QSize, QRect, QPoint, QPropertyAnimation
+from PyQt6.QtCore import Qt, QSize, QRect, QPoint, QPropertyAnimation, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen, QFont
 from PyQt6.QtWidgets import QLabel, QLayout, QWidget, QWidgetItem
 
@@ -112,10 +112,21 @@ class BubbleWidget(QLabel):
 
 # Copied from experiments (fadein_tooltip) and adapted for production use
 class FadeTooltip(QLabel):
-	""" A tooltip-like label that fades in/out. Supports rich text (HTML). """
-	def __init__(self, parent: QWidget | None = None):
+	""" A tooltip-like label that fades in/out. Supports rich text (HTML).
+
+	When interactive=True the tooltip stops being transparent to the mouse: its text becomes selectable,
+	embedded links become clickable, and it emits mouseEntered/mouseLeft so an owner can keep it alive
+	while the cursor is over it (persistent tooltip behaviour). """
+	mouseEntered = pyqtSignal()
+	mouseLeft = pyqtSignal()
+
+	FADEIN_DURATION_MS: int = 150
+	FADEOUT_DURATION_MS: int = 150
+
+	def __init__(self, parent: QWidget | None = None, interactive: bool = False):
 		super().__init__(parent, Qt.WindowType.ToolTip)
 		self.setWindowFlags(Qt.WindowType.ToolTip)
+		self._interactive: bool = interactive
 
 		from qavm.qavmapi.gui import GetThemeData
 		themeData = GetThemeData()
@@ -125,10 +136,15 @@ class FadeTooltip(QLabel):
 		self.setStyleSheet(f"background-color: {colorSecondary.name()}; color: {colorPrimary.name()}; border: 1px solid {colorPrimary.name()}; padding: 6px; border-radius: 4px;")
 		self.setFont(QFont("Arial", 10))
 		self.setTextFormat(Qt.TextFormat.RichText)
-		self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+		if interactive:
+			# Let the user select/copy the text and click embedded links.
+			self.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+			self.setOpenExternalLinks(True)
+		else:
+			self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
 		self.animation = QPropertyAnimation(self, b"windowOpacity")
-		self.animation.setDuration(300)
+		self.animation.setDuration(self.FADEIN_DURATION_MS)
 		self.animation.finished.connect(self._onAnimationFinished)
 		self._fadingOut: bool = False
 
@@ -152,7 +168,18 @@ class FadeTooltip(QLabel):
 		self.animation.stop()
 		self.animation.setStartValue(self.windowOpacity())
 		self.animation.setEndValue(0.0)
+		self.animation.setDuration(self.FADEOUT_DURATION_MS)
 		self.animation.start()
+
+	def enterEvent(self, event):
+		if self._interactive:
+			self.mouseEntered.emit()
+		super().enterEvent(event)
+
+	def leaveEvent(self, event):
+		if self._interactive:
+			self.mouseLeft.emit()
+		super().leaveEvent(event)
 
 	def _onAnimationFinished(self):
 		if self._fadingOut:

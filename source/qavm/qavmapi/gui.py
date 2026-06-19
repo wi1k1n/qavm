@@ -416,24 +416,44 @@ class HoverFadeTooltipWidget(QWidget):
 
 	Subclasses drive the hover timer from their own mouse handlers via _ScheduleTooltip() / _CancelTooltip()
 	and supply the tooltip content by overriding _GetTooltipHtml() (return None or '' to suppress it). This
-	centralises the hover-timer + FadeTooltip plumbing that is otherwise duplicated across widgets. """
-	TOOLTIP_DELAY_MS: int = 500
+	centralises the hover-timer + FadeTooltip plumbing that is otherwise duplicated across widgets.
 
-	def __init__(self, parent: QWidget | None = None):
+	When persistentTooltip=True the tooltip becomes interactive (selectable text, clickable links) and stays
+	visible while the cursor is over either this widget or the tooltip itself, so the user can move onto it. """
+	TOOLTIP_DELAY_MS: int = 300
+	TOOLTIP_PERSIST_GRACE_MS: int = 250  # time to travel from the widget onto the persistent tooltip
+
+	def __init__(self, parent: QWidget | None = None, persistentTooltip: bool = False):
 		super().__init__(parent)
 		self.setMouseTracking(True)
+		self._persistentTooltip: bool = persistentTooltip
 		self._tooltip: FadeTooltip | None = None
 		self._hoverTimer: QTimer = QTimer(self)
 		self._hoverTimer.setSingleShot(True)
 		self._hoverTimer.timeout.connect(self._showTooltip)
+		# Grace timer used only in persistent mode to bridge the gap between leaving the widget and
+		# entering the tooltip (and to dismiss the tooltip shortly after the cursor leaves it).
+		self._hideTimer: QTimer = QTimer(self)
+		self._hideTimer.setSingleShot(True)
+		self._hideTimer.timeout.connect(self._hideTooltipNow)
 
 	def _ScheduleTooltip(self) -> None:
 		""" (Re)starts the hover delay timer after which the tooltip is shown. """
+		self._hideTimer.stop()
 		self._hoverTimer.start(self.TOOLTIP_DELAY_MS)
 
 	def _CancelTooltip(self) -> None:
-		""" Stops any pending tooltip and fades out the visible one. """
+		""" Stops a pending tooltip and dismisses the visible one (after a grace period when persistent). """
 		self._hoverTimer.stop()
+		if not self._tooltip:
+			return
+		if self._persistentTooltip:
+			# Allow the cursor to reach the tooltip before hiding it.
+			self._hideTimer.start(self.TOOLTIP_PERSIST_GRACE_MS)
+		else:
+			self._tooltip.hideWithFade()
+
+	def _hideTooltipNow(self) -> None:
 		if self._tooltip:
 			self._tooltip.hideWithFade()
 
@@ -446,8 +466,16 @@ class HoverFadeTooltipWidget(QWidget):
 		if not tooltipHtml:
 			return
 		if self._tooltip is None:
-			self._tooltip = FadeTooltip(self)
+			self._tooltip = FadeTooltip(self, interactive=self._persistentTooltip)
+			if self._persistentTooltip:
+				self._tooltip.mouseEntered.connect(self._hideTimer.stop)
+				self._tooltip.mouseLeft.connect(self._onTooltipLeft)
+		self._hideTimer.stop()
 		self._tooltip.showText(tooltipHtml, QCursor.pos() + QPoint(14, 18))
+
+	def _onTooltipLeft(self) -> None:
+		# Cursor left the persistent tooltip; dismiss it after the grace period (cancelled if it returns).
+		self._hideTimer.start(self.TOOLTIP_PERSIST_GRACE_MS)
 
 	def leaveEvent(self, event):
 		self._CancelTooltip()
@@ -685,8 +713,9 @@ class DescNotesWidget(HoverFadeTooltipWidget):
 	MARGIN: int = 0
 
 	def __init__(self, noteSmall: str, noteDetail: str = '', parent: QWidget | None = None,
-				alignment: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignCenter, font: QFont | None = None):
-		super().__init__(parent)
+				alignment: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignCenter, font: QFont | None = None,
+				persistentTooltip: bool = False):
+		super().__init__(parent, persistentTooltip=persistentTooltip)
 		self._noteSmall: str = noteSmall or ''
 		self._noteDetail: str = noteDetail or ''
 
