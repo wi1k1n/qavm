@@ -77,6 +77,12 @@ class TagBubbleWidget(BubbleWidget):
 	# region Drag
 	def mousePressEvent(self, event):
 		if event.button() == Qt.MouseButton.LeftButton:
+			# Ctrl+Left click => request edit for this tag
+			if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+				# don't start a drag when requesting edit
+				self._dragStartPos = None
+				self.editRequested.emit(self.tag)
+				return
 			self._dragStartPos = event.pos()
 		super().mousePressEvent(event)
 
