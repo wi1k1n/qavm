@@ -5,7 +5,6 @@ from PyQt6.QtCore import Qt, QSize, QRect, QPoint, QPropertyAnimation
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPen, QFont
 from PyQt6.QtWidgets import QLabel, QLayout, QWidget, QWidgetItem
 
-
 # Copied from experiments on 26th of June 2024
 # FlowLayout implementation is taken from https://stackoverflow.com/a/41643802/5765191 and modified
 class FlowLayout(QLayout):
@@ -117,7 +116,13 @@ class FadeTooltip(QLabel):
 	def __init__(self, parent: QWidget | None = None):
 		super().__init__(parent, Qt.WindowType.ToolTip)
 		self.setWindowFlags(Qt.WindowType.ToolTip)
-		self.setStyleSheet("background-color: #2b2b2b; color: #f0f0f0; border: 1px solid #555; padding: 6px; border-radius: 4px;")
+
+		from qavm.qavmapi.gui import GetThemeData
+		themeData = GetThemeData()
+		colorPrimary = QColor(themeData.get('primaryColor', '#ffffff')) if themeData else QColor('#ffffff')
+		colorSecondary = QColor(themeData.get('secondaryColor', '#0f0f0f')) if themeData else QColor('#0f0f0f')
+
+		self.setStyleSheet(f"background-color: {colorSecondary.name()}; color: {colorPrimary.name()}; border: 1px solid {colorPrimary.name()}; padding: 6px; border-radius: 4px;")
 		self.setFont(QFont("Arial", 10))
 		self.setTextFormat(Qt.TextFormat.RichText)
 		self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)

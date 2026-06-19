@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt, QMimeData, QPoint, QTimer, pyqtSignal
 from qavm.manager_tags import BaseTagImpl, TagScope
 from qavm.qavmapi import BaseDescriptor
 from qavm.utils_gui import BubbleWidget, FadeTooltip
+from qavm.qavmapi.gui import GetThemeData
 
 if TYPE_CHECKING:
 	from qavm.window_main import MainWindow
@@ -120,25 +121,40 @@ class TagBubbleWidget(BubbleWidget):
 		self._tooltip.showText(self._buildTooltipHtml(), QCursor.pos() + QPoint(14, 18))
 
 	def _buildTooltipHtml(self) -> str:
-		colorStr: str = self.tag.GetColor() or '#000000'
-		swatch: str = f'<span style="background-color:{colorStr};">&nbsp;&nbsp;&nbsp;</span>'
-		lines: list[str] = [
-			f'<b>{self.tag.GetName()}</b> {swatch} <code>{colorStr}</code>',
-		]
+		themeData = GetThemeData()
+		colorPrimary = QColor(themeData.get('primaryColor', '#ffffff')) if themeData else QColor('#ffffff')
+		colorSecondary = QColor(themeData.get('secondaryColor', '#0f0f0f')) if themeData else QColor('#0f0f0f')
+
+		swatchColor: str = self.tag.GetColor() or '#000000'
+		swatch: str = f'<span style="background-color:{swatchColor};">{"".join(["&nbsp;"]*5)}</span>'
+		rows: list[str] = []
+		rows.append('<tr>')
+		rows.append(f'<td style="vertical-align:middle; padding-right:8px;">{swatch}</td>')
+		rows.append(f'<td style="vertical-align:middle; font-weight:600;">{self.tag.GetName()}</td>')
+		rows.append('</tr>')
+
+		# Optional description spans full width
 		if description := self.tag.GetDescription():
-			lines.append(description)
+			rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};">{description}</td></tr>')
+
 		scopes: list[TagScope] = self.tag.GetScopes()
 		if not scopes:
-			lines.append('<i>Scope: global (all)</i>')
+			rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};"><i>Scope: global (all)</i></td></tr>')
 		else:
-			lines.append('<i>Scopes:</i>')
+			# Scopes header
+			rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};"><i>Scopes:</i></td></tr>')
 			for scope in scopes:
-				parts: list[str] = []
-				parts.append(f'plugin: {scope.pluginID or "*"}')
-				parts.append(f'software: {scope.softwareID or "*"}')
-				parts.append(f'view: {scope.viewUID or "*"}')
-				lines.append('&bull; ' + ', '.join(parts))
-		return '<br>'.join(lines)
+				# Each scope rendered as three rows (label + value)
+				rows.append(f'<tr><td style="padding-right:10px; white-space:nowrap; color:{colorPrimary.name()};">plugin</td><td colspan="2" style="padding-left:6px;">{scope.pluginID or "*"}</td></tr>')
+				rows.append(f'<tr><td style="padding-right:10px; white-space:nowrap; color:{colorPrimary.name()};">software</td><td colspan="2" style="padding-left:6px;">{scope.softwareID or "*"}</td></tr>')
+				rows.append(f'<tr><td style="padding-right:10px; white-space:nowrap; color:{colorPrimary.name()};">view</td><td colspan="2" style="padding-left:6px;">{scope.viewUID or "*"}</td></tr>')
+				# spacer between scopes
+				rows.append('<tr><td colspan="2" style="height:6px"></td></tr>')
+
+		# Use theme: table background = secondary, text = primary. Keep swatch color intact.
+		table_style = f'border-collapse:collapse; margin:0; background-color:{colorSecondary.name()}; color:{colorPrimary.name()}; padding:6px; border-radius:6px;'
+		table_html = f'<table style="{table_style}">' + ''.join(rows) + '</table>'
+		return table_html
 	# endregion
 
 	# region Context menu

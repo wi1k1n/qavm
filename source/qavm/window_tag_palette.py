@@ -12,7 +12,7 @@ from qavm.manager_tags import TagsManager, BaseTagImpl, TagScope
 from qavm.manager_plugin import PluginManager, UID
 from qavm.utils_gui import FlowLayout
 from qavm.utils_widgets import TagBubbleWidget, TAG_MIME_TYPE
-from qavm.window_tag_editor import TagEditorDialog, EMPTY_OPTION_LABEL
+from qavm.window_tag_editor import TagEditorDialog, OpenTagEditorDialog, EMPTY_OPTION_LABEL
 
 if TYPE_CHECKING:
 	from qavm.window_main import MainWindow
@@ -127,6 +127,9 @@ class TagsPaletteWidget(QWidget):
 
 		self.container: _TagFlowContainer = _TagFlowContainer()
 		self.container.reorderRequested.connect(self._onReorderRequested)
+
+		# Refresh whenever tags change anywhere (palette, table/tiles tag bubbles, ...).
+		self.tagsManager.tagsChanged.connect(self.RefreshTags)
 
 		scrollArea = QScrollArea()
 		scrollArea.setWidgetResizable(True)
@@ -272,13 +275,10 @@ class TagsPaletteWidget(QWidget):
 		]
 		initialScope: TagScope = TagScope(pluginFilter, softwareFilter, viewFilter)
 		dialog = TagEditorDialog(None, self, existingTags=visibleTags, initialScope=initialScope)
-		if dialog.exec():
-			self.RefreshTags()
+		dialog.exec()  # palette refreshes via tagsManager.tagsChanged
 
 	def _onEditTag(self, tag: BaseTagImpl):
-		dialog = TagEditorDialog(tag, self)
-		if dialog.exec():
-			self.RefreshTags()
+		OpenTagEditorDialog(tag, self)  # palette refreshes via tagsManager.tagsChanged
 
 	def _onDeleteTag(self, tag: BaseTagImpl):
 		reply = QMessageBox.question(
@@ -288,8 +288,7 @@ class TagsPaletteWidget(QWidget):
 			QMessageBox.StandardButton.No,
 		)
 		if reply == QMessageBox.StandardButton.Yes:
-			self.tagsManager.DeleteTag(tag)
-			self.RefreshTags()
+			self.tagsManager.DeleteTag(tag)  # palette refreshes via tagsManager.tagsChanged
 
 	def _onReorderRequested(self, draggedUID: str, targetIndex: int):
 		orderedUIDs: list[str] = [tag.GetUID() for tag in self.tagsManager.GetTagsOrdered()]
@@ -302,8 +301,7 @@ class TagsPaletteWidget(QWidget):
 			targetIndex -= 1
 		targetIndex = max(0, min(targetIndex, len(orderedUIDs)))
 		orderedUIDs.insert(targetIndex, draggedUID)
-		self.tagsManager.ReorderTags(orderedUIDs)
-		self.RefreshTags()
+		self.tagsManager.ReorderTags(orderedUIDs)  # palette refreshes via tagsManager.tagsChanged
 	# endregion
 
 	def OnActiveContextChanged(self):

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from enum import StrEnum
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
 from qavm.manager_plugin import UID
 from qavm.qavmapi import BaseDescriptor, BaseTag
@@ -153,8 +153,13 @@ class BaseTagImpl(BaseTag):
 				self.order == other.order and
 				self.description == other.description)
 
-class TagsManager(object):
+class TagsManager(QObject):
+	# Emitted whenever the set of tags or any tag's data changes (add/update/delete/reorder), so that
+	# views showing tags (e.g. the tags palette) can refresh regardless of where the change originated.
+	tagsChanged = pyqtSignal()
+
 	def __init__(self, tagsDataFilepath: Path, descDataManager: DescriptorDataManager) -> None:
+		super().__init__()
 		self.tagsDataFilepath: Path = tagsDataFilepath
 		self.descDataManager: DescriptorDataManager = descDataManager
 
@@ -228,6 +233,7 @@ class TagsManager(object):
 				tag.SetOrder(order)
 				order += 1
 		self.SaveTags()
+		self.tagsChanged.emit()
 		if not dontUpdateDescriptors:
 			# Reordering tags affects how they render on every descriptor that has them assigned, so we need to update all of them
 			affectedDescUIDs: list[str] = [descUID for descUID, descData in self.descDataManager.data.items() if any(tagUID in descData.tags for tagUID in self.tags.keys())]
@@ -248,6 +254,7 @@ class TagsManager(object):
 		tag.SetOrder(nextOrder)
 		self.tags[tag.GetUID()] = tag
 		self.SaveTags()
+		self.tagsChanged.emit()
 
 	def UpdateTag(self, tag: BaseTagImpl) -> None:
 		""" Persists changes made to an existing tag (e.g. after editing name/color/scopes) and refreshes affected descriptors. """
@@ -257,6 +264,7 @@ class TagsManager(object):
 			raise ValueError(f'BaseTag {tag.GetUID()} does not exist in tags manager')
 		self.tags[tag.GetUID()] = tag
 		self.SaveTags()
+		self.tagsChanged.emit()
 		# Name/color/scope changes affect how the tag renders on every descriptor that has it assigned
 		affectedDescUIDs: list[str] = [descUID for descUID, descData in self.descDataManager.data.items() if tag.GetUID() in descData.tags]
 		self.descDataManager.NotifyDescriptorsDataUpdated(affectedDescUIDs)
@@ -277,6 +285,7 @@ class TagsManager(object):
 			self.descDataManager.SaveData()
 		del self.tags[tagUID]
 		self.SaveTags()
+		self.tagsChanged.emit()
 		if not dontUpdateDescriptors:
 			self.descDataManager.NotifyDescriptorsDataUpdated(affectedDescUIDs)
 

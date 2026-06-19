@@ -1,9 +1,10 @@
 import datetime as dt
+import html
 from pathlib import Path
 
 from PyQt6.QtCore import (
 	Qt, pyqtSignal, QPropertyAnimation, pyqtProperty, QEasingCurve, QPointF,
-	QModelIndex, QSize, QRect, 
+	QModelIndex, QSize, QRect, QTimer, QPoint,
 )
 from PyQt6.QtWidgets import (
 	QApplication, QFrame, QPlainTextEdit, QPushButton, QVBoxLayout, QLabel, QTableWidgetItem, QListWidget, QScrollBar,
@@ -18,7 +19,7 @@ import pyperclip
 from qt_material import apply_stylesheet, get_theme, list_themes
 
 import qavm.qavmapi.utils as qutils
-from qavm.utils_gui import BubbleWidget
+from qavm.utils_gui import BubbleWidget, FadeTooltip
 
 class NumberTableWidgetItem(QTableWidgetItem):
 	def __init__(self, value: int | float, format: str = '{}'):
@@ -411,25 +412,28 @@ def _PickContrastingTextColor(bgColor: QColor | None) -> QColor:
 
 
 class TagBubblesFlowWidget(QWidget):
-	""" Read-only, flow-laid-out collection of colorful tag bubbles for use inside table cells.
+	""" Flow-laid-out collection of colorful tag bubbles for use inside table cells and tiles.
 
 	Bubbles wrap onto multiple lines so none are clipped horizontally. The total height is capped by
-	maxHeight; tags that don't fit are collapsed into a trailing '+N' bubble. The widget (and its
-	bubbles) are transparent for mouse events so the underlying table still handles row selection,
-	context menus and tag drag-n-drop. Intended to be returned from BaseTableBuilder.GetTableCellValue
-	and consumed via QTableWidget.setCellWidget. """
+	maxHeight; tags that don't fit are collapsed into a trailing '+N' bubble. The container receives
+	mouse events to provide per-tag hover tooltips and Ctrl+LMB editing, while forwarding all other
+	mouse interactions (plain click, context menu, tag drag-n-drop) to the underlying table/tile so
+	row selection and existing behaviour keep working. Intended to be returned from
+	BaseTableBuilder.GetTableCellValue and consumed via QTableWidget.setCellWidget. """
 	HSPACING: int = 2
 	VSPACING: int = 2
 	MARGIN: int = 2
 	BUBBLE_ROUNDING: float = 10.0
 	BUBBLE_MARGIN: int = 5
+	TOOLTIP_DELAY_MS: int = 500
 
 	def __init__(self, tags: list, maxHeight: int, parent: QWidget | None = None):
 		super().__init__(parent)
 		self._maxHeight: int = max(maxHeight, 1)
-		self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 		self.setAutoFillBackground(False)
+		self.setMouseTracking(True)
 
+		self._tags: list = list(tags)
 		self._tagNames: list[str] = [tag.GetName() for tag in tags]
 		self._tagOrders: list[int] = [tag.GetOrder() for tag in tags]
 		self._bubbles: list[BubbleWidget] = [
@@ -437,6 +441,12 @@ class TagBubblesFlowWidget(QWidget):
 			for tag in tags
 		]
 		self._overflowBubble: BubbleWidget | None = None
+
+		self._hoveredIndex: int = -1
+		self._tooltip: FadeTooltip | None = None
+		self._hoverTimer: QTimer = QTimer(self)
+		self._hoverTimer.setSingleShot(True)
+		self._hoverTimer.timeout.connect(self._showTooltip)
 
 	def GetSortKey(self) -> str:
 		""" Returns a stable key used to sort the Tags column (comma-joined, lower-cased tag names). """
@@ -548,6 +558,84 @@ class TagBubblesFlowWidget(QWidget):
 	def resizeEvent(self, event):
 		self._doLayout(self.width(), apply=True)
 		super().resizeEvent(event)
+
+	# region Interaction (hover tooltip + Ctrl+LMB edit)
+	def _tagIndexAt(self, pos: QPoint) -> int:
+		""" Returns the index into self._tags of the visible tag bubble at pos, or -1 if none. """
+		for i, bubble in enumerate(self._bubbles):
+			if bubble.isVisible() and bubble.geometry().contains(pos):
+				return i
+		return -1
+
+	def mouseMoveEvent(self, event: QMouseEvent):
+		idx: int = self._tagIndexAt(event.pos())
+		if idx != self._hoveredIndex:
+			self._hoveredIndex = idx
+			self._hoverTimer.stop()
+			if self._tooltip:
+				self._tooltip.hideWithFade()
+			if idx >= 0:
+				self._hoverTimer.start(self.TOOLTIP_DELAY_MS)
+		# Let the underlying table/tile keep handling hover and rubber-band selection.
+		event.ignore()
+
+	def mousePressEvent(self, event: QMouseEvent):
+		isCtrlLeft: bool = (event.button() == Qt.MouseButton.LeftButton
+							and bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier))
+		if isCtrlLeft:
+			idx: int = self._tagIndexAt(event.pos())
+			if idx >= 0:
+				self._hoverTimer.stop()
+				if self._tooltip:
+					self._tooltip.hideWithFade()
+				event.accept()
+				self._openTagEditor(self._tags[idx])
+				return
+		# Anything else (plain click, right click, drag) belongs to the table/tile underneath.
+		event.ignore()
+
+	def leaveEvent(self, event):
+		self._hoveredIndex = -1
+		self._hoverTimer.stop()
+		if self._tooltip:
+			self._tooltip.hideWithFade()
+		super().leaveEvent(event)
+
+	def _openTagEditor(self, tag) -> None:
+		# Lazy import to avoid a qavmapi -> app-window import cycle at module load time.
+		from qavm.window_tag_editor import OpenTagEditorDialog
+		OpenTagEditorDialog(tag, self)
+
+	def _showTooltip(self) -> None:
+		if self._hoveredIndex < 0 or self._hoveredIndex >= len(self._tags):
+			return
+		tag = self._tags[self._hoveredIndex]
+		if self._tooltip is None:
+			self._tooltip = FadeTooltip(self)
+		self._tooltip.showText(self._buildTooltipHtml(tag), QCursor.pos() + QPoint(14, 18))
+
+	def _buildTooltipHtml(self, tag) -> str:
+		""" Tooltip: hovered tag's description, a separator, then the full list of the descriptor's tags. """
+		def swatch(colorStr: str) -> str:
+			return f'<span style="background-color:{colorStr};">&nbsp;&nbsp;&nbsp;</span>' if colorStr else ''
+
+		colorStr: str = tag.GetColor() or ''
+		header: str = f'<b>{html.escape(tag.GetName())}</b>'
+		if sw := swatch(colorStr):
+			header += f' {sw}'
+		lines: list[str] = [header]
+
+		description: str = tag.GetDescription() if hasattr(tag, 'GetDescription') else ''
+		if description:
+			lines.append(html.escape(description))
+
+		lines.append('<hr>')
+		lines.append('<i>Tags:</i>')
+		for t in self._tags:
+			marker: str = '&rarr;' if t is tag else '&bull;'
+			lines.append(f'{marker} {swatch(t.GetColor() or "")} {html.escape(t.GetName())}')
+		return '<br>'.join(lines)
+	# endregion
 
 
 DEFAULT_THEME_MODE = 'light'  # Default theme mode, can be 'light' or 'dark'

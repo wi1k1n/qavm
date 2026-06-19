@@ -102,7 +102,7 @@ class TagEditorDialog(QDialog):
 			self._color = DistinguishableColorGenerator().GenerateColor(existingColors).name()
 
 		self.setModal(True)
-		self.setWindowTitle("Edit Tag" if tag else "New Tag")
+		self.setWindowTitle(f'{"Edit" if tag else "Create"} Tag - [{tag.GetName() if tag else ""}]')
 		self.resize(960, 320)
 
 		self._pluginOptions, self._softwareOptions, self._viewOptions = self._collectScopeOptions()
@@ -113,7 +113,7 @@ class TagEditorDialog(QDialog):
 		nameRow = QHBoxLayout()
 		self.nameField: QLineEdit = QLineEdit(tag.GetName() if tag else '')
 		self.nameField.setPlaceholderText("Tag name...")
-		nameRow.addWidget(self.nameField, 1)
+		nameRow.addWidget(self.nameField)
 		self.colorButton: QPushButton = QPushButton()
 		self.colorButton.setFixedWidth(96)
 		self.colorButton.clicked.connect(self._pickColor)
@@ -247,3 +247,32 @@ class TagEditorDialog(QDialog):
 			self.resultTag = newTag
 
 		super().accept()
+
+
+def OpenTagEditorDialog(tag: BaseTagImpl, parent: QWidget | None = None) -> bool:
+	""" Opens the modal tag editor for an existing tag and returns True if the user saved changes.
+
+	Shared entry point so that every place that lets the user edit a tag (tags palette, table/tiles tag
+	bubbles, ...) triggers the exact same persistence + propagation path (TagsManager.UpdateTag, which
+	refreshes affected descriptors and emits tagsChanged). """
+	
+	# Ensure the dialog is parented to a top-level window. If caller passed a child
+	# widget (e.g. a small cell widget), parenting to that widget can cause the
+	# dialog to be embedded or clipped by the parent's layout on some platforms.
+	# Use the caller's window() (top-level) when available, or fall back to the
+	# application's active window.
+	_dialogParent: QWidget | None = None
+	if parent is not None:
+		try:
+			win = parent.window()
+			if win is not None:
+				_dialogParent = win
+		except Exception:
+			_dialogParent = None
+	if _dialogParent is None:
+		app = QApplication.instance()
+		if app is not None and hasattr(app, 'activeWindow') and app.activeWindow() is not None:
+			_dialogParent = app.activeWindow()
+
+	dialog = TagEditorDialog(tag, _dialogParent)
+	return bool(dialog.exec())
