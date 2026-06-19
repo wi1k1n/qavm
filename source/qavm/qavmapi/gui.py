@@ -525,7 +525,7 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 	BUBBLE_MARGIN: int = 5
 
 	def __init__(self, tags: list, maxHeight: int, parent: QWidget | None = None):
-		super().__init__(parent)
+		super().__init__(parent, persistentTooltip=True)
 		self._maxHeight: int = max(maxHeight, 1)
 		self.setAutoFillBackground(False)
 

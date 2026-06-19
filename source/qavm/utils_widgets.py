@@ -82,7 +82,7 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 
 		self._ctrlHeldOnPress: bool = False
 
-		self._InitHoverTooltip()
+		self._InitHoverTooltip(persistentTooltip=True)
 
 	def GetTag(self) -> BaseTagImpl:
 		return self.tag
