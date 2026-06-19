@@ -450,22 +450,42 @@ class MyTableWidget(QTableWidget):
 		QTimer.singleShot(0, self._rebuildCellWidgets)
 
 	def GetViewState(self) -> dict:
-		""" Returns the persistable UI state of the table (sorting + per-column widths). """
+		""" Returns the persistable UI state of the table (sorting, column order/visibility/widths). """
 		header = self.horizontalHeader()
+		dataColumnCount: int = len(self._tableInfos)  # exclude the hidden descIdx column
 		columnWidths: dict[str, int] = {}
-		for col in range(len(self._tableInfos)):  # exclude the hidden descIdx column
+		columnHidden: dict[str, bool] = {}
+		for col in range(dataColumnCount):
 			columnWidths[str(col)] = self.columnWidth(col)
+			columnHidden[str(col)] = self.isColumnHidden(col)
+		# Logical indices ordered by their current visual position (data columns only).
+		columnOrder: list[int] = sorted(range(dataColumnCount), key=lambda c: header.visualIndex(c))
 		return {
 			'sort_column': header.sortIndicatorSection(),
 			'sort_order': header.sortIndicatorOrder().value,
 			'column_widths': columnWidths,
+			'column_hidden': columnHidden,
+			'column_order': columnOrder,
 		}
 
 	def ApplyViewState(self, state: dict):
-		""" Restores a previously persisted UI state (sorting + per-column widths). """
+		""" Restores a previously persisted UI state (sorting, column order/visibility/widths). """
 		if not isinstance(state, dict):
 			return
 		header = self.horizontalHeader()
+		dataColumnCount: int = len(self._tableInfos)
+
+		# Column order (data columns only): place each logical index at its saved visual position.
+		columnOrder = state.get('column_order', None)
+		if isinstance(columnOrder, list):
+			visualPos: int = 0
+			for logicalIdx in columnOrder:
+				if not isinstance(logicalIdx, int) or not (0 <= logicalIdx < dataColumnCount):
+					continue
+				currentVisual: int = header.visualIndex(logicalIdx)
+				if currentVisual != -1 and currentVisual != visualPos:
+					header.moveSection(currentVisual, visualPos)
+				visualPos += 1
 
 		columnWidths = state.get('column_widths', {})
 		if isinstance(columnWidths, dict):
@@ -474,13 +494,23 @@ class MyTableWidget(QTableWidget):
 					col = int(colStr)
 				except (ValueError, TypeError):
 					continue
-				if 0 <= col < len(self._tableInfos) and isinstance(width, int) and width > 0:
+				if 0 <= col < dataColumnCount and isinstance(width, int) and width > 0:
 					header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
 					self.setColumnWidth(col, width)
 
+		columnHidden = state.get('column_hidden', {})
+		if isinstance(columnHidden, dict):
+			for colStr, hidden in columnHidden.items():
+				try:
+					col = int(colStr)
+				except (ValueError, TypeError):
+					continue
+				if 0 <= col < dataColumnCount and isinstance(hidden, bool):
+					self.setColumnHidden(col, hidden)
+
 		sortColumn = state.get('sort_column', -1)
 		sortOrder = state.get('sort_order', None)
-		if isinstance(sortColumn, int) and 0 <= sortColumn < len(self._tableInfos) and sortOrder is not None:
+		if isinstance(sortColumn, int) and 0 <= sortColumn < dataColumnCount and sortOrder is not None:
 			order = Qt.SortOrder.AscendingOrder if sortOrder == Qt.SortOrder.AscendingOrder.value else Qt.SortOrder.DescendingOrder
 			self.sortByColumn(sortColumn, order)
 
