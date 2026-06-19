@@ -16,12 +16,14 @@ from PyQt6.QtCore import (
 from qavm.qavmapi import (
 	BaseDescriptor, BaseTileBuilder,
 )
+from qavm.qavmapi.gui import TagBubblesFlowWidget
 from qavm.manager_plugin import SoftwareHandler
 from qavm.utils_gui import FlowLayout
 from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptor, TAG_MIME_TYPE
 
 if TYPE_CHECKING:
 	from qavm.window_main import MainWindow
+	from qavm.manager_tags import BaseTagImpl
 	
 import qavm.logs as logs
 logger = logs.logger
@@ -83,8 +85,19 @@ class TilesWidget(QWidget):
 
 	def _showContextMenu(self, desc: BaseDescriptor):
 		if menu := self.tileBuilder.GetContextMenu(desc):
-			PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID)
+			tagUnderCursor: 'BaseTagImpl | None' = self._tagUnderCursor()
+			PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID, tagUnderCursor)
 			menu.exec(QCursor.pos())
+
+	def _tagUnderCursor(self) -> 'BaseTagImpl | None':
+		""" Returns the tag whose bubble is under the cursor (where the context menu was invoked), or None. """
+		globalPos = QCursor.pos()
+		w: QWidget | None = self.childAt(self.mapFromGlobal(globalPos))
+		while w is not None and w is not self:
+			if isinstance(w, TagBubblesFlowWidget):
+				return w.GetTagAt(w.mapFromGlobal(globalPos))
+			w = w.parentWidget()
+		return None
 
 	def _setupTileWidget(self, desc: BaseDescriptor, tileWidget: QWidget) -> QWidget:
 		tileWidget.setProperty("descriptor_uid", desc.GetUID())  # Store descriptor UID in widget property for later reference

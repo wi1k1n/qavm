@@ -25,6 +25,7 @@ from qavm.qavmapi import (
 	BaseCustomView, SoftwareBaseSettings, BaseMenuItem, BaseBuilder, TableColumnInfo
 )
 from qavm.qavmapi.utils import PlatformMacOS, PlatformWindows, PlatformLinux
+from qavm.qavmapi.gui import TagBubblesFlowWidget
 from qavm.utils_gui import FlowLayout
 from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptor, TAG_MIME_TYPE
 from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion, GetQAVMVersionVariant
@@ -205,6 +206,16 @@ class MyTableWidget(QTableWidget):
 		AssignTagUIDToDescriptor(desc, tagUID)
 		event.acceptProposedAction()
 
+	def _tagUnderCursor(self, viewportPos: QPoint) -> BaseTagImpl | None:
+		""" Returns the tag whose bubble is under `viewportPos` (the context-menu position), or None. """
+		index = self.indexAt(viewportPos)
+		if not index.isValid():
+			return None
+		cellWidget = self.cellWidget(index.row(), index.column())
+		if isinstance(cellWidget, TagBubblesFlowWidget):
+			return cellWidget.GetTagAt(cellWidget.mapFromGlobal(QCursor.pos()))
+		return None
+
 	def mousePressEvent(self, event: QMouseEvent):
 		if event.button() == Qt.MouseButton.LeftButton:
 			# print("Left button clicked")
@@ -281,7 +292,8 @@ class MyTableWidget(QTableWidget):
 				descIdx: int = int(item.text())
 				desc: BaseDescriptor = descs[descIdx]
 				if menu := tableBuilder.GetContextMenu(desc):
-					PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID)
+					tagUnderCursor: BaseTagImpl | None = self._tagUnderCursor(pos)
+					PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID, tagUnderCursor)
 					menu.exec(QCursor.pos())
 
 		for r, desc in enumerate(descs):

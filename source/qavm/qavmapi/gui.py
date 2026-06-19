@@ -567,6 +567,11 @@ class TagBubblesFlowWidget(QWidget):
 				return i
 		return -1
 
+	def GetTagAt(self, pos: QPoint):
+		""" Returns the tag whose visible bubble is at the given local position, or None. """
+		idx: int = self._tagIndexAt(pos)
+		return self._tags[idx] if 0 <= idx < len(self._tags) else None
+
 	def mouseMoveEvent(self, event: QMouseEvent):
 		idx: int = self._tagIndexAt(event.pos())
 		if idx != self._hoveredIndex:
