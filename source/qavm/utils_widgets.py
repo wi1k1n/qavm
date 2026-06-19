@@ -121,35 +121,36 @@ class TagBubbleWidget(BubbleWidget):
 		self._tooltip.showText(self._buildTooltipHtml(), QCursor.pos() + QPoint(14, 18))
 
 	def _buildTooltipHtml(self) -> str:
+		def _append_scope_rows(rows: list[str], scopes: list[TagScope], colorPrimary: QColor):
+			"""Append scope-related rows into the provided rows list."""
+			if not scopes:
+				rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};"><i>Scope: global (&lt;all&gt;)</i></td></tr>')
+				return
+			# Scopes header
+			def getScopeLine(title: str, value: str) -> str:
+				return f'<tr><td style="padding-right:10px; white-space:nowrap; color:{colorPrimary.name()};">{title}</td><td colspan="2" style="padding-left:6px;">{value or "&lt;all&gt;"}</td></tr>'
+			
+			rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};"><i>Scopes:</i></td></tr>')
+			for scope in scopes:
+				rows.append(getScopeLine("plugin", scope.pluginID))
+				rows.append(getScopeLine("software", scope.softwareID))
+				rows.append(getScopeLine("view", scope.viewUID))
+				# spacer between scopes
+				rows.append('<tr><td colspan="2" style="height:6px"></td></tr>')
+				
 		themeData = GetThemeData()
 		colorPrimary = QColor(themeData.get('primaryColor', '#ffffff')) if themeData else QColor('#ffffff')
 		colorSecondary = QColor(themeData.get('secondaryColor', '#0f0f0f')) if themeData else QColor('#0f0f0f')
 
-		swatchColor: str = self.tag.GetColor() or '#000000'
-		swatch: str = f'<span style="background-color:{swatchColor};">{"".join(["&nbsp;"]*5)}</span>'
 		rows: list[str] = []
-		rows.append('<tr>')
-		rows.append(f'<td style="vertical-align:middle; padding-right:8px;">{swatch}</td>')
-		rows.append(f'<td style="vertical-align:middle; font-weight:600;">{self.tag.GetName()}</td>')
-		rows.append('</tr>')
+		rows.append(f'<tr><td style="vertical-align:middle; font-weight:600;">{self.tag.GetName()}</td></tr>')
 
 		# Optional description spans full width
 		if description := self.tag.GetDescription():
 			rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};">{description}</td></tr>')
 
 		scopes: list[TagScope] = self.tag.GetScopes()
-		if not scopes:
-			rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};"><i>Scope: global (all)</i></td></tr>')
-		else:
-			# Scopes header
-			rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};"><i>Scopes:</i></td></tr>')
-			for scope in scopes:
-				# Each scope rendered as three rows (label + value)
-				rows.append(f'<tr><td style="padding-right:10px; white-space:nowrap; color:{colorPrimary.name()};">plugin</td><td colspan="2" style="padding-left:6px;">{scope.pluginID or "*"}</td></tr>')
-				rows.append(f'<tr><td style="padding-right:10px; white-space:nowrap; color:{colorPrimary.name()};">software</td><td colspan="2" style="padding-left:6px;">{scope.softwareID or "*"}</td></tr>')
-				rows.append(f'<tr><td style="padding-right:10px; white-space:nowrap; color:{colorPrimary.name()};">view</td><td colspan="2" style="padding-left:6px;">{scope.viewUID or "*"}</td></tr>')
-				# spacer between scopes
-				rows.append('<tr><td colspan="2" style="height:6px"></td></tr>')
+		_append_scope_rows(rows, scopes, colorPrimary)
 
 		# Use theme: table background = secondary, text = primary. Keep swatch color intact.
 		table_style = f'border-collapse:collapse; margin:0; background-color:{colorSecondary.name()}; color:{colorPrimary.name()}; padding:6px; border-radius:6px;'
