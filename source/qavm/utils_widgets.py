@@ -113,11 +113,11 @@ class TagBubbleWidget(BubbleWidget):
 		super().leaveEvent(event)
 
 	def _showTooltip(self):
-		pass
-		# Temporarily disabled, DONT DELETE
-		# if self._tooltip is None:
-		# 	self._tooltip = FadeTooltip(self)
-		# self._tooltip.showText(self._buildTooltipHtml(), QCursor.pos() + QPoint(14, 18))
+		# pass
+		# # Temporarily disabled, DONT DELETE
+		if self._tooltip is None:
+			self._tooltip = FadeTooltip(self)
+		self._tooltip.showText(self._buildTooltipHtml(), QCursor.pos() + QPoint(14, 18))
 
 	def _buildTooltipHtml(self) -> str:
 		colorStr: str = self.tag.GetColor() or '#000000'
@@ -125,6 +125,8 @@ class TagBubbleWidget(BubbleWidget):
 		lines: list[str] = [
 			f'<b>{self.tag.GetName()}</b> {swatch} <code>{colorStr}</code>',
 		]
+		if description := self.tag.GetDescription():
+			lines.append(description)
 		scopes: list[TagScope] = self.tag.GetScopes()
 		if not scopes:
 			lines.append('<i>Scope: global (all)</i>')

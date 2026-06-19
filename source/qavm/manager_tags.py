@@ -79,12 +79,13 @@ class TagScope(object):
 		return True
 	
 class BaseTagImpl(BaseTag):
-	def __init__(self, uid: str, name: str, color: str, tagScopes: list[TagScope] = list(), order: int = 0) -> None:
+	def __init__(self, uid: str, name: str, color: str, tagScopes: list[TagScope] = list(), order: int = 0, description: str = '') -> None:
 		self.uid: str = uid
 		self.name: str = name
 		self.color: str = color
 		self.tagScopes: list[TagScope] = tagScopes  # empty is the same as global scope
 		self.order: int = order  # display order in the tags palette (lower comes first)
+		self.description: str = description
 
 	def GetUID(self) -> str:
 		return self.uid
@@ -97,6 +98,9 @@ class BaseTagImpl(BaseTag):
 	
 	def GetScopes(self) -> list[TagScope]:
 		return self.tagScopes
+
+	def GetDescription(self) -> str:
+		return self.description
 
 	def GetOrder(self) -> int:
 		return self.order
@@ -115,13 +119,14 @@ class BaseTagImpl(BaseTag):
 		if not isinstance(data, dict):
 			raise TypeError(f'Expected dict, got {type(data)}')
 		if {'uid', 'name', 'color', 'tagScopes'}.issubset(data.keys()):
-			scopes: list[str] = json.loads(data['tagScopes'])
+			scopes: list[str] = json.loads(data.get('tagScopes', '[]'))
 			return BaseTagImpl(
 				uid=data['uid'],
 				name=data['name'],
 				color=data['color'],
 				tagScopes=[TagScope.Deserialize(scope) for scope in scopes],
-				order=int(data.get('order', 0))  # backward-compatible: default order to 0 if missing
+				order=int(data.get('order', 0)),
+				description=data.get('description', '')
 			)
 		raise ValueError(f'Invalid tag data: {data}. Expected keys: uid, name, color, tagScopes')
 	
@@ -131,11 +136,12 @@ class BaseTagImpl(BaseTag):
 			'name': self.name,
 			'color': self.color,
 			'tagScopes': json.dumps([scope.Serialize() for scope in self.tagScopes]),
-			'order': self.order
+			'order': self.order,
+			'description': self.description
 		}
 
 	def __repr__(self) -> str:
-		return f'BaseTag(uid={self.uid}, name={self.name}, color={self.color}, tagScopes={self.tagScopes}, order={self.order})'
+		return f'BaseTag(uid={self.uid}, name={self.name}, color={self.color}, tagScopes={self.tagScopes}, order={self.order}, description={self.description})'
 	
 	def __eq__(self, other: object) -> bool:
 		if not isinstance(other, BaseTagImpl):
@@ -144,7 +150,8 @@ class BaseTagImpl(BaseTag):
 				self.name == other.name and
 				self.color == other.color and
 				self.tagScopes == other.tagScopes and
-				self.order == other.order)
+				self.order == other.order and
+				self.description == other.description)
 
 class TagsManager(object):
 	def __init__(self, tagsDataFilepath: Path, descDataManager: DescriptorDataManager) -> None:

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
-	QApplication, QWidget, QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel,
+	QApplication, QTextEdit, QWidget, QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel,
 	QLineEdit, QPushButton, QComboBox, QColorDialog, QScrollArea, QGroupBox,
 	QMessageBox, QDialogButtonBox,
 )
@@ -119,6 +119,9 @@ class TagEditorDialog(QDialog):
 		self.colorButton.clicked.connect(self._pickColor)
 		nameRow.addWidget(self.colorButton)
 		formLayout.addRow("Name:", nameRow)
+		self.descriptionField: QTextEdit = QTextEdit(tag.GetDescription() if tag else '')
+		self.descriptionField.setPlaceholderText("Optional description...")
+		formLayout.addRow("Description:", self.descriptionField)
 		mainLayout.addLayout(formLayout)
 		self._updateColorButton()
 
@@ -229,15 +232,17 @@ class TagEditorDialog(QDialog):
 			return
 
 		scopes: list[TagScope] = [row.GetScope() for row in self._scopeRows]
+		description: str = self.descriptionField.text().strip()
 
 		if self.editTag is not None:
 			self.editTag.name = name
 			self.editTag.color = self._color
 			self.editTag.tagScopes = scopes
+			self.editTag.description = description
 			self.tagsManager.UpdateTag(self.editTag)
 			self.resultTag = self.editTag
 		else:
-			newTag = BaseTagImpl(uuid.uuid4().hex, name, self._color, scopes)
+			newTag = BaseTagImpl(uuid.uuid4().hex, name, self._color, scopes, description=description)
 			self.tagsManager.AddTag(newTag)
 			self.resultTag = newTag
 
