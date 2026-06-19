@@ -617,24 +617,28 @@ class TagBubblesFlowWidget(QWidget):
 	def _buildTooltipHtml(self, tag) -> str:
 		""" Tooltip: hovered tag's description, a separator, then the full list of the descriptor's tags. """
 		def swatch(colorStr: str) -> str:
-			return f'<span style="background-color:{colorStr};">&nbsp;&nbsp;&nbsp;</span>' if colorStr else ''
+			return f'<span style="display:inline-block;width:1.1em;height:0.9em;background-color:{colorStr};margin-right:0.3em;border-radius:2px;vertical-align:middle;">{"&nbsp;"*5}</span>' if colorStr else ''
 
-		colorStr: str = tag.GetColor() or ''
-		header: str = f'<b>{html.escape(tag.GetName())}</b>'
-		if sw := swatch(colorStr):
-			header += f' {sw}'
-		lines: list[str] = [header]
+		header: str = f'{swatch(tag.GetColor())} <b>{html.escape(tag.GetName())}</b>'
+		if description := tag.GetDescription() if hasattr(tag, 'GetDescription') else '':
+			header += f'<div style="margin-top:4px;margin-bottom:6px;">{html.escape(description)}</div>'
 
-		description: str = tag.GetDescription() if hasattr(tag, 'GetDescription') else ''
-		if description:
-			lines.append(html.escape(description))
-
-		lines.append('<hr>')
-		lines.append('<i>Tags:</i>')
+		# Build a simple table for the tag list: marker | color | name
+		rows: list[str] = []
 		for t in self._tags:
 			marker: str = '&rarr;' if t is tag else '&bull;'
-			lines.append(f'{marker} {swatch(t.GetColor() or "")} {html.escape(t.GetName())}')
-		return '<br>'.join(lines)
+			color_cell = swatch(t.GetColor() or "")
+			name_cell = html.escape(t.GetName())
+			rows.append(f'<tr><td style="padding:2px 6px;width:1%">{marker}</td><td style="padding:2px 6px;width:1%">{color_cell}</td><td style="padding:2px 6px;">{name_cell}</td></tr>')
+
+		table_html = (
+			f'<div>{header}</div>'
+			f'<hr style="margin:6px 0;">'
+			f'<table style="border-collapse:collapse;font-size:90%;">'
+			+ ''.join(rows)
+			+ '</table>'
+		)
+		return table_html
 	# endregion
 
 

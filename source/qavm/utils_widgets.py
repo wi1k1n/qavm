@@ -114,8 +114,6 @@ class TagBubbleWidget(BubbleWidget):
 		super().leaveEvent(event)
 
 	def _showTooltip(self):
-		# pass
-		# # Temporarily disabled, DONT DELETE
 		if self._tooltip is None:
 			self._tooltip = FadeTooltip(self)
 		self._tooltip.showText(self._buildTooltipHtml(), QCursor.pos() + QPoint(14, 18))
