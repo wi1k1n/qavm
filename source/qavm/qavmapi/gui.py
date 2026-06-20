@@ -569,7 +569,7 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 	def GetSortKey(self) -> str:
 		""" Returns a stable key used to sort the Tags column (comma-joined, lower-cased tag names). """
 		SORT_WIDTH = 20  # enough for 64-bit unsigned integers
-		orders: list[int] = self._tagOrders if self._tagOrders else [pow(10, SORT_WIDTH) - 1]
+		orders: list[int] = self._tagOrders if self._tagOrders else [pow(10, SORT_WIDTH) - 1]  # sort empty tags last
 		return ', '.join(f"{x:0{SORT_WIDTH}d}" for x in orders).lower()
 
 	def _createBubble(self, text: str, bgColor: QColor | None) -> BubbleWidget:
@@ -968,7 +968,9 @@ class DescNotesWidget(HoverFadeTooltipWidget):
 		self._noteSmall: str = noteSmall or ''
 		self._noteDetail: str = noteDetail or ''
 
-		self._label: QLabel = QLabel(self._noteSmall, self)
+		# Mirror TagBubblesFlowWidget: show a plain '-' placeholder when there's no small note.
+		displayText: str = self._noteSmall if self._noteSmall else '-'
+		self._label: QLabel = QLabel(displayText, self)
 		self._label.setAlignment(alignment)
 		self._label.setWordWrap(True)
 		if font is not None:
@@ -990,7 +992,7 @@ class DescNotesWidget(HoverFadeTooltipWidget):
 
 	def GetSortKey(self) -> str:
 		""" Returns a stable key used to sort the Note column (lower-cased small note). """
-		return self._noteSmall.lower()
+		return self._noteSmall.lower() if self._noteSmall else chr(127)  # sort empty notes last
 
 	def mouseMoveEvent(self, event: QMouseEvent):
 		if self._noteSmall or self._noteDetail:
