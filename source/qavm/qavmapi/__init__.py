@@ -617,7 +617,7 @@ class BaseTableBuilder(BaseBuilder):
 	
 	def CellDataGetterDefault_Tags(self, desc: BaseDescriptor, pluginID: str, softwareID: str, viewUID: str) -> TagBubblesFlowWidget:
 		tags = self.descDataAccessor.GetDescriptorData(desc).GetTagsScoped(pluginID, softwareID, viewUID)
-		return TagBubblesFlowWidget(tags, self.GetRowMaximumHeight())
+		return TagBubblesFlowWidget(tags, self.GetRowMaximumHeight(), descriptor=desc)
 	
 	def CellDataGetterDefault_Notes(self, desc: BaseDescriptor) -> DescNotesWidget:
 		descData = self.descDataAccessor.GetDescriptorData(desc)

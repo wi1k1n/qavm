@@ -239,6 +239,29 @@ class TagsManager(QObject):
 			affectedDescUIDs: list[str] = [descUID for descUID, descData in self.descDataManager.data.items() if any(tagUID in descData.tags for tagUID in self.tags.keys())]
 			QTimer.singleShot(0, lambda: self.descDataManager.NotifyDescriptorsDataUpdated(affectedDescUIDs))  # timer to avoid "label stuck to cursor issue"
 	
+	def ReorderDescriptorTags(self, desc: BaseDescriptor, orderedVisibleTagUIDs: list[str]) -> None:
+		""" Reorders the tags assigned to a single descriptor so the ones in orderedVisibleTagUIDs follow
+		that order, persisting and notifying listeners.
+
+		Only the tags listed in orderedVisibleTagUIDs are rearranged; any other assigned tags (e.g. tags
+		not visible in the current plugin/software/view scope) keep their existing slots. This lets the
+		Tags cell reorder just the bubbles it shows without disturbing out-of-scope assignments. """
+		if not isinstance(desc, BaseDescriptor):
+			raise TypeError(f'Expected BaseDescriptor, got {type(desc)}')
+		if not isinstance(orderedVisibleTagUIDs, list):
+			raise TypeError(f'Expected list, got {type(orderedVisibleTagUIDs)}')
+		descData: DescriptorDataImpl = self.descDataManager.GetDescriptorData(desc)
+		visibleSet: set[str] = set(orderedVisibleTagUIDs)
+		orderedIter = iter(orderedVisibleTagUIDs)
+		# Walk the existing list, substituting the visible tags with the new ordering in their slots.
+		newTags: list[str] = [next(orderedIter) if uid in visibleSet else uid for uid in descData.tags]
+		if newTags == descData.tags:
+			return
+		descData.tags = newTags
+		self.descDataManager.SetDescriptorData(desc, descData)
+		self.descDataManager.SaveData()
+		self.descDataManager.NotifyDescriptorsDataUpdated([desc.GetUID()])
+
 	def GetTag(self, tagUID: str) -> BaseTagImpl | None:
 		if not isinstance(tagUID, str):
 			raise TypeError(f'Expected str, got {type(tagUID)}')

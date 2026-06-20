@@ -7,7 +7,7 @@ import markdown
 
 from PyQt6.QtCore import (
 	Qt, pyqtSignal, QPropertyAnimation, pyqtProperty, QEasingCurve, QPointF,
-	QModelIndex, QSize, QRect, QTimer, QPoint,
+	QModelIndex, QSize, QRect, QTimer, QPoint, QMimeData,
 )
 from PyQt6.QtWidgets import (
 	QApplication, QFrame, QPlainTextEdit, QPushButton, QVBoxLayout, QLabel, QTableWidgetItem, QListWidget, QScrollBar,
@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 	QStyledItemDelegate, QHBoxLayout, QDialog, QWidget, QMenu
 )
 from PyQt6.QtGui import (
-	QColor, QKeyEvent, QMouseEvent, QCursor, QPainter, QPalette, QLinearGradient, QGradient, QAction, QFont
+	QColor, QKeyEvent, QMouseEvent, QCursor, QPainter, QPalette, QLinearGradient, QGradient, QAction, QFont, QDrag
 )
 
 import pyperclip
@@ -511,6 +511,11 @@ class HoverFadeTooltipWidget(HoverFadeTooltipMixin, QWidget):
 		self._InitHoverTooltip(persistentTooltip)
 
 
+# Extra MIME entry carried alongside TAG_MIME_TYPE when dragging a tag bubble out of a TagBubblesFlowWidget.
+# It identifies the source descriptor so a drop can tell reordering (same descriptor) from copying (another).
+TAG_SOURCE_DESC_MIME_TYPE: str = 'application/x-qavm-tag-source-desc-uid'
+
+
 class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 	""" Flow-laid-out collection of colorful tag bubbles for use inside table cells and tiles.
 
@@ -519,7 +524,11 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 	mouse events to provide per-tag hover tooltips and Ctrl+LMB editing, while forwarding all other
 	mouse interactions (plain click, context menu, tag drag-n-drop) to the underlying table/tile so
 	row selection and existing behaviour keep working. Intended to be returned from
-	BaseTableBuilder.GetTableCellValue and consumed via QTableWidget.setCellWidget. """
+	BaseTableBuilder.GetTableCellValue and consumed via QTableWidget.setCellWidget.
+
+	When a descriptor is supplied the bubbles also become draggable: dragging a bubble within the same
+	cell reorders that descriptor's tags, while dropping it onto another descriptor's cell copies the
+	tag assignment over (see dropEvent). """
 	HSPACING: int = 2
 	VSPACING: int = 2
 	MARGIN: int = 2
@@ -531,10 +540,11 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 	# for the initial row-height estimate, so the host (e.g. the table) must re-measure the row.
 	contentHeightChanged = pyqtSignal()
 
-	def __init__(self, tags: list, maxHeight: int, parent: QWidget | None = None):
+	def __init__(self, tags: list, maxHeight: int, parent: QWidget | None = None, descriptor=None):
 		super().__init__(parent, persistentTooltip=True)
 		self._maxHeight: int = max(maxHeight, 1)
 		self._lastContentHeight: int = -1
+		self._descriptor = descriptor  # BaseDescriptor this cell represents; enables drag reorder/copy
 		self.setAutoFillBackground(False)
 
 		self._tags: list = list(tags)
@@ -548,6 +558,13 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 		self._emptyPlaceholder: QLabel | None = None
 
 		self._hoveredIndex: int = -1
+
+		# Drag state for reorder/copy (only meaningful when a descriptor is supplied).
+		self._dragStartPos: QPoint | None = None
+		self._dragTagIndex: int = -1
+		self._dragStarted: bool = False
+		if self._descriptor is not None:
+			self.setAcceptDrops(True)
 
 	def GetSortKey(self) -> str:
 		""" Returns a stable key used to sort the Tags column (comma-joined, lower-cased tag names). """
@@ -699,6 +716,16 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 		return self._tags[idx] if 0 <= idx < len(self._tags) else None
 
 	def mouseMoveEvent(self, event: QMouseEvent):
+		# A pending press on a bubble may turn into a drag (reorder/copy) once it moves far enough.
+		if (self._descriptor is not None
+				and self._dragStartPos is not None
+				and self._dragTagIndex >= 0
+				and bool(event.buttons() & Qt.MouseButton.LeftButton)):
+			if (event.pos() - self._dragStartPos).manhattanLength() >= QApplication.startDragDistance():
+				self._startTagDrag(self._dragTagIndex, event.pos())
+			event.accept()
+			return
+
 		idx: int = self._tagIndexAt(event.pos())
 		if idx != self._hoveredIndex:
 			self._hoveredIndex = idx
@@ -718,8 +745,143 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 				event.accept()
 				self._openTagEditor(self._tags[idx])
 				return
-		# Anything else (plain click, right click, drag) belongs to the table/tile underneath.
+
+		# Plain LMB on a bubble: arm a potential drag. The actual drag only starts once the cursor moves
+		# past the drag threshold (in mouseMoveEvent); a press+release without movement selects the row.
+		if (self._descriptor is not None
+				and event.button() == Qt.MouseButton.LeftButton):
+			idx = self._tagIndexAt(event.pos())
+			if idx >= 0:
+				self._dragStartPos = event.pos()
+				self._dragTagIndex = idx
+				self._dragStarted = False
+				event.accept()
+				return
+
+		# Anything else (empty area click, right click) belongs to the table/tile underneath.
 		event.ignore()
+
+	def mouseReleaseEvent(self, event: QMouseEvent):
+		armedClick: bool = (self._dragStartPos is not None and not self._dragStarted)
+		self._dragStartPos = None
+		self._dragTagIndex = -1
+		self._dragStarted = False
+		if event.button() == Qt.MouseButton.LeftButton and armedClick:
+			# A plain click on a bubble (no drag): replicate the row selection the table would have done.
+			self._selectOwnerRow()
+			event.accept()
+			return
+		event.ignore()
+
+	def _startTagDrag(self, tagIndex: int, hotspotPos: QPoint) -> None:
+		""" Starts a QDrag carrying the tag UID (and this descriptor's UID) so a drop can reorder or copy it. """
+		if not (0 <= tagIndex < len(self._tags)) or self._descriptor is None:
+			return
+		self._dragStarted = True
+		self._dragStartPos = None
+		self._CancelTooltip()
+
+		from qavm.utils_widgets import TAG_MIME_TYPE  # lazy import to avoid an import cycle at module load
+
+		tag = self._tags[tagIndex]
+		bubble: BubbleWidget = self._bubbles[tagIndex]
+
+		mimeData: QMimeData = QMimeData()
+		mimeData.setData(TAG_MIME_TYPE, tag.GetUID().encode('utf-8'))
+		mimeData.setData(TAG_SOURCE_DESC_MIME_TYPE, self._descriptor.GetUID().encode('utf-8'))
+
+		drag: QDrag = QDrag(self)
+		drag.setMimeData(mimeData)
+		drag.setPixmap(bubble.grab())
+		drag.setHotSpot(hotspotPos - bubble.geometry().topLeft())
+		drag.exec(Qt.DropAction.MoveAction | Qt.DropAction.CopyAction, Qt.DropAction.MoveAction)
+
+	# region Drop target (reorder within this cell / copy from another descriptor's cell)
+	def _acceptsTagDrop(self, event) -> bool:
+		from qavm.utils_widgets import TAG_MIME_TYPE
+		return self._descriptor is not None and event.mimeData().hasFormat(TAG_MIME_TYPE)
+
+	def dragEnterEvent(self, event):
+		if self._acceptsTagDrop(event):
+			event.acceptProposedAction()
+		else:
+			event.ignore()
+
+	def dragMoveEvent(self, event):
+		if self._acceptsTagDrop(event):
+			event.acceptProposedAction()
+		else:
+			event.ignore()
+
+	def dropEvent(self, event):
+		if not self._acceptsTagDrop(event):
+			event.ignore()
+			return
+		from qavm.utils_widgets import TAG_MIME_TYPE, AssignTagUIDToDescriptor
+
+		draggedUID: str = bytes(event.mimeData().data(TAG_MIME_TYPE).data()).decode('utf-8')
+		sourceDescUID: str = ''
+		if event.mimeData().hasFormat(TAG_SOURCE_DESC_MIME_TYPE):
+			sourceDescUID = bytes(event.mimeData().data(TAG_SOURCE_DESC_MIME_TYPE).data()).decode('utf-8')
+
+		desc = self._descriptor
+		# Defer the model mutation: it replaces this very cell widget, which must not happen while we are
+		# still inside its own dropEvent. (Mirrors TagsManager.ReorderTags' deferred notification.)
+		if desc is not None and sourceDescUID == desc.GetUID():
+			insertIdx: int = self._computeDropIndex(event.position().toPoint())
+			newOrder: list[str] | None = self._buildReorderedVisibleUIDs(draggedUID, insertIdx)
+			if newOrder is not None:
+				tagsManager = QApplication.instance().GetTagsManager()
+				QTimer.singleShot(0, lambda: tagsManager.ReorderDescriptorTags(desc, newOrder))
+		else:
+			# Dropped from another descriptor's cell (or the Tags palette): copy the assignment over.
+			QTimer.singleShot(0, lambda: AssignTagUIDToDescriptor(desc, draggedUID))
+		event.acceptProposedAction()
+
+	def _computeDropIndex(self, pos: QPoint) -> int:
+		""" Returns the insertion index (into the visible tag order) for a drop at the given local position. """
+		index: int = 0
+		for i, bubble in enumerate(self._bubbles):
+			if not bubble.isVisible():
+				continue
+			geo: QRect = bubble.geometry()
+			if pos.y() > geo.bottom():
+				# Drop is on a row below this bubble → it comes before the drop.
+				index = i + 1
+			elif pos.y() >= geo.top():
+				# Same row as this bubble → 'after' it when the drop is right of its center.
+				if pos.x() >= geo.center().x():
+					index = i + 1
+			# else: bubble is on a row below the drop; never before it.
+		return index
+
+	def _buildReorderedVisibleUIDs(self, draggedUID: str, insertIdx: int) -> list[str] | None:
+		""" Builds the new visible-tag UID order after moving draggedUID to insertIdx, or None if unchanged. """
+		uids: list[str] = [tag.GetUID() for tag in self._tags]
+		if draggedUID not in uids:
+			return None
+		oldIdx: int = uids.index(draggedUID)
+		insertIdx = max(0, min(insertIdx, len(uids)))
+		newUids: list[str] = uids[:oldIdx] + uids[oldIdx + 1:]
+		if oldIdx < insertIdx:
+			insertIdx -= 1
+		newUids.insert(insertIdx, draggedUID)
+		return newUids if newUids != uids else None
+
+	def _selectOwnerRow(self) -> None:
+		""" Selects the table row that hosts this cell widget (best effort; no-op outside a QTableWidget). """
+		from PyQt6.QtWidgets import QTableWidget
+		view: QWidget | None = self.parentWidget()
+		while view is not None and not isinstance(view, QTableWidget):
+			view = view.parentWidget()
+		if not isinstance(view, QTableWidget):
+			return
+		for row in range(view.rowCount()):
+			for col in range(view.columnCount()):
+				if view.cellWidget(row, col) is self:
+					view.setCurrentCell(row, col)
+					return
+	# endregion
 
 	def leaveEvent(self, event):
 		self._hoveredIndex = -1
