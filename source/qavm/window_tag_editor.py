@@ -177,8 +177,17 @@ class TagEditorDialog(QDialog):
 		buttonBox = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
 		buttonBox.accepted.connect(self.accept)
 		buttonBox.rejected.connect(self.reject)
-		mainLayout.addWidget(buttonBox)
-		
+
+		buttonRow = QHBoxLayout()
+		if self.editTag is not None:
+			deleteButton = QPushButton("Delete")
+			deleteButton.setStyleSheet('background-color: #943737; color: #ffffff;')
+			deleteButton.clicked.connect(self._onDelete)
+			buttonRow.addWidget(deleteButton)
+		buttonRow.addStretch(1)
+		buttonRow.addWidget(buttonBox)
+		mainLayout.addLayout(buttonRow)
+
 		QShortcut(QKeySequence('Ctrl+Return'), self, activated=self.accept)
 		QShortcut(QKeySequence('Ctrl+Enter'), self, activated=self.accept)
 
@@ -248,6 +257,21 @@ class TagEditorDialog(QDialog):
 
 	def GetResultTag(self) -> BaseTagImpl | None:
 		return self.resultTag
+
+	def _onDelete(self) -> None:
+		if self.editTag is None:
+			return
+		reply = QMessageBox.question(
+			self, "Delete Tag",
+			f"Delete tag '{self.editTag.GetName()}'?\nIt will be removed from all items it is assigned to.",
+			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+			QMessageBox.StandardButton.No,
+		)
+		if reply != QMessageBox.StandardButton.Yes:
+			return
+		self.tagsManager.DeleteTag(self.editTag)
+		self.resultTag = None
+		self.reject()
 
 	def accept(self) -> None:
 		name: str = self.nameField.text().strip()
