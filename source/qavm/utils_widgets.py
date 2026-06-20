@@ -131,6 +131,8 @@ def PopulateContextMenuTagsAndNotes(menu: QMenu, desc: BaseDescriptor, mainWindo
 	# Per-tag 'Edit'/'Delete' submenu, only when the context menu was invoked over a specific tag bubble.
 	if tagUnderCursor is not None:
 		tagActionSubMenu: QMenu = QMenu(tagUnderCursor.GetName(), tagsMenu)
+		tagActionSubMenu.addAction(QAction("Unassign", parent, triggered=partial(removeTag, tagUnderCursor)))
+		tagActionSubMenu.addSeparator()
 		tagActionSubMenu.addAction(QAction("Edit", parent, triggered=partial(editTag, tagUnderCursor)))
 		tagActionSubMenu.addAction(QAction("Delete", parent, triggered=partial(deleteTag, tagUnderCursor)))
 		tagsMenu.addMenu(tagActionSubMenu)
