@@ -6,11 +6,13 @@ from typing import TYPE_CHECKING
 from PyQt6.QtCore import Qt, QPoint, pyqtSignal, QMimeData
 from PyQt6.QtWidgets import (
 	QApplication, QMenu, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton,
-	QScrollArea, QMessageBox,
+	QScrollArea, QMessageBox, QDialog, QTreeWidget, QTreeWidgetItem, QDialogButtonBox,
 )
 from PyQt6.QtGui import QAction, QColor, QDrag, QPainter, QPixmap, QMouseEvent
 
+from qavm.qavmapi import BaseDescriptor
 from qavm.manager_tags import TagsManager, BaseTagImpl, TagScope
+from qavm.manager_descriptor_data import DescriptorDataManager
 from qavm.manager_plugin import PluginManager, UID
 from qavm.qavmapi.gui import GetThemeData, HoverFadeTooltipMixin, PlainTextToTooltipHtml, PickContrastingTextColor
 from qavm.utils_gui import BubbleWidget, FlowLayout
@@ -88,6 +90,30 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 
 	def GetTag(self) -> BaseTagImpl:
 		return self.tag
+
+	def _CollectTagUsages(self) -> list[tuple[str, str, list[BaseDescriptor]]]:
+		""" Returns [(pluginName, softwareName, [descriptors])] for every loaded descriptor that has this tag assigned. """
+		app = QApplication.instance()
+		descDataManager: DescriptorDataManager = app.GetDescriptorDataManager()
+		pluginManager: PluginManager = app.GetPluginManager()
+		tagUID: str = self.tag.GetUID()
+		results: list[tuple[str, str, list[BaseDescriptor]]] = []
+		for swHandler, descsMap in app.softwareDescriptors.items():
+			plugin = pluginManager.GetPlugin(swHandler.pluginID)
+			pluginName: str = plugin.GetName() if plugin else swHandler.pluginID
+			softwareName: str = swHandler.GetName()
+			matched: list[BaseDescriptor] = []
+			for descs in descsMap.values():
+				for desc in descs:
+					if tagUID in descDataManager.GetDescriptorData(desc).tags:
+						matched.append(desc)
+			if matched:
+				results.append((pluginName, softwareName, matched))
+		return results
+
+	def _CountTagUsages(self) -> int:
+		""" Returns the total number of loaded descriptors that have this tag assigned. """
+		return sum(len(descs) for _, _, descs in self._CollectTagUsages())
 
 	# region Drag
 	def mousePressEvent(self, event):
@@ -190,6 +216,10 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 		scopes: list[TagScope] = self.tag.GetScopes()
 		_append_scope_rows(rows, scopes, colorPrimary)
 
+		# Number of descriptors that currently have this tag assigned.
+		usageCount: int = self._CountTagUsages()
+		rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};"><i>Usages: {usageCount}</i></td></tr>')
+
 		# Use theme: table background = secondary, text = primary. Keep swatch color intact.
 		table_style = f'border-collapse:collapse; margin:0; background-color:{colorSecondary.name()}; color:{colorPrimary.name()}; padding:6px; border-radius:6px;'
 		table_html = f'<table style="{table_style}">' + ''.join(rows) + '</table>'
@@ -202,10 +232,54 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 			return super().contextMenuEvent(event)
 		self._CancelTooltip()
 		menu: QMenu = QMenu(self)
+		menu.addAction(QAction("Show usage", menu, triggered=self._ShowUsage))
+		menu.addSeparator()
 		menu.addAction(QAction("Edit Tag", menu, triggered=lambda: self.editRequested.emit(self.tag)))
 		menu.addAction(QAction("Delete Tag", menu, triggered=lambda: self.deleteRequested.emit(self.tag)))
 		menu.exec(event.globalPos())
+
+	def _ShowUsage(self):
+		""" Opens a modal dialog listing every descriptor (grouped by plugin/software) that has this tag assigned. """
+		usages: list[tuple[str, str, list[BaseDescriptor]]] = self._CollectTagUsages()
+		dialog = TagUsageDialog(self.tag, usages, self)
+		dialog.exec()
 	# endregion
+
+class TagUsageDialog(QDialog):
+	""" Modal dialog that lists every descriptor (grouped by plugin/software) that has a given tag assigned. """
+	def __init__(self, tag: BaseTagImpl, usages: list[tuple[str, str, list[BaseDescriptor]]], parent: QWidget | None = None):
+		super().__init__(parent)
+		self.setWindowTitle(f"Tag Usage — {tag.GetName()}")
+		self.setModal(True)
+		self.resize(480, 420)
+
+		layout = QVBoxLayout(self)
+
+		totalCount: int = sum(len(descs) for _, _, descs in usages)
+		summary = QLabel(
+			f"Tag '{tag.GetName()}' is used by {totalCount} descriptor(s)."
+			if totalCount else f"Tag '{tag.GetName()}' is not assigned to any descriptor."
+		)
+		summary.setWordWrap(True)
+		layout.addWidget(summary)
+
+		tree = QTreeWidget()
+		tree.setHeaderHidden(True)
+		tree.setColumnCount(1)
+		for pluginName, softwareName, descs in usages:
+			groupItem = QTreeWidgetItem(tree, [f"{pluginName} — {softwareName} ({len(descs)})"])
+			groupItem.setExpanded(True)
+			for desc in descs:
+				childItem = QTreeWidgetItem(groupItem, [str(desc)])
+				childItem.setToolTip(0, str(getattr(desc, 'dirPath', '')))
+		tree.expandAll()
+		layout.addWidget(tree, 1)
+
+		buttonBox = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+		buttonBox.rejected.connect(self.reject)
+		buttonBox.accepted.connect(self.accept)
+		layout.addWidget(buttonBox)
+
 
 class _TagFlowContainer(QWidget):
 	""" Holds the tag bubbles in a FlowLayout and accepts drops of tag bubbles to reorder them. """
