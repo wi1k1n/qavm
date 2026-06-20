@@ -424,10 +424,10 @@ class SoftwareHandler:
 			self.customViewClasses[f'{self.KEY_VIEWS}/{self.KEY_CUSTOM}/{viewTypeId}'] = customViewClass
 
 		########################### Settings ###########################
-		self.settingsInstance: SoftwareBaseSettings = SoftwareBaseSettings(self.GetID())
+		self.settingsInstance: SoftwareBaseSettings = SoftwareBaseSettings(self.GetID(), self.pluginID)
 		if settingsClass := regData.get(self.KEY_SETTINGS, None):
 			self._checkSubClass(settingsClass, SoftwareBaseSettings, self.KEY_SETTINGS)
-			self.settingsInstance = settingsClass(self.GetID())
+			self.settingsInstance = settingsClass(self.GetID(), self.pluginID)
 
 		########################### MenuItems ###########################
 		self.menuItems: dict[str, BaseMenuItem] = dict()  # menuItemTypeId: menuItemInstance

@@ -85,7 +85,7 @@ class BaseSettings(QObject):
 	# tilesUpdateRequired = pyqtSignal()  # is emitted when settings are changing something that requires tiles to be updated
 	# tablesUpdateRequired = pyqtSignal()  # same as tilesUpdateRequired, but for tables
 
-	def __init__(self, prefFilename: str):
+	def __init__(self, prefFilename: str, subfolder: str = ''):
 		super().__init__()
 
 		self.container = self.InitializeContainer()
@@ -93,6 +93,8 @@ class BaseSettings(QObject):
 		prefFilenamePath: Path = Path(prefFilename)
 		if not prefFilenamePath.suffix or prefFilenamePath.suffix != '.json':
 			prefFilenamePath = prefFilenamePath.parent / (prefFilenamePath.name + '.json')
+		if subfolder:
+			prefFilenamePath = Path(subfolder) / prefFilenamePath
 		self.prefFilePath: Path = utils.GetPrefsFolderPath() / f'{str(prefFilenamePath)}'
 
 	def GetSettingsVersion(self) -> int:
