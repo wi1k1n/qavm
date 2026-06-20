@@ -36,10 +36,12 @@ class BaseSettingsContainer(object):
 	def InitializeFromString(self, dataStr: str) -> bool:
 		try:
 			data: dict = json.loads(dataStr)
+			# Best-effort merge: keep default values for any keys missing from the stored data (forward
+			# compatibility when new settings are added), and ignore stored keys that are no longer known.
+			# This makes loading resilient to additive schema changes without requiring an explicit migration.
 			for key in self.settingsEntries.keys():
-				if key not in data:
-					return False
-				self.settingsEntries[key] = data[key]
+				if key in data:
+					self.settingsEntries[key] = data[key]
 			return True
 		except Exception as e:
 			print(f'ERROR: Failed to parse settings data: {e}')  # TODO: use logger instead
@@ -90,17 +92,54 @@ class BaseSettings(QObject):
 
 		self.container = self.InitializeContainer()
 
-		prefFilenamePath: Path = Path(prefFilename)
+		# Scope info: when both _pluginID and _pluginVersion are set (via SetPluginScope), the settings
+		# file is resolved into the per-plugin, plugin-versioned data subtree instead of the app prefs folder.
+		self._prefFilename: str = prefFilename
+		self._subfolder: str = subfolder
+		self._pluginID: str = ''
+		self._pluginVersion: str = ''
+		self.prefFilePath: Path = self._ComputePrefFilePath()
+
+	def _ComputePrefFilePath(self) -> Path:
+		""" Resolves the on-disk preferences file path based on the current scope (app vs plugin). """
+		prefFilenamePath: Path = Path(self._prefFilename)
 		if not prefFilenamePath.suffix or prefFilenamePath.suffix != '.json':
 			prefFilenamePath = prefFilenamePath.parent / (prefFilenamePath.name + '.json')
-		if subfolder:
-			prefFilenamePath = Path(subfolder) / prefFilenamePath
-		self.prefFilePath: Path = utils.GetPrefsFolderPath() / f'{str(prefFilenamePath)}'
+
+		# Plugin-scoped settings live under <appdata>/qavm/plugins/<pluginID>/<pluginVersion>/preferences/<file>.json
+		if self._pluginID and self._pluginVersion:
+			return utils.GetPluginPrefsFolderPath(self._pluginID, self._pluginVersion, create=False) / prefFilenamePath.name
+
+		# App-scoped settings live under <appdata>/qavm/<qavmVersion>/preferences/[<subfolder>/]<file>.json
+		if self._subfolder:
+			prefFilenamePath = Path(self._subfolder) / prefFilenamePath
+		return utils.GetPrefsFolderPath(create=False) / f'{str(prefFilenamePath)}'
+
+	def SetPluginScope(self, pluginID: str, pluginVersion: str) -> None:
+		""" Binds these settings to a specific plugin version so they are stored in the plugin's data subtree.
+		Must be called before Load()/Save(). """
+		self._pluginID = pluginID
+		self._pluginVersion = pluginVersion
+		self.prefFilePath = self._ComputePrefFilePath()
 
 	def GetSettingsVersion(self) -> int:
 		if self.__class__.__name__ == 'SoftwareBaseSettings':
 			return 1
 		raise NotImplementedError('GetSettingsVersion must be implemented by subclasses to provide settings version for migration purposes. [{}]'.format(self.__class__.__name__))
+
+	def MigrateSettings(self, oldData: dict, oldSchemaVersion: int, oldAppVersion: str) -> dict:
+		""" Migration hook invoked when settings from a previous QAVM/plugin version are carried over.
+
+		Subclasses with non-trivial data structures should override this to transform `oldData` (the raw
+		dict loaded from the previous version's settings file) into a dict compatible with the current
+		schema. The returned dict is then merged into the freshly-initialized container, so it is safe to
+		return only the keys that need explicit handling.
+
+		The default implementation returns `oldData` unchanged: the container's best-effort merge already
+		preserves recognized keys and fills in defaults for the rest, which is sufficient for simple plugins
+		that only ever add/remove flat settings entries.
+		"""
+		return oldData
 
 	def InitializeContainer(self) -> BaseSettingsContainer:
 		""" Initializes the settings container with default values. """

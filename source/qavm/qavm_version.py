@@ -31,7 +31,7 @@ def LoadVersionInfo(rootPath: Path):
 					break
 			PACKAGE_VERSION = buildDateStr
 			BUILD_VERSION = buildCommitStr
-	except:
+	except Exception as e:
 		logger.exception('Failed to load build info from build.txt file')
 
 def GetQAVMVersion() -> str:

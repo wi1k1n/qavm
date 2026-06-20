@@ -7,6 +7,7 @@ from qavm.manager_settings import SettingsManager, QAVMGlobalSettings
 from qavm.manager_dialogs import DialogsManager
 from qavm.manager_descriptor_data import DescriptorDataManager
 from qavm.manager_tags import TagsManager
+from qavm.manager_migration import MigrationManager
 
 import qavm.qavmapi.utils as utils  # TODO: rename to qutils
 import qavm.qavmapi.gui as gui_utils
@@ -57,6 +58,10 @@ class QAVMApp(QApplication):
 		
 		self.dialogsManager: DialogsManager = DialogsManager()
 
+		# Detect/handle data migration BEFORE any versioned data folder is written to.
+		self.migrationManager: MigrationManager = MigrationManager()
+		self.migrationManager.CheckAndPrompt()
+
 		self.settingsManager: SettingsManager = SettingsManager(utils.GetPrefsFolderPath(), self.defaultGlobalSearchPaths)
 		self.settingsManager.LoadQAVMSettings()
 		self.qavmSettings: QAVMGlobalSettings = self.settingsManager.GetQAVMSettings()
@@ -67,6 +72,10 @@ class QAVMApp(QApplication):
 		self.pluginManager: PluginManager = PluginManager(self.builtinPluginPaths, self.pluginPaths, self.GetPluginsFolderPaths())
 		# TODO: try/except here?
 		self.pluginManager.LoadPlugins(args.ignoreCustomPluginsSetting or self.qavmSettings.GetCustomPluginsAllowed())
+
+		# Ensure each loaded plugin's versioned data folder exists (with silent patch-copy carry-over).
+		for plugin in self.pluginManager.GetPlugins():
+			self.migrationManager.EnsurePluginData(plugin.GetUID(), plugin.GetVersionStr())
 
 		self.descDataManager: DescriptorDataManager = DescriptorDataManager(utils.GetQAVMDescriptorDataFilepath())
 		self.descDataManager.LoadData()

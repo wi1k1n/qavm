@@ -162,27 +162,7 @@ class TagsManager(QObject):
 		super().__init__()
 		self.tagsDataFilepath: Path = tagsDataFilepath
 		self.descDataManager: DescriptorDataManager = descDataManager
-
 		self.tags: dict[str, BaseTagImpl] = dict()  # Using a dict for faster lookups by tag uid
-
-		# PLUGIN_ID = 'in.wi1k.tools.qavm.plugin.maxon'
-		# # TODO: remove this
-		# self.tags['tag1'] = BaseTagImpl('tag1', 'T-*', '#FF0000', [
-		# 	TagScope()
-		# ])
-		# self.tags['tag2'] = BaseTagImpl('tag2', 'T-maxon#*', '#00FF00', [
-		# 	TagScope(pluginID=PLUGIN_ID)
-		# ])
-		# self.tags['tag3'] = BaseTagImpl('tag3', 'T-maxon#c4d', '#0000FF', [
-		# 	TagScope(pluginID=PLUGIN_ID, softwareID='software.c4d')
-		# ])
-		# self.tags['tag4'] = BaseTagImpl('tag4', 'T-maxon#c4d+rs', '#FFFF00', [
-		# 	TagScope(pluginID=PLUGIN_ID, softwareID='software.c4d'),
-		# 	TagScope(pluginID=PLUGIN_ID, softwareID='software.redshift')
-		# ])
-		# self.tags['tag5'] = BaseTagImpl('tag5', 'T- table', '#FF00FF', [
-		# 	TagScope(viewUID='views/table/*')
-		# ])
 
 	def LoadTags(self) -> None:
 		if not self.tagsDataFilepath.exists():

@@ -278,21 +278,37 @@ def GetTempDataPath() -> Path:
 	"""Returns the path to the temporary directory. For example: C:\\Users\\myself\\AppData\\Local\\Temp"""
 	return Path(tempfile.gettempdir())
 
+def GetQAVMDataVersionTag() -> str:
+	"""Returns the version tag used to scope the regular (app) data folder, i.e. the full QAVM version (e.g. '0.4.0').
+	Patch releases get their own subfolder; the migration logic silently carries data across patch bumps."""
+	# Imported lazily to avoid a circular import (qavm_version -> logs -> utils).
+	from qavm.qavm_version import GetQAVMVersion
+	return GetQAVMVersion()
+
+def GetQAVMDataRootPath(create=True) -> Path:
+	"""Returns the root folder for ALL QAVM data (version-agnostic). For example: C:\\Users\\myself\\AppData\\Roaming\\qavm
+	This folder hosts the per-version regular data subfolders and the per-plugin data subtree."""
+	path: Path = GetAppDataPath()/'qavm'
+	if create: CreateDir(path)
+	return path
+
 def GetQAVMDataPath(create=True) -> Path:
-	"""Returns the default path to the QAVM data folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm"""
-	path: Path = GetAppDataPath()/'qamv'
+	"""Returns the regular (app) data folder for the CURRENT QAVM version.
+	For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\0.4.0"""
+	path: Path = GetQAVMDataRootPath(create=create)/GetQAVMDataVersionTag()
 	if create: CreateDir(path)
 	return path
 
 def GetDefaultPluginsFolderPath(create=False) -> Path:
-	"""Returns the default path to the QAVM plugins folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\plugins"""
-	path: Path = GetQAVMDataPath()/'plugins'
+	"""Returns the folder where user-installed plugin SOURCE CODE lives (app-versioned).
+	For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\0.4.0\\plugins"""
+	path: Path = GetQAVMDataPath(create=create)/'plugins'
 	if create: CreateDir(path)
 	return path
 
 def GetPrefsFolderPath(create=True) -> Path:
-	"""Returns the path to the QAVM preferences folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\preferences"""
-	path: Path = GetQAVMDataPath()/'preferences'
+	"""Returns the path to the QAVM preferences folder (app-versioned). For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\0.4.0\\preferences"""
+	path: Path = GetQAVMDataPath(create=create)/'preferences'
 	if create: CreateDir(path)
 	return path
 
@@ -303,26 +319,54 @@ def GetQAVMTempPath(create=True) -> Path:
 	return path
 
 def GetQAVMCachePath(create=True) -> Path:
-	"""Returns the path to the QAVM cache folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\cache"""
-	path: Path =  GetQAVMDataPath()/'cache'
+	"""Returns the path to the QAVM cache folder (app-versioned). For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\0.4.0\\cache"""
+	path: Path =  GetQAVMDataPath(create=create)/'cache'
 	if create: CreateDir(path)
 	return path
 
 def GetQAVMLogsPath(create=True) -> Path:
-	"""Returns the path to the QAVM logs folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\logs"""
-	path: Path =  GetQAVMDataPath()/'logs'
+	"""Returns the path to the QAVM logs folder. Logs are SHARED across versions (unversioned).
+	For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\logs"""
+	path: Path =  GetQAVMDataRootPath(create=create)/'logs'
 	if create: CreateDir(path)
 	return path
 
-# TODO: consider having %APPDATA%/qavm/data folder for this type of data
+# TODO: consider having %APPDATA%/qavm/<version>/data folder for this type of data
 def GetQAVMDescriptorDataFilepath() -> Path:
-	"""Returns the path to the QAVM descriptor data folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\descdata.json"""
+	"""Returns the path to the QAVM descriptor data file (app-versioned). For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\0.4.0\\descdata.json"""
 	return GetQAVMDataPath()/'descdata.json'
 
-# TODO: consider having %APPDATA%/qavm/data folder for this type of data
+# TODO: consider having %APPDATA%/qavm/<version>/data folder for this type of data
 def GetQAVMTagsDataFilepath() -> Path:
-	"""Returns the path to the QAVM tags data folder. For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\tagsdata.json"""
+	"""Returns the path to the QAVM tags data file (app-versioned). For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\0.4.0\\tagsdata.json"""
 	return GetQAVMDataPath()/'tagsdata.json'
+
+
+############################ Per-plugin data paths ############################
+# Plugin data (preferences, logs, ...) is scoped by the plugin's OWN version (PLUGIN_VERSION),
+# decoupled from the app version, and lives in a dedicated subtree:
+#   <appdata>/qavm/plugins/<pluginID>/<pluginVersion>/...
+
+def GetPluginDataPath(pluginID: str, pluginVersion: str, create=True) -> Path:
+	"""Returns the root data folder for a given plugin version.
+	For example: C:\\Users\\myself\\AppData\\Roaming\\qavm\\plugins\\in.wi1k.tools.qavm.plugin.example\\0.4.0"""
+	path: Path = GetQAVMDataRootPath(create=create)/'plugins'/pluginID/pluginVersion
+	if create: CreateDir(path)
+	return path
+
+def GetPluginPrefsFolderPath(pluginID: str, pluginVersion: str, create=True) -> Path:
+	"""Returns the preferences folder for a given plugin version.
+	For example: <appdata>/qavm/plugins/<pluginID>/<pluginVersion>/preferences"""
+	path: Path = GetPluginDataPath(pluginID, pluginVersion, create=create)/'preferences'
+	if create: CreateDir(path)
+	return path
+
+def GetPluginLogsPath(pluginID: str, pluginVersion: str, create=True) -> Path:
+	"""Returns the logs folder for a given plugin version.
+	For example: <appdata>/qavm/plugins/<pluginID>/<pluginVersion>/logs"""
+	path: Path = GetPluginDataPath(pluginID, pluginVersion, create=create)/'logs'
+	if create: CreateDir(path)
+	return path
 
 def GetQAVMExecutablePath() -> Path:
 	""" Returns the absolute path to the QAVM executable. For example: qavm\\source\\qavm.py"""

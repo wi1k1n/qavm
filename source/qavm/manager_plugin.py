@@ -366,8 +366,9 @@ class SoftwareHandler:
 	KEY_INTERFACE = 'interface'
 	KEY_SWINTERFACE_DEP = 'software_interface_dependencies'
 
-	def __init__(self, pluginID: str, regData: dict) -> None:
+	def __init__(self, pluginID: str, regData: dict, pluginVersion: str = '') -> None:
 		self.pluginID = pluginID
+		self.pluginVersion = pluginVersion
 
 		########################### ID ###########################
 		self.id: str = regData.get('id', '')
@@ -428,6 +429,8 @@ class SoftwareHandler:
 		if settingsClass := regData.get(self.KEY_SETTINGS, None):
 			self._checkSubClass(settingsClass, SoftwareBaseSettings, self.KEY_SETTINGS)
 			self.settingsInstance = settingsClass(self.GetID(), self.pluginID)
+		# Bind the settings to the plugin's data subtree (scoped by the plugin's own version).
+		self.settingsInstance.SetPluginScope(self.pluginID, self.pluginVersion)
 
 		########################### MenuItems ###########################
 		self.menuItems: dict[str, BaseMenuItem] = dict()  # menuItemTypeId: menuItemInstance
@@ -582,7 +585,7 @@ class QAVMPlugin:
 			raise Exception(f'Invalid software registration data for plugin: {self.pluginID}. Expected a list, got {type(softwareRegDataList).__name__}')
 
 		for softwareRegData in softwareRegDataList:
-			softwareHandler = SoftwareHandler(self.pluginID, softwareRegData)
+			softwareHandler = SoftwareHandler(self.pluginID, softwareRegData, self.pluginVersion)
 
 			if softwareHandler.id in self.softwareHandlers:
 				raise Exception(f'Duplicate software ID found: {softwareHandler.id}')

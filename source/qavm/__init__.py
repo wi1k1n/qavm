@@ -61,7 +61,10 @@ def main():
 	try:
 		app: QAVMApp = QAVMApp(sys.argv, args)
 		app.exec()
-	except:
+	except Exception as e:
+		if isinstance(e, SystemExit):
+			raise e
+		
 		errorStr = "QAVM application crashed! Removed saved software UID to avoid issues on next run."
 		logger.exception(errorStr)
 
