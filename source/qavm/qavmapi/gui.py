@@ -543,8 +543,9 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 		self._hoveredIndex: int = -1
 
 	def GetSortKey(self) -> str:
+		SORT_WIDTH = 20  # enough for 64-bit unsigned integers
 		""" Returns a stable key used to sort the Tags column (comma-joined, lower-cased tag names). """
-		return ', '.join(map(str, self._tagOrders)).lower()
+		return ', '.join(f"{x:0{SORT_WIDTH}d}" for x in self._tagOrders).lower()
 
 	def _createBubble(self, text: str, bgColor: QColor | None) -> BubbleWidget:
 		bubble: BubbleWidget = BubbleWidget(text, bgColor=bgColor, rounding=self.BUBBLE_ROUNDING, margin=self.BUBBLE_MARGIN)
