@@ -134,10 +134,17 @@ class MyTableViewHeader(QHeaderView):
 				and (event.pos() - self._mousePressedPos).manhattanLength() < 4
 			):
 				currentOrder = self.sortIndicatorOrder()
-				if releasedSection != self.sortIndicatorSection() or currentOrder == Qt.SortOrder.AscendingOrder:
-					self.setSortIndicator(releasedSection, Qt.SortOrder.DescendingOrder)
+				ctrlHeld = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+				if releasedSection != self.sortIndicatorSection():
+					if ctrlHeld:
+						self.setSortIndicator(releasedSection, Qt.SortOrder.AscendingOrder)
+					else:
+						self.setSortIndicator(releasedSection, Qt.SortOrder.DescendingOrder)
 				else:
-					self.setSortIndicator(releasedSection, Qt.SortOrder.AscendingOrder)
+					if currentOrder == Qt.SortOrder.AscendingOrder:
+						self.setSortIndicator(releasedSection, Qt.SortOrder.DescendingOrder)
+					else:
+						self.setSortIndicator(releasedSection, Qt.SortOrder.AscendingOrder)
 				# self.sectionClicked.emit(releasedSection)  # Emit the signal for the section clicked
 		super().mouseReleaseEvent(event)
 			
