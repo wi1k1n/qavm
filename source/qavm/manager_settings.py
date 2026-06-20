@@ -96,6 +96,8 @@ class QAVMGlobalSettings(BaseSettings):
 		'tooltip_links_clickable': 'tooltip_links_clickable',  # Whether to auto-detect and make links clickable in tooltips
 		'workspace_states': {},  # Per-workspace UI state (last opened tab, table sorting/column widths), keyed by workspace ID
 		'main_window_state': '',  # Base64-encoded QMainWindow state (tags palette dock visibility/floating/area)
+		'main_window_geometry': '',  # Base64-encoded QMainWindow geometry (screen, position, size)
+		'tags_palette_filter': {},  # Last tags palette filter (preset and custom filter values)
 	}
 
 	def __init__(self, prefName: str, defaultGlobalSearchPaths: list[str]):
@@ -208,6 +210,22 @@ class QAVMGlobalSettings(BaseSettings):
 
 	def SetMainWindowState(self, stateB64: str) -> None:
 		self.SetSetting('main_window_state', stateB64)
+
+	def GetMainWindowGeometry(self) -> str:
+		""" Returns the base64-encoded QMainWindow.saveGeometry() blob (empty string if none). """
+		geometry = self.GetSetting('main_window_geometry')
+		return geometry if isinstance(geometry, str) else ''
+
+	def SetMainWindowGeometry(self, geometryB64: str) -> None:
+		self.SetSetting('main_window_geometry', geometryB64)
+
+	def GetTagsPaletteFilter(self) -> dict[str, Any]:
+		""" Returns the persisted tags palette filter (preset + custom filter values). """
+		state = self.GetSetting('tags_palette_filter')
+		return state if isinstance(state, dict) else {}
+
+	def SetTagsPaletteFilter(self, state: dict[str, Any]) -> None:
+		self.SetSetting('tags_palette_filter', state)
 
 
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:

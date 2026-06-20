@@ -104,6 +104,8 @@ class MainWindow(QMainWindow):
 		self._setupCentralWidget()
 		self._setupTagsDock()
 
+		self._restoreWindowGeometry()
+
 	def _setupActions(self):
 		self.actionPrefs = QAction("&Preferences", self)
 		self.actionPrefs.setShortcut("Ctrl+E")
@@ -302,6 +304,11 @@ class MainWindow(QMainWindow):
 		if savedWindowState:
 			self.restoreState(QByteArray.fromBase64(savedWindowState.encode('ascii')))
 
+		# Restore the tags palette filter (preset + custom filter values) from the last session.
+		savedFilter: dict = self.qavmSettings.GetTagsPaletteFilter()
+		if savedFilter:
+			self.tagsPalette.ApplyFilterState(savedFilter)
+
 	def _onTabChanged(self, index: int):
 		self.qavmSettings.SetWorkspaceLastOpenedTab(self.workspaceID, index)
 		self.qavmSettings.Save()  # TODO: should save now or later once per all changes?
@@ -314,14 +321,45 @@ class MainWindow(QMainWindow):
 		super().closeEvent(event)
 
 	def _saveUIState(self):
-		""" Persists per-workspace table state (sorting + column widths) and the global tags palette dock layout. """
+		""" Persists per-workspace table state (sorting + column widths) and the global window/tags palette state. """
 		for tableWidget in getattr(self, 'tableWidgets', []):
 			self.qavmSettings.SetWorkspaceTableViewState(self.workspaceID, tableWidget.viewUID, tableWidget.GetViewState())
 
 		windowStateB64: str = bytes(self.saveState().toBase64().data()).decode('ascii')
 		self.qavmSettings.SetMainWindowState(windowStateB64)
 
+		windowGeometryB64: str = bytes(self.saveGeometry().toBase64().data()).decode('ascii')
+		self.qavmSettings.SetMainWindowGeometry(windowGeometryB64)
+
+		if getattr(self, 'tagsPalette', None) is not None:
+			self.qavmSettings.SetTagsPaletteFilter(self.tagsPalette.GetFilterState())
+
 		self.qavmSettings.Save()
+
+	def _restoreWindowGeometry(self):
+		""" Restores the window position/size onto the same screen; falls back to centering on the primary screen. """
+		geometryB64: str = self.qavmSettings.GetMainWindowGeometry()
+		if geometryB64:
+			restored: bool = self.restoreGeometry(QByteArray.fromBase64(geometryB64.encode('ascii')))
+			if restored and self._isOnAvailableScreen():
+				return
+		self._centerOnPrimaryScreen()
+
+	def _isOnAvailableScreen(self) -> bool:
+		""" Returns True if the window's frame is visible on at least one currently available screen. """
+		frame = self.frameGeometry()
+		for screen in QApplication.screens():
+			if screen.availableGeometry().intersects(frame):
+				return True
+		return False
+
+	def _centerOnPrimaryScreen(self):
+		screen = QApplication.primaryScreen()
+		if screen is None:
+			return
+		frame = self.frameGeometry()
+		frame.moveCenter(screen.availableGeometry().center())
+		self.move(frame.topLeft())
 	
 	# def _tableItemFocusBuggedWorkaround(self, tableWidget: QTableWidget):
 	# 	"""

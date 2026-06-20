@@ -397,6 +397,40 @@ class TagsPaletteWidget(QWidget):
 		# CUSTOM: leave dropdowns as-is
 	# endregion
 
+	# region Persisted filter state
+	def GetFilterState(self) -> dict:
+		""" Returns the persistable filter state (preset + custom filter values). """
+		preset = self.presetCombo.currentData()
+		return {
+			'preset': int(preset) if preset is not None else int(ScopePreset.ACTIVE_SOFTWARE),
+			'plugin': self.pluginCombo.currentData() or '',
+			'software': self.softwareCombo.currentData() or '',
+			'view': self.viewCombo.currentData() or '',
+		}
+
+	def ApplyFilterState(self, state: dict):
+		""" Restores a previously persisted filter state. """
+		if not isinstance(state, dict):
+			return
+		try:
+			preset: ScopePreset = ScopePreset(state.get('preset'))
+		except (ValueError, TypeError):
+			return
+
+		if preset == ScopePreset.CUSTOM:
+			self._setCombo(self.pluginCombo, state.get('plugin', '') or '')
+			self._setCombo(self.softwareCombo, state.get('software', '') or '')
+			self._setCombo(self.viewCombo, state.get('view', '') or '')
+			self.presetCombo.blockSignals(True)
+			self.presetCombo.setCurrentIndex(self.presetCombo.findData(ScopePreset.CUSTOM))
+			self.presetCombo.blockSignals(False)
+			self.filterSection.setVisible(True)
+		else:
+			self._applyPreset(preset)
+			self.filterSection.setVisible(False)
+		self.RefreshTags()
+	# endregion
+
 	# region Events
 	def _onPresetChanged(self):
 		preset: ScopePreset = self.presetCombo.currentData()
