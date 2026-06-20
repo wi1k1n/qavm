@@ -539,13 +539,15 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 			for tag in tags
 		]
 		self._overflowBubble: BubbleWidget | None = None
+		self._emptyPlaceholder: QLabel | None = None
 
 		self._hoveredIndex: int = -1
 
 	def GetSortKey(self) -> str:
-		SORT_WIDTH = 20  # enough for 64-bit unsigned integers
 		""" Returns a stable key used to sort the Tags column (comma-joined, lower-cased tag names). """
-		return ', '.join(f"{x:0{SORT_WIDTH}d}" for x in self._tagOrders).lower()
+		SORT_WIDTH = 20  # enough for 64-bit unsigned integers
+		orders: list[int] = self._tagOrders if self._tagOrders else [pow(10, SORT_WIDTH) - 1]
+		return ', '.join(f"{x:0{SORT_WIDTH}d}" for x in orders).lower()
 
 	def _createBubble(self, text: str, bgColor: QColor | None) -> BubbleWidget:
 		bubble: BubbleWidget = BubbleWidget(text, bgColor=bgColor, rounding=self.BUBBLE_ROUNDING, margin=self.BUBBLE_MARGIN)
@@ -569,6 +571,16 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 			self._overflowBubble = lbl
 		return self._overflowBubble
 
+	def _ensureEmptyPlaceholder(self) -> QWidget:
+		""" Creates (once) a plain '-' label shown when there are no tags. """
+		if self._emptyPlaceholder is None:
+			lbl = QLabel('-', self)
+			lbl.setContentsMargins(self.BUBBLE_MARGIN, self.BUBBLE_MARGIN, self.BUBBLE_MARGIN, self.BUBBLE_MARGIN)
+			lbl.setStyleSheet('background: transparent;')
+			lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+			self._emptyPlaceholder = lbl
+		return self._emptyPlaceholder
+
 	def _doLayout(self, width: int, apply: bool) -> int:
 		""" Lays out the bubbles within the given width, capped by maxHeight.
 
@@ -579,6 +591,14 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 		bubbles: list[BubbleWidget] = self._bubbles
 		n: int = len(bubbles)
 		effRight: int = max(width - m, m + 1)
+
+		if n == 0:
+			placeholder: QWidget = self._ensureEmptyPlaceholder()
+			pw, ph = placeholder.sizeHint().width(), placeholder.sizeHint().height()
+			if apply:
+				placeholder.setGeometry(QRect(m, m, pw, ph))
+				placeholder.setVisible(True)
+			return min(m + ph + m + self.MARGIN * 2 + self.VSPACING * 2, maxH)
 
 		placements: list[tuple[QWidget, QRect]] = []
 		x: int = m

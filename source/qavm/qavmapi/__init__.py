@@ -17,7 +17,7 @@ from PyQt6.QtGui import (
 )
 
 from qavm.qavmapi import utils
-from qavm.qavmapi.gui import GetThemeData, FolderPathsListWidget
+from qavm.qavmapi.gui import DescNotesWidget, GetThemeData, FolderPathsListWidget, TagBubblesFlowWidget
 
 # import qavm.logs as logs
 # logger = logs.logger
@@ -614,6 +614,14 @@ class BaseTableBuilder(BaseBuilder):
 	
 	def GetTableColumnInfo(self) -> list[TableColumnInfo]:
 		return []
+	
+	def CellDataGetterDefault_Tags(self, desc: BaseDescriptor, pluginID: str, softwareID: str, viewUID: str) -> TagBubblesFlowWidget:
+		tags = self.descDataAccessor.GetDescriptorData(desc).GetTagsScoped(pluginID, softwareID, viewUID)
+		return TagBubblesFlowWidget(tags, self.GetRowMaximumHeight())
+	
+	def CellDataGetterDefault_Notes(self, desc: BaseDescriptor) -> DescNotesWidget:
+		descData = self.descDataAccessor.GetDescriptorData(desc)
+		return DescNotesWidget(descData.GetNoteSmall(), descData.GetNoteDetail(), persistentTooltip=True)
 
 	def GetRowMaximumHeight(self) -> int:
 		""" Returns the maximum height (in pixels) a table row may grow to when a cell hosts a
