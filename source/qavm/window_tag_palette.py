@@ -82,6 +82,7 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 		self.setStyleSheet(f'color: {textColor.name()};')
 
 		self._ctrlHeldOnPress: bool = False
+		self._shiftHeldOnPress: bool = False
 
 		self._InitHoverTooltip(persistentTooltip=True)
 
@@ -93,16 +94,33 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 		if event.button() == Qt.MouseButton.LeftButton:
 			self._dragStartPos = event.pos()
 			self._ctrlHeldOnPress = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+			self._shiftHeldOnPress = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
 		super().mousePressEvent(event)
 
 	def mouseReleaseEvent(self, event):
 		if event.button() == Qt.MouseButton.LeftButton:
+			# Shift+click (released without having started a drag) → prompt to delete
+			if self._shiftHeldOnPress and self._dragStartPos is not None:
+				self._CancelTooltip()
+				self.deleteRequested.emit(self.tag)
 			# Ctrl+click (released without having started a drag) → open editor
-			if self._ctrlHeldOnPress and self._dragStartPos is not None:
+			elif self._ctrlHeldOnPress and self._dragStartPos is not None:
 				self.editRequested.emit(self.tag)
 			self._dragStartPos = None
 			self._ctrlHeldOnPress = False
+			self._shiftHeldOnPress = False
 		super().mouseReleaseEvent(event)
+
+	def mouseDoubleClickEvent(self, event):
+		if event.button() == Qt.MouseButton.LeftButton:
+			self._CancelTooltip()
+			self._dragStartPos = None
+			self._ctrlHeldOnPress = False
+			self._shiftHeldOnPress = False
+			self.editRequested.emit(self.tag)
+			event.accept()
+			return
+		super().mouseDoubleClickEvent(event)
 
 	def mouseMoveEvent(self, event):
 		if not self._draggable or self._dragStartPos is None:
@@ -117,6 +135,7 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 		# Drag threshold exceeded — commit to dragging; prevent editRequested on release.
 		self._dragStartPos = None
 		self._ctrlHeldOnPress = False
+		self._shiftHeldOnPress = False
 
 		self._CancelTooltip()
 
