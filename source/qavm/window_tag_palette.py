@@ -158,7 +158,7 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 		
 		
 
-		# Drag threshold exceeded — commit to dragging; prevent editRequested on release.
+		# Drag threshold exceeded - commit to dragging; prevent editRequested on release.
 		self._dragStartPos = None
 		self._ctrlHeldOnPress = False
 		self._shiftHeldOnPress = False
@@ -249,11 +249,14 @@ class TagUsageDialog(QDialog):
 	""" Modal dialog that lists every descriptor (grouped by plugin/software) that has a given tag assigned. """
 	def __init__(self, tag: BaseTagImpl, usages: list[tuple[str, str, list[BaseDescriptor]]], parent: QWidget | None = None):
 		super().__init__(parent)
-		self.setWindowTitle(f"Tag Usage — {tag.GetName()}")
+		self.setWindowTitle(f"Tag Usage [{tag.GetName()}]")
 		self.setModal(True)
 		self.resize(480, 420)
 
 		layout = QVBoxLayout(self)
+
+		themeData = GetThemeData()
+		colorPrimary = QColor(themeData.get('primaryColor', '#ffffff')) if themeData else QColor('#ffffff')
 
 		totalCount: int = sum(len(descs) for _, _, descs in usages)
 		summary = QLabel(
@@ -261,13 +264,14 @@ class TagUsageDialog(QDialog):
 			if totalCount else f"Tag '{tag.GetName()}' is not assigned to any descriptor."
 		)
 		summary.setWordWrap(True)
+		summary.setStyleSheet(f'color: {colorPrimary.name()};')
 		layout.addWidget(summary)
 
 		tree = QTreeWidget()
 		tree.setHeaderHidden(True)
 		tree.setColumnCount(1)
 		for pluginName, softwareName, descs in usages:
-			groupItem = QTreeWidgetItem(tree, [f"{pluginName} — {softwareName} ({len(descs)})"])
+			groupItem = QTreeWidgetItem(tree, [f"[{pluginName}] {softwareName} ({len(descs)})"])
 			groupItem.setExpanded(True)
 			for desc in descs:
 				childItem = QTreeWidgetItem(groupItem, [str(desc)])
@@ -284,7 +288,7 @@ class TagUsageDialog(QDialog):
 class _TagFlowContainer(QWidget):
 	""" Holds the tag bubbles in a FlowLayout and accepts drops of tag bubbles to reorder them. """
 	reorderRequested = pyqtSignal(str, int)  # (draggedTagUID, targetIndex)
-	cloneRequested = pyqtSignal(str, int)    # (draggedTagUID, targetIndex) — Ctrl+drop clones the tag
+	cloneRequested = pyqtSignal(str, int)    # (draggedTagUID, targetIndex) - Ctrl+drop clones the tag
 
 	def __init__(self, parent: QWidget | None = None):
 		super().__init__(parent)
@@ -401,7 +405,7 @@ class TagsPaletteWidget(QWidget):
 		topRow.addWidget(self.presetCombo, 1)
 		layout.addLayout(topRow)
 
-		# Filter dropdowns — visible only when preset is Custom, stacked vertically
+		# Filter dropdowns - visible only when preset is Custom, stacked vertically
 		self.filterSection: QWidget = QWidget()
 		filterLayout = QVBoxLayout(self.filterSection)
 		filterLayout.setContentsMargins(0, 2, 0, 2)
