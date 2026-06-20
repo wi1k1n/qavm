@@ -47,6 +47,17 @@ def AssignTagUIDToDescriptor(desc: BaseDescriptor, tagUID: str) -> bool:
 	tagsManager.AssignTag(desc, tag)
 	return True
 
+def UnassignTagUIDFromDescriptor(desc: BaseDescriptor, tagUID: str) -> bool:
+	""" Removes the tag with the given UID from the descriptor and notifies listeners. Returns True on success. """
+	app = QApplication.instance()
+	tagsManager = app.GetTagsManager()
+	tag: BaseTagImpl | None = tagsManager.GetTag(tagUID)
+	if tag is None:
+		logger.warning(f"Cannot unassign tag: unknown tag UID {tagUID}")
+		return False
+	tagsManager.RemoveTag(desc, tag)
+	return True
+
 class _MenuActionClickFilter(QObject):
 	""" Event filter that invokes a handler when a specific (submenu) action in a plain QMenu is clicked.
 

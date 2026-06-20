@@ -746,6 +746,17 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 				self._openTagEditor(self._tags[idx])
 				return
 
+		# Shift+LMB on a bubble: unassign that tag from the descriptor (after confirmation).
+		isShiftLeft: bool = (event.button() == Qt.MouseButton.LeftButton
+							and bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier))
+		if isShiftLeft and self._descriptor is not None:
+			idx = self._tagIndexAt(event.pos())
+			if idx >= 0:
+				self._CancelTooltip()
+				event.accept()
+				self._promptUnassignTag(self._tags[idx])
+				return
+
 		# Plain LMB on a bubble: arm a potential drag. The actual drag only starts once the cursor moves
 		# past the drag threshold (in mouseMoveEvent); a press+release without movement selects the row.
 		if (self._descriptor is not None
@@ -760,6 +771,21 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 
 		# Anything else (empty area click, right click) belongs to the table/tile underneath.
 		event.ignore()
+
+	def _promptUnassignTag(self, tag) -> None:
+		""" Asks the user to confirm, then removes the tag from this descriptor. """
+		from PyQt6.QtWidgets import QMessageBox
+		reply = QMessageBox.question(
+			self, "Unassign Tag",
+			f"Remove tag '{tag.GetName()}' from this item?",
+			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+			QMessageBox.StandardButton.No,
+		)
+		if reply != QMessageBox.StandardButton.Yes:
+			return
+		from qavm.utils_widgets import UnassignTagUIDFromDescriptor  # lazy import to avoid an import cycle
+		UnassignTagUIDFromDescriptor(self._descriptor, tag.GetUID())
+
 
 	def mouseReleaseEvent(self, event: QMouseEvent):
 		armedClick: bool = (self._dragStartPos is not None and not self._dragStarted)
