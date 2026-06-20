@@ -395,6 +395,7 @@ class MyTableWidget(QTableWidget):
 				sortKey: str = str(getSortKey()) if callable(getSortKey) else ''
 				self.setItem(row, c, _CellWidgetSortItem(sortKey))
 				self.setCellWidget(row, c, cellValue)
+				self._connectCellWidgetAutoHeight(cellValue)
 			else:
 				if self.cellWidget(row, c) is not None:
 					self.removeCellWidget(row, c)
@@ -413,7 +414,11 @@ class MyTableWidget(QTableWidget):
 			widget: QWidget | None = self.cellWidget(row, c)
 			if widget is not None and widget.hasHeightForWidth():
 				hasWidget = True
-				desiredHeight = max(desiredHeight, widget.heightForWidth(self.columnWidth(c)))
+				# Measure at the widget's actual width once it has been laid out: the cell content width
+				# is slightly narrower than the column width (grid line + cell padding), so using the
+				# column width here can under-estimate wrapping and leave the row too short.
+				width: int = widget.width() if widget.width() > 1 else self.columnWidth(c)
+				desiredHeight = max(desiredHeight, widget.heightForWidth(width))
 		if hasWidget:
 			self.setRowHeight(row, max(min(desiredHeight, maxHeight), 1))
 		else:
@@ -422,6 +427,25 @@ class MyTableWidget(QTableWidget):
 	def _recomputeAllRowHeights(self):
 		for row in range(self.rowCount()):
 			self._adjustRowHeight(row)
+
+	def _connectCellWidgetAutoHeight(self, widget: QWidget):
+		""" Re-adjusts the row height when a variable-height cell widget reports that its content
+		re-wrapped after being laid out at its actual (cell) width, which is narrower than the column
+		width used for the initial estimate. Without this, a tag that wraps to a new line would be
+		clipped because the row was sized as if it still fit on the previous line. """
+		signal = getattr(widget, 'contentHeightChanged', None)
+		if signal is not None:
+			signal.connect(self._onCellWidgetHeightChanged)
+
+	def _onCellWidgetHeightChanged(self):
+		widget = self.sender()
+		if not isinstance(widget, QWidget):
+			return
+		for row in range(self.rowCount()):
+			for c in range(len(self._tableInfos)):
+				if self.cellWidget(row, c) is widget:
+					self._adjustRowHeight(row)
+					return
 
 	def _onSectionResized(self, logicalIndex: int, oldSize: int, newSize: int):
 		# Column width affects how the flow-laid-out cell widgets wrap, so row heights must be recomputed.
@@ -446,6 +470,7 @@ class MyTableWidget(QTableWidget):
 				cellValue = tableInfo.cellDataGetter(desc) if callable(tableInfo.cellDataGetter) else ''
 				if isinstance(cellValue, QWidget):
 					self.setCellWidget(row, c, cellValue)
+					self._connectCellWidgetAutoHeight(cellValue)
 				elif self.cellWidget(row, c) is not None:
 					self.removeCellWidget(row, c)
 			self._adjustRowHeight(row)

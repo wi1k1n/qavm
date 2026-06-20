@@ -526,9 +526,15 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 	BUBBLE_ROUNDING: float = 10.0
 	BUBBLE_MARGIN: int = 5
 
+	# Emitted when the bubbles re-wrap into a different total height after being laid out at the
+	# widget's actual width. The actual cell width is slightly narrower than the column width used
+	# for the initial row-height estimate, so the host (e.g. the table) must re-measure the row.
+	contentHeightChanged = pyqtSignal()
+
 	def __init__(self, tags: list, maxHeight: int, parent: QWidget | None = None):
 		super().__init__(parent, persistentTooltip=True)
 		self._maxHeight: int = max(maxHeight, 1)
+		self._lastContentHeight: int = -1
 		self.setAutoFillBackground(False)
 
 		self._tags: list = list(tags)
@@ -671,8 +677,13 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 		return QSize(first.width() + 2 * self.MARGIN, first.height() + 2 * self.MARGIN)
 
 	def resizeEvent(self, event):
-		self._doLayout(self.width(), apply=True)
+		contentHeight: int = self._doLayout(self.width(), apply=True)
 		super().resizeEvent(event)
+		# The widget is laid out at its real (cell) width here, which can wrap a bubble that the
+		# column-width-based estimate thought would fit. Notify the host so it can grow the row.
+		if contentHeight != self._lastContentHeight:
+			self._lastContentHeight = contentHeight
+			self.contentHeightChanged.emit()
 
 	# region Interaction (hover tooltip + Ctrl+LMB edit)
 	def _tagIndexAt(self, pos: QPoint) -> int:
