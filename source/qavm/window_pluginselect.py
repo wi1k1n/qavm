@@ -278,9 +278,23 @@ class WorkspaceManagerWindow(QMainWindow):
 			self.favoritesLayout.addWidget(button)
 
 		if not favoriteIDs:
-			emptyLabel = QLabel("No favorites yet. Use File > Edit Favorites to add some.")
+			emptyWidget = QWidget()
+			emptyLayout = QVBoxLayout(emptyWidget)
+			emptyLayout.setContentsMargins(0, 0, 0, 0)
+			emptyLayout.addStretch()
+
+			emptyLabel = QLabel("No favorites yet")
 			emptyLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-			self.favoritesLayout.addWidget(emptyLabel)
+			emptyLayout.addWidget(emptyLabel, 0, Qt.AlignmentFlag.AlignCenter)
+
+			emptyLayout.addSpacing(12)
+
+			editButton = QPushButton("Edit Favorites")
+			editButton.clicked.connect(self._showEditFavoritesDialog)
+			emptyLayout.addWidget(editButton, 0, Qt.AlignmentFlag.AlignCenter)
+
+			emptyLayout.addStretch()
+			self.favoritesLayout.addWidget(emptyWidget)
 
 	def _refreshFavoritesTab(self):
 		while self.favoritesLayout.count():
