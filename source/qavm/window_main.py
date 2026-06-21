@@ -134,7 +134,11 @@ class MainWindow(QMainWindow):
 		fileMenu.addSeparator()
 		fileMenu.addAction(self.actionExit)
 		menuBar.addMenu(fileMenu)
-		
+
+		# Application View menu — place before plugin-provided menus
+		self.viewMenu: QMenu = QMenu("&View", self)
+		menuBar.addMenu(self.viewMenu)
+
 		# switchMenu: QMenu = QMenu("&Switch Workspace", self)
 		# switchMenu.addAction(QAction("osx sucks", self))
 		# menuBar.addMenu(switchMenu)
@@ -165,9 +169,6 @@ class MainWindow(QMainWindow):
 							self.pluginMenuItems.append(menu)  # for some reason QMenu and QAction need to live in the MainWindow, otherwise Qt gets rid of them
 						else:
 							logger.warning(f"Menu item {menu} is not a valid QMenu or QAction. Skipping.")
-
-		self.viewMenu: QMenu = QMenu("&View", self)
-		menuBar.addMenu(self.viewMenu)
 
 		helpMenu: QMenu = QMenu("&Help", self)
 		helpMenu.addAction(self.actionCheckUpdates)
