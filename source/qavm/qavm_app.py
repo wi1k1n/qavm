@@ -8,6 +8,8 @@ from qavm.manager_dialogs import DialogsManager
 from qavm.manager_descriptor_data import DescriptorDataManager
 from qavm.manager_tags import TagsManager
 from qavm.manager_migration import MigrationManager
+from qavm.manager_update import UpdateManager, UpdateReport
+from qavm.window_update import UpdateAvailableDialog
 
 import qavm.qavmapi.utils as utils  # TODO: rename to qutils
 import qavm.qavmapi.gui as gui_utils
@@ -24,7 +26,7 @@ from PyQt6.QtGui import (
     QIcon, 
 )
 from PyQt6.QtWidgets import (
-	QApplication, QWidget
+	QApplication, QWidget, QMessageBox
 )
 
 import qavm.logs as logs
@@ -84,13 +86,20 @@ class QAVMApp(QApplication):
 		self.tagsManager.LoadTags()
 
 		gui_utils.SetTheme(self.settingsManager.GetQAVMSettings().GetAppTheme())  # TODO: move this to the QAVMGlobalSettings class?
-		
+
+		self.updateManager: UpdateManager = UpdateManager(self.pluginManager, self.qavmSettings, self)
+		self.updateManager.showUpdatePopup.connect(self._onShowUpdatePopup)
+		self.updateManager.noUpdatesFound.connect(self._onUpdateCheckNoUpdates)
+		self.updateManager.checkFailed.connect(self._onUpdateCheckFailed)
+
 		self.workspace: QAVMWorkspace = self.qavmSettings.GetWorkspaceLast()
 
 		if self.workspace.IsEmpty():
 			self.dialogsManager.GetPluginSelectionWindow().show()
 		else:
 			self.dialogsManager.ShowWorkspace(self.workspace)
+
+		self.updateManager.CheckNow()  # background auto-check, gated by the configured interval
 
 	def GetPluginManager(self) -> PluginManager:
 		return self.pluginManager
@@ -100,6 +109,20 @@ class QAVMApp(QApplication):
 	
 	def GetDialogsManager(self) -> DialogsManager:
 		return self.dialogsManager
+
+	def GetUpdateManager(self) -> UpdateManager:
+		return self.updateManager
+
+	def _onShowUpdatePopup(self, report: UpdateReport) -> None:
+		parent: QWidget | None = self.activeWindow()
+		dialog = UpdateAvailableDialog(report, self.qavmSettings, parent)
+		dialog.exec()
+
+	def _onUpdateCheckNoUpdates(self) -> None:
+		QMessageBox.information(self.activeWindow(), 'QAVM - Updates', 'QAVM and all plugins are up to date.')
+
+	def _onUpdateCheckFailed(self, error: str) -> None:
+		QMessageBox.warning(self.activeWindow(), 'QAVM - Update check failed', error)
 	
 	def GetDescriptorDataManager(self) -> DescriptorDataManager:
 		return self.descDataManager

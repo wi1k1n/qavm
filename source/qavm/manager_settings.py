@@ -8,7 +8,7 @@ from PyQt6.QtGui import QKeyEvent, QColor, QPainter, QBrush
 from PyQt6.QtWidgets import (
 	QWidget, QFormLayout, QCheckBox, QLineEdit, QApplication, QListWidget, QListWidgetItem,
 	QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QTabWidget, QSizePolicy, QSpinBox,
-	QMessageBox,
+	QMessageBox, QComboBox,
 )
 
 import qavm.qavmapi.utils as qutils
@@ -98,6 +98,10 @@ class QAVMGlobalSettings(BaseSettings):
 		'main_window_state': '',  # Base64-encoded QMainWindow state (tags palette dock visibility/floating/area)
 		'main_window_geometry': '',  # Base64-encoded QMainWindow geometry (screen, position, size)
 		'tags_palette_filter': {},  # Last tags palette filter (preset and custom filter values)
+		'update_check_interval': 'startup',  # When to auto-check for updates: 'never' | 'weekly' | 'startup'
+		'update_check_last_time': '',  # ISO-8601 UTC timestamp of the last successful update check
+		'update_check_snooze_until': '',  # ISO-8601 UTC timestamp until which the update popup is suppressed, or 'startup' sentinel
+		'update_check_skip_signature': '',  # Signature of the last skipped update set (core + plugin versions)
 	}
 
 	def __init__(self, prefName: str, defaultGlobalSearchPaths: list[str]):
@@ -227,6 +231,44 @@ class QAVMGlobalSettings(BaseSettings):
 	def SetTagsPaletteFilter(self, state: dict[str, Any]) -> None:
 		self.SetSetting('tags_palette_filter', state)
 
+	# ----------------------------- Update check -----------------------------
+	UPDATE_CHECK_INTERVALS: tuple[str, ...] = ('never', 'weekly', 'startup')
+
+	def GetUpdateCheckInterval(self) -> str:
+		""" Returns when to auto-check for updates: 'never' | 'weekly' | 'startup'. """
+		interval = self.GetSetting('update_check_interval')
+		return interval if interval in self.UPDATE_CHECK_INTERVALS else 'startup'
+
+	def SetUpdateCheckInterval(self, interval: str) -> None:
+		if interval not in self.UPDATE_CHECK_INTERVALS:
+			logger.error(f'Invalid update check interval: {interval}')
+			return
+		self.SetSetting('update_check_interval', interval)
+
+	def GetUpdateCheckLastTime(self) -> str:
+		""" Returns the ISO-8601 UTC timestamp of the last successful update check (empty if never). """
+		value = self.GetSetting('update_check_last_time')
+		return value if isinstance(value, str) else ''
+
+	def SetUpdateCheckLastTime(self, timestamp: str) -> None:
+		self.SetSetting('update_check_last_time', timestamp)
+
+	def GetUpdateCheckSnoozeUntil(self) -> str:
+		""" Returns the ISO-8601 UTC timestamp until which the popup is suppressed, or 'startup' sentinel (empty if none). """
+		value = self.GetSetting('update_check_snooze_until')
+		return value if isinstance(value, str) else ''
+
+	def SetUpdateCheckSnoozeUntil(self, timestamp: str) -> None:
+		self.SetSetting('update_check_snooze_until', timestamp)
+
+	def GetUpdateCheckSkipSignature(self) -> str:
+		""" Returns the signature of the last skipped update set (empty if none). """
+		value = self.GetSetting('update_check_skip_signature')
+		return value if isinstance(value, str) else ''
+
+	def SetUpdateCheckSkipSignature(self, signature: str) -> None:
+		self.SetSetting('update_check_skip_signature', signature)
+
 
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:
 		settingsWidget: QWidget = QWidget(parent)
@@ -235,10 +277,38 @@ class QAVMGlobalSettings(BaseSettings):
 		selectThemeWidget = self._createThemeSelectorWidget(parent)
 		layout.addRow('App Theme', selectThemeWidget)
 
+		updateCheckWidget = self._createUpdateCheckWidget(parent)
+		layout.addRow('Check for Updates', updateCheckWidget)
+
 		searchPathsWidget = self._createSearchPathsWidget(parent)
 		layout.addRow('Search Paths (Global)', searchPathsWidget)
 
 		return [('Application', settingsWidget)]
+
+	def _createUpdateCheckWidget(self, parent: QWidget | None = None) -> QWidget:
+		widget = QWidget(parent)
+		layout = QHBoxLayout(widget)
+		layout.setContentsMargins(0, 0, 0, 0)
+
+		combo = QComboBox(widget)
+		# (label, value) pairs; order matches QAVMGlobalSettings.UPDATE_CHECK_INTERVALS semantics
+		self._updateCheckIntervalOptions: list[tuple[str, str]] = [
+			('Every startup', 'startup'),
+			('Every week', 'weekly'),
+			('Never', 'never'),
+		]
+		for label, value in self._updateCheckIntervalOptions:
+			combo.addItem(label, value)
+		combo.setToolTip('How often QAVM checks for application and plugin updates on startup.')
+
+		currentInterval: str = self.GetUpdateCheckInterval()
+		currentIdx: int = next((i for i, (_, v) in enumerate(self._updateCheckIntervalOptions) if v == currentInterval), 2)
+		combo.setCurrentIndex(currentIdx)
+		combo.currentIndexChanged.connect(lambda idx: self.SetUpdateCheckInterval(combo.itemData(idx)))
+
+		layout.addWidget(combo)
+		layout.addStretch()
+		return widget
 	
 	# TODO: This is very similar to the one in SoftwareBaseSettings, consider refactoring
 	def _createSearchPathsWidget(self, parent: QWidget | None = None) -> QWidget:

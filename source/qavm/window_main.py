@@ -119,6 +119,9 @@ class MainWindow(QMainWindow):
 		self.actionAbout = QAction("&About", self)
 		self.actionAbout.triggered.connect(self._showAboutDialog)
 
+		self.actionCheckUpdates = QAction("Check Updates Now", self)
+		self.actionCheckUpdates.triggered.connect(self._checkForUpdates)
+
 	def _setupMenuBar(self):
 		menuBar: QMenuBar = self.menuBar()
 		menuBar.setNativeMenuBar(True)  # Use native menu bar on macOS
@@ -167,6 +170,7 @@ class MainWindow(QMainWindow):
 		menuBar.addMenu(self.viewMenu)
 
 		helpMenu: QMenu = QMenu("&Help", self)
+		helpMenu.addAction(self.actionCheckUpdates)
 		helpMenu.addAction(self.actionAbout)
 		menuBar.addMenu(helpMenu)
 
@@ -431,3 +435,7 @@ class MainWindow(QMainWindow):
 	def _showAboutDialog(self):
 		aboutDialog: AboutDialog = AboutDialog(self, self.pluginManager)
 		aboutDialog.exec()
+
+	def _checkForUpdates(self):
+		app = QApplication.instance()
+		app.GetUpdateManager().CheckNow(force=True, manual=True)
