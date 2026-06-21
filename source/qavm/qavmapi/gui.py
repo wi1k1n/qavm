@@ -774,15 +774,16 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 
 	def _promptUnassignTag(self, tag) -> None:
 		""" Asks the user to confirm, then removes the tag from this descriptor. """
-		from PyQt6.QtWidgets import QMessageBox
-		reply = QMessageBox.question(
-			self, "Unassign Tag",
-			f"Remove tag '{tag.GetName()}' from this item?",
-			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-			QMessageBox.StandardButton.No,
-		)
-		if reply != QMessageBox.StandardButton.Yes:
-			return
+		# # Temporarily disabled; DON'T DELETE
+		# from PyQt6.QtWidgets import QMessageBox
+		# reply = QMessageBox.question(
+		# 	self, "Unassign Tag",
+		# 	f"Remove tag '{tag.GetName()}' from this item?",
+		# 	QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+		# 	QMessageBox.StandardButton.No,
+		# )
+		# if reply != QMessageBox.StandardButton.Yes:
+		# 	return
 		from qavm.utils_widgets import UnassignTagUIDFromDescriptor  # lazy import to avoid an import cycle
 		UnassignTagUIDFromDescriptor(self._descriptor, tag.GetUID())
 
