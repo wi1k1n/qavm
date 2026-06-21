@@ -188,11 +188,29 @@ class UpdateManager(QObject):
 		self._pluginResults = []
 		self._coreError = ''
 
+		if manual:
+			# A manual check always shows results, so any previously skipped update is no longer skipped.
+			self._settings.SetUpdateCheckSkipSignature('')
+			self._settings.Save()
+
 		self._startCoreCheck()
 		self._startPluginCheck()
 
 	# ----------------------------- Gating -----------------------------
 	def _isAutoCheckDue(self) -> bool:
+		# An active snooze overrides the interval: once the snooze fires (the 'next startup' sentinel
+		# or an elapsed deadline), a check is due even if the interval would otherwise skip it.
+		snooze: str = self._settings.GetUpdateCheckSnoozeUntil()
+		if snooze:
+			if snooze == SNOOZE_SENTINEL_STARTUP:
+				return True
+			try:
+				until = datetime.fromisoformat(snooze)
+				if datetime.now(timezone.utc) >= until:
+					return True
+			except ValueError:
+				pass
+
 		interval: str = self._settings.GetUpdateCheckInterval()
 		if interval == 'never':
 			return False
@@ -324,8 +342,15 @@ class UpdateManager(QObject):
 		try:
 			until = datetime.fromisoformat(value)
 		except ValueError:
+			self._settings.SetUpdateCheckSnoozeUntil('')
+			self._settings.Save()
 			return False
-		return datetime.now(timezone.utc) < until
+		if datetime.now(timezone.utc) >= until:
+			# The snooze deadline has passed; consume it so it doesn't keep firing.
+			self._settings.SetUpdateCheckSnoozeUntil('')
+			self._settings.Save()
+			return False
+		return True
 
 	def _isSkipped(self, report: UpdateReport) -> bool:
 		signature: str = ComputeUpdateSignature(report)

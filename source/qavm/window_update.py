@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+import markdown
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
@@ -91,21 +93,21 @@ class UpdateAvailableDialog(QDialog):
 		if core.html_url:
 			text += f"<br><a href='{core.html_url}'>Download / release page</a>"
 		if core.body:
-			text += f"<br><br><i>{self._escapeMultiline(core.body)}</i>"
+			text += f"<br><br><i>{markdown.markdown(core.body)}</i>"
 		return self._createRichLabel(text)
 
 	def _createPluginSection(self, plugin: PluginUpdateInfo) -> QLabel:
-		title = plugin.title or f'{plugin.plugin_name} update'
-		text = f"[plugin] <b>{plugin.plugin_name}</b> &mdash; {title}<br>"
+		title = f' - {plugin.title}' if plugin.title else ''
+		text = f"[Plugin] <b>{plugin.plugin_name}</b>{title}<br>"
 		if plugin.current_version or plugin.latest_version:
 			text += f"Current version: {plugin.current_version or '?'}<br>"
 			text += f"New version: <b>{plugin.latest_version or '?'}</b>"
 		if plugin.download_url:
 			text += f"<br><a href='{plugin.download_url}'>Download / more info</a>"
 		if plugin.message:
-			text += f"<br>{self._escapeMultiline(plugin.message)}"
+			text += f"<br>{markdown.markdown(plugin.message)}"
 		if plugin.changelog:
-			text += f"<br><br><i>{self._escapeMultiline(plugin.changelog)}</i>"
+			text += f"<br><br><i>{markdown.markdown(plugin.changelog)}</i>"
 		return self._createRichLabel(text)
 
 	def _createRichLabel(self, text: str) -> QLabel:
@@ -116,10 +118,6 @@ class UpdateAvailableDialog(QDialog):
 		label.setWordWrap(True)
 		label.setText(text)
 		return label
-
-	@staticmethod
-	def _escapeMultiline(text: str) -> str:
-		return text.replace('\n', '<br>')
 
 	# ----------------------------- Buttons -----------------------------
 	def _createButtonBar(self) -> QHBoxLayout:
