@@ -380,6 +380,14 @@ class TagsPaletteWidget(QWidget):
 		scrollArea.setWidget(self.container)
 		mainLayout.addWidget(scrollArea, 1)
 
+		# Add Tag button located below the tag container (keeps same behavior)
+		self.addTagButton: QPushButton = QPushButton("+ Add Tag")
+		self.addTagButton.clicked.connect(self._onAddTag)
+		btnRow = QHBoxLayout()
+		btnRow.addWidget(self.addTagButton)
+		btnRow.addStretch(1)
+		mainLayout.addLayout(btnRow)
+
 		self._applyPreset(ScopePreset.ACTIVE_SOFTWARE)
 		self.filterSection.setVisible(False)  # ACTIVE_SOFTWARE is not Custom
 		self.RefreshTags()
@@ -390,12 +398,8 @@ class TagsPaletteWidget(QWidget):
 		layout.setContentsMargins(0, 0, 0, 0)
 		layout.setSpacing(4)
 
-		# Top row: Add Tag button + preset combo (always visible)
+		# Top row: preset combo (always visible)
 		topRow = QHBoxLayout()
-		self.addTagButton: QPushButton = QPushButton("+ Add Tag")
-		self.addTagButton.clicked.connect(self._onAddTag)
-		topRow.addWidget(self.addTagButton)
-
 		self.presetCombo: QComboBox = QComboBox()
 		self.presetCombo.addItem("All", ScopePreset.ALL)
 		self.presetCombo.addItem("Active Plugin(s)", ScopePreset.ACTIVE_PLUGIN)
