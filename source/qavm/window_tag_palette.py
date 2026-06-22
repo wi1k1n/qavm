@@ -428,7 +428,7 @@ class TagsPaletteWidget(QWidget):
 		self.topRow: _ResponsiveRow = _ResponsiveRow([self.addTagButton, self.presetCombo], spacing=4)
 		layout.addWidget(self.topRow)
 
-		# Filter dropdowns - visible only when preset is Custom, stacked vertically
+		# Filter dropdowns - visible only when preset is Custom; laid out responsively
 		self.filterSection: QWidget = QWidget()
 		filterLayout = QVBoxLayout(self.filterSection)
 		filterLayout.setContentsMargins(0, 2, 0, 2)
@@ -437,11 +437,17 @@ class TagsPaletteWidget(QWidget):
 		self.pluginCombo: QComboBox = self._makeFilterCombo(self._pluginOptions)
 		self.softwareCombo: QComboBox = self._makeFilterCombo(self._softwareOptions)
 		self.viewCombo: QComboBox = self._makeFilterCombo(self._viewOptions)
+
+		filterCells: list[QWidget] = []
 		for labelText, combo in (("Plugin:", self.pluginCombo), ("Software:", self.softwareCombo), ("View:", self.viewCombo)):
-			row = QHBoxLayout()
-			row.addWidget(QLabel(labelText))
-			row.addWidget(combo, 1)
-			filterLayout.addLayout(row)
+			cell = QWidget()
+			cellLayout = QHBoxLayout(cell)
+			cellLayout.setContentsMargins(0, 0, 0, 0)
+			cellLayout.setSpacing(4)
+			cellLayout.addWidget(QLabel(labelText))
+			cellLayout.addWidget(combo, 1)
+			filterCells.append(cell)
+		filterLayout.addWidget(_ResponsiveRow(filterCells, spacing=4))
 
 		layout.addWidget(self.filterSection)
 		return layout
