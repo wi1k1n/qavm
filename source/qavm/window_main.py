@@ -1,9 +1,10 @@
 import os  # TODO: Get rid of os.path in favor of pathlib
 from pathlib import Path
 from functools import partial
+from contextlib import contextmanager
 from typing import Type, Optional
 
-from PyQt6.QtCore import Qt, QMargins, QPoint, QByteArray, pyqtSignal
+from PyQt6.QtCore import Qt, QMargins, QPoint, QByteArray, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QMouseEvent
 from PyQt6.QtWidgets import (
 	QMainWindow, QWidget, QLabel, QTabWidget, QScrollArea, QStatusBar, QTableWidgetItem, QTableWidget,
@@ -302,10 +303,49 @@ class MainWindow(QMainWindow):
 		if savedWindowState:
 			self.restoreState(QByteArray.fromBase64(savedWindowState.encode('ascii')))
 
+		# When there's no restored dock layout, the first manual activation should dock the
+		# palette to the right at its minimum width (instead of some arbitrary default width).
+		self._tagsDockSizeApplied: bool = bool(savedWindowState)
+		self.tagsDock.visibilityChanged.connect(self._onTagsDockVisibilityChanged)
+
 		# Restore the tags palette filter (preset + custom filter values) from the last session.
 		savedFilter: dict = self.qavmSettings.GetTagsPaletteFilter()
 		if savedFilter:
 			self.tagsPalette.ApplyFilterState(savedFilter)
+
+	def _onTagsDockVisibilityChanged(self, visible: bool):
+		""" On the first activation without a restored layout, dock the palette to the right
+		at its minimum width. """
+		if not visible or self._tagsDockSizeApplied:
+			return
+		self._tagsDockSizeApplied = True
+		if self.tagsDock.isFloating():
+			return
+		self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.tagsDock)
+		minWidth: int = max(self.tagsDock.minimumSizeHint().width(), self.tagsPalette.minimumSizeHint().width())
+		# Defer so the resize is applied after the dock has been laid out for the first time.
+		QTimer.singleShot(0, lambda: self.resizeDocks([self.tagsDock], [minWidth], Qt.Orientation.Horizontal))
+
+	@contextmanager
+	def _frozenTagsDockWidth(self):
+		""" Temporarily pins the tags dock width so it doesn't grab the space momentarily
+		vacated by the central widget while it is rebuilt. """
+		dock: QDockWidget | None = getattr(self, 'tagsDock', None)
+		if dock is None or not dock.isVisible() or dock.isFloating():
+			yield
+			return
+		width: int = dock.width()
+		oldMin: int = dock.minimumWidth()
+		oldMax: int = dock.maximumWidth()
+		dock.setFixedWidth(width)
+		try:
+			yield
+		finally:
+			# Keep the width pinned through the deferred relayout, then restore resizability.
+			def _restore():
+				dock.setMinimumWidth(oldMin)
+				dock.setMaximumWidth(oldMax)
+			QTimer.singleShot(0, _restore)
 
 	def _onTabChanged(self, index: int):
 		self.qavmSettings.SetWorkspaceLastOpenedTab(self.workspaceID, index)
@@ -428,10 +468,11 @@ class MainWindow(QMainWindow):
 		swHandlers, _ = app.GetWorkspace().GetInvolvedSoftwareHandlers()
 		for swHandler in swHandlers:
 			app.LoadSoftwareDescriptors(swHandler)
-		oldWidget = self.takeCentralWidget()
-		if oldWidget:
-			oldWidget.deleteLater()
-		self._setupCentralWidget()
+		with self._frozenTagsDockWidth():
+			oldWidget = self.takeCentralWidget()
+			if oldWidget:
+				oldWidget.deleteLater()
+			self._setupCentralWidget()
 
 	def _showAboutDialog(self):
 		aboutDialog: AboutDialog = AboutDialog(self, self.pluginManager)

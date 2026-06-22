@@ -366,6 +366,7 @@ class _ResponsiveRow(QWidget):
 	def resizeEvent(self, event):
 		super().resizeEvent(event)
 		neededWidth: int = sum(widget.sizeHint().width() for widget in self._widgets) + self._boxLayout.spacing() * (len(self._widgets) - 1)
+		neededWidth -= self._boxLayout.spacing()  # some extra for consistent calculation
 		vertical: bool = self.width() < neededWidth
 		if vertical != self._vertical:
 			self._vertical = vertical
