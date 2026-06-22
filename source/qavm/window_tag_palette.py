@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import Qt, QPoint, pyqtSignal, QMimeData
 from PyQt6.QtWidgets import (
-	QApplication, QMenu, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton,
+	QApplication, QMenu, QWidget, QVBoxLayout, QHBoxLayout, QBoxLayout, QLabel, QComboBox, QPushButton,
 	QScrollArea, QMessageBox, QDialog, QTreeWidget, QTreeWidgetItem, QDialogButtonBox,
 )
 from PyQt6.QtGui import QAction, QColor, QDrag, QPainter, QPixmap, QMouseEvent
@@ -349,6 +349,30 @@ class _TagFlowContainer(QWidget):
 		return index
 
 
+class _ResponsiveRow(QWidget):
+	""" Lays a primary and a secondary widget side by side when wide enough,
+	otherwise stacks the primary widget above the secondary one. """
+	def __init__(self, primary: QWidget, secondary: QWidget, spacing: int = 4, parent: QWidget | None = None):
+		super().__init__(parent)
+		self._primary: QWidget = primary
+		self._secondary: QWidget = secondary
+		self._vertical: bool = False
+		self._boxLayout: QBoxLayout = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
+		self._boxLayout.setContentsMargins(0, 0, 0, 0)
+		self._boxLayout.setSpacing(spacing)
+		self._boxLayout.addWidget(primary)
+		self._boxLayout.addWidget(secondary, 1)
+		self.setMinimumWidth(max(primary.sizeHint().width(), secondary.sizeHint().width()) + spacing)
+
+	def resizeEvent(self, event):
+		super().resizeEvent(event)
+		neededWidth: int = self._primary.sizeHint().width() + self._secondary.sizeHint().width() + self._boxLayout.spacing()
+		vertical: bool = self.width() < neededWidth
+		if vertical != self._vertical:
+			self._vertical = vertical
+			self._boxLayout.setDirection(QBoxLayout.Direction.TopToBottom if vertical else QBoxLayout.Direction.LeftToRight)
+
+
 class TagsPaletteWidget(QWidget):
 	""" Palette listing available tags as colorful bubbles, with management and scope filtering. """
 	def __init__(self, mainWindow: 'MainWindow', parent: QWidget | None = None) -> None:
@@ -380,14 +404,6 @@ class TagsPaletteWidget(QWidget):
 		scrollArea.setWidget(self.container)
 		mainLayout.addWidget(scrollArea, 1)
 
-		# Add Tag button located below the tag container (keeps same behavior)
-		self.addTagButton: QPushButton = QPushButton("+ Add Tag")
-		self.addTagButton.clicked.connect(self._onAddTag)
-		btnRow = QHBoxLayout()
-		btnRow.addWidget(self.addTagButton)
-		btnRow.addStretch(1)
-		mainLayout.addLayout(btnRow)
-
 		self._applyPreset(ScopePreset.ACTIVE_SOFTWARE)
 		self.filterSection.setVisible(False)  # ACTIVE_SOFTWARE is not Custom
 		self.RefreshTags()
@@ -398,16 +414,20 @@ class TagsPaletteWidget(QWidget):
 		layout.setContentsMargins(0, 0, 0, 0)
 		layout.setSpacing(4)
 
-		# Top row: preset combo (always visible)
-		topRow = QHBoxLayout()
+		# Top row: Add Tag button + preset combo. They share one row when wide enough,
+		# otherwise the button wraps above the preset combo.
+		self.addTagButton: QPushButton = QPushButton("+ Add Tag")
+		self.addTagButton.clicked.connect(self._onAddTag)
+
 		self.presetCombo: QComboBox = QComboBox()
 		self.presetCombo.addItem("All", ScopePreset.ALL)
 		self.presetCombo.addItem("Active Plugin(s)", ScopePreset.ACTIVE_PLUGIN)
 		self.presetCombo.addItem("Active Software(s)", ScopePreset.ACTIVE_SOFTWARE)
 		self.presetCombo.addItem("Custom", ScopePreset.CUSTOM)
 		self.presetCombo.currentIndexChanged.connect(self._onPresetChanged)
-		topRow.addWidget(self.presetCombo, 1)
-		layout.addLayout(topRow)
+
+		self.topRow: _ResponsiveRow = _ResponsiveRow(self.addTagButton, self.presetCombo, spacing=4)
+		layout.addWidget(self.topRow)
 
 		# Filter dropdowns - visible only when preset is Custom, stacked vertically
 		self.filterSection: QWidget = QWidget()
