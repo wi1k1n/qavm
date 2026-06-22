@@ -352,21 +352,20 @@ class _TagFlowContainer(QWidget):
 class _ResponsiveRow(QWidget):
 	""" Lays a primary and a secondary widget side by side when wide enough,
 	otherwise stacks the primary widget above the secondary one. """
-	def __init__(self, primary: QWidget, secondary: QWidget, spacing: int = 4, parent: QWidget | None = None):
+	def __init__(self, widgets: list[QWidget], spacing: int = 4, parent: QWidget | None = None):
 		super().__init__(parent)
-		self._primary: QWidget = primary
-		self._secondary: QWidget = secondary
+		self._widgets = widgets
 		self._vertical: bool = False
 		self._boxLayout: QBoxLayout = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
 		self._boxLayout.setContentsMargins(0, 0, 0, 0)
 		self._boxLayout.setSpacing(spacing)
-		self._boxLayout.addWidget(primary)
-		self._boxLayout.addWidget(secondary, 1)
-		self.setMinimumWidth(max(primary.sizeHint().width(), secondary.sizeHint().width()) + spacing)
+		for widget in widgets:
+			self._boxLayout.addWidget(widget)
+		self.setMinimumWidth(max(widget.sizeHint().width() for widget in widgets) + spacing)
 
 	def resizeEvent(self, event):
 		super().resizeEvent(event)
-		neededWidth: int = self._primary.sizeHint().width() + self._secondary.sizeHint().width() + self._boxLayout.spacing()
+		neededWidth: int = sum(widget.sizeHint().width() for widget in self._widgets) + self._boxLayout.spacing() * (len(self._widgets) - 1)
 		vertical: bool = self.width() < neededWidth
 		if vertical != self._vertical:
 			self._vertical = vertical
@@ -426,7 +425,7 @@ class TagsPaletteWidget(QWidget):
 		self.presetCombo.addItem("Custom", ScopePreset.CUSTOM)
 		self.presetCombo.currentIndexChanged.connect(self._onPresetChanged)
 
-		self.topRow: _ResponsiveRow = _ResponsiveRow(self.addTagButton, self.presetCombo, spacing=4)
+		self.topRow: _ResponsiveRow = _ResponsiveRow([self.addTagButton, self.presetCombo], spacing=4)
 		layout.addWidget(self.topRow)
 
 		# Filter dropdowns - visible only when preset is Custom, stacked vertically
