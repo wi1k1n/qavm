@@ -640,7 +640,8 @@ class TableColumnInfo(object):
 			  tooltip: str = '',
 			  minWidth: int = 0,
 			  defaultWidth: int = 0,
-			  isResizable: bool = True
+			  isResizable: bool = True,
+			  isFilterable: bool = False
 			  ):
 		self.title = title
 		self.cellDataGetter = cellDataGetter
@@ -648,6 +649,7 @@ class TableColumnInfo(object):
 		self.minWidth = minWidth
 		self.defaultWidth = defaultWidth
 		self.isResizable = isResizable
+		self.isFilterable = isFilterable  # Whether the column supports MMB filter mode
 
 class BaseTableBuilder(BaseBuilder):
 	def GetItemDelegateClass(self) -> QStyledItemDelegate.__class__:
@@ -668,6 +670,20 @@ class BaseTableBuilder(BaseBuilder):
 		""" Returns the maximum height (in pixels) a table row may grow to when a cell hosts a
 		variable-height widget (e.g. wrapping tag bubbles). Content exceeding this is collapsed/clipped. """
 		return 96
+
+	def GetColumnFilterTargets(self, desc: BaseDescriptor, columnIndex: int) -> list:
+		""" Returns the filter targets this descriptor contributes for the given (filterable) column.
+
+		Each target is either a plain string or a QWidget (e.g. a colorful tag bubble). QWidget targets
+		should expose a `GetFilterKey() -> str` method providing a stable identity used for de-duplication
+		and passed back to `DescriptorCompliesWithFilterTarget`. For string targets the string itself is
+		the key. QAVM collects the union of all targets across descriptors to populate the filter menu. """
+		return []
+
+	def DescriptorCompliesWithFilterTarget(self, desc: BaseDescriptor, columnIndex: int, targetKey: str) -> bool:
+		""" Returns True if `desc` should remain visible when the filter target identified by `targetKey`
+		is active for the given column. Called once per (descriptor, active target). """
+		return False
 
 	# TODO: change key from int to enum. Currently 0 - LMB, 1 - RMB, 2 - MMB
 	def HandleClick(self, desc: BaseDescriptor, row: int, col: int, isDouble: bool, key: int, modifiers: Qt.KeyboardModifier):

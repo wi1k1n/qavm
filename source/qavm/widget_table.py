@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 	QHeaderView, QMenu, QMenuBar, QStyledItemDelegate, QApplication, QAbstractItemView, QMessageBox,
 	QDialog, QVBoxLayout, QTextBrowser, QDialogButtonBox, QLineEdit, QHBoxLayout,
 	QSizePolicy, QTableView, QTableWidgetSelectionRange, QStyle, QStyleOptionViewItem,
+	QCheckBox, QPushButton, QFrame,
 )
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler, UID, QAVMWorkspace
@@ -63,14 +64,41 @@ class MyTableViewHeader(QHeaderView):
 	def paintEvent(self, event: QPaintEvent):
 		super().paintEvent(event)
 
-		section = self.sortIndicatorSection()
-		if section < 0 or self.isSectionHidden(section):
-			return
-
-		# Draw sort arrow overlay using the theme's primary color
+		# Draw overlays using the theme's primary color
 		from qavm.qavmapi.gui import GetThemeData
 		themeData = GetThemeData()
 		color = QColor(themeData.get('primaryColor', '#ffffff')) if themeData else QColor('#ffffff')
+		headerHeight = self.height()
+		centerY = headerHeight // 2
+
+		# Funnel indicator on the LEFT of every filtered column (mirrors the sort arrow on the right).
+		tableWidget = self.parent()
+		if hasattr(tableWidget, 'IsColumnFiltered'):
+			fPainter = QPainter(self.viewport())
+			fPainter.setRenderHint(QPainter.RenderHint.Antialiasing)
+			fPainter.setPen(Qt.PenStyle.NoPen)
+			fPainter.setBrush(QBrush(color))
+			fMargin, fw, fh, stemHalf, bowlH = 4, 9, 9, 1, 4
+			for col in range(self.count()):
+				if self.isSectionHidden(col) or not tableWidget.IsColumnFiltered(col):
+					continue
+				xL = self.sectionViewportPosition(col) + fMargin
+				yTop = centerY - fh // 2
+				cx = xL + fw // 2
+				funnelPoints = [
+					QPoint(xL, yTop),
+					QPoint(xL + fw, yTop),
+					QPoint(cx + stemHalf, yTop + bowlH),
+					QPoint(cx + stemHalf, yTop + fh),
+					QPoint(cx - stemHalf, yTop + fh),
+					QPoint(cx - stemHalf, yTop + bowlH),
+				]
+				fPainter.drawPolygon(QPolygon(funnelPoints))
+			fPainter.end()
+
+		section = self.sortIndicatorSection()
+		if section < 0 or self.isSectionHidden(section):
+			return
 
 		sectionPos = self.sectionViewportPosition(section)
 		sectionSize = self.sectionSize(section)
@@ -115,7 +143,7 @@ class MyTableViewHeader(QHeaderView):
 			action = QAction(header_label, menu)
 			action.setCheckable(True)
 			action.setChecked(not tableWidget.isColumnHidden(col))
-			action.toggled.connect(lambda checked, col=col: tableWidget.setColumnHidden(col, not checked))
+			action.toggled.connect(lambda checked, col=col: tableWidget.SetColumnHidden(col, not checked))
 			menu.addAction(action)
    
 		menu.exec(self.mapToGlobal(pos))
@@ -124,6 +152,14 @@ class MyTableViewHeader(QHeaderView):
 		if event.button() == Qt.MouseButton.LeftButton:
 			self._mousePressedPos = event.pos()
 			self._mousePressedSection = self.logicalIndexAt(self._mousePressedPos)
+		elif event.button() == Qt.MouseButton.MiddleButton:
+			# MMB on a header section is the entry point to the column filter mode.
+			section = self.logicalIndexAt(event.pos())
+			tableWidget = self.parent()
+			if section >= 0 and hasattr(tableWidget, '_openFilterMenu'):
+				tableWidget._openFilterMenu(section)
+				event.accept()
+				return
 		super().mousePressEvent(event)
 		
 	def mouseReleaseEvent(self, event):
@@ -161,6 +197,108 @@ class _CellWidgetSortItem(QTableWidgetItem):
 		elif isinstance(other, QTableWidgetItem):
 			return not other.text() or self._sortKey < other.text()
 		return super().__lt__(other)
+
+def _filterKeyOf(target) -> str:
+	""" Stable identity for a filter target. Plain strings are their own key; QWidget targets expose
+	`GetFilterKey() -> str` (falling back to their object id if absent). """
+	if isinstance(target, QWidget):
+		getKey = getattr(target, 'GetFilterKey', None)
+		if callable(getKey):
+			return str(getKey())
+		return str(id(target))
+	return str(target)
+
+class TableColumnFilterPopup(QWidget):
+	""" Frameless popup listing the filter targets for a single table column. Uses the Qt.Popup window
+	flag so it auto-closes when the user clicks outside / it loses focus. Selection changes are applied
+	live via the `selectionChanged` signal. """
+	selectionChanged = pyqtSignal(set)  # set[str] of currently selected target keys
+
+	def __init__(self, targets: list[tuple[str, object]], selectedKeys: set, parent=None):
+		super().__init__(parent, Qt.WindowType.Popup)
+		self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+		self.setFrameShape(QFrame.Shape.StyledPanel)
+
+		self._checkboxes: dict[str, QCheckBox] = {}
+
+		outerLayout = QVBoxLayout(self)
+		outerLayout.setContentsMargins(4, 4, 4, 4)
+		outerLayout.setSpacing(4)
+
+		# Top row: Clear / All buttons
+		buttonsLayout = QHBoxLayout()
+		buttonsLayout.setSpacing(4)
+		clearButton = QPushButton('Clear', self)
+		allButton = QPushButton('All', self)
+		clearButton.clicked.connect(self._onClear)
+		allButton.clicked.connect(self._onAll)
+		buttonsLayout.addWidget(clearButton)
+		buttonsLayout.addWidget(allButton)
+		outerLayout.addLayout(buttonsLayout)
+
+		separator = QFrame(self)
+		separator.setFrameShape(QFrame.Shape.HLine)
+		separator.setFrameShadow(QFrame.Shadow.Sunken)
+		outerLayout.addWidget(separator)
+
+		# Scrollable list of checkable targets
+		scrollArea = QScrollArea(self)
+		scrollArea.setWidgetResizable(True)
+		scrollArea.setFrameShape(QFrame.Shape.NoFrame)
+		scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+		listContainer = QWidget()
+		listLayout = QVBoxLayout(listContainer)
+		listLayout.setContentsMargins(0, 0, 0, 0)
+		listLayout.setSpacing(2)
+
+		for key, target in targets:
+			rowWidget = QWidget(listContainer)
+			rowLayout = QHBoxLayout(rowWidget)
+			rowLayout.setContentsMargins(0, 0, 0, 0)
+			rowLayout.setSpacing(4)
+			checkbox = QCheckBox(rowWidget)
+			checkbox.setChecked(key in selectedKeys)
+			checkbox.toggled.connect(self._onToggled)
+			rowLayout.addWidget(checkbox)
+			if isinstance(target, QWidget):
+				target.setParent(rowWidget)
+				rowLayout.addWidget(target)
+				rowLayout.addStretch(1)
+			else:
+				checkbox.setText(str(target))
+				rowLayout.addStretch(1)
+			self._checkboxes[key] = checkbox
+			listLayout.addWidget(rowWidget)
+		listLayout.addStretch(1)
+
+		scrollArea.setWidget(listContainer)
+		outerLayout.addWidget(scrollArea)
+
+		self.setMinimumWidth(180)
+		self.setMaximumHeight(400)
+
+	def _selectedKeys(self) -> set:
+		return {key for key, cb in self._checkboxes.items() if cb.isChecked()}
+
+	def _onToggled(self, checked: bool):
+		self.selectionChanged.emit(self._selectedKeys())
+
+	def _onClear(self):
+		self._setAllChecked(False)
+
+	def _onAll(self):
+		self._setAllChecked(True)
+
+	def _setAllChecked(self, checked: bool):
+		changed: bool = False
+		for cb in self._checkboxes.values():
+			if cb.isChecked() != checked:
+				cb.blockSignals(True)
+				cb.setChecked(checked)
+				cb.blockSignals(False)
+				changed = True
+		if changed:
+			self.selectionChanged.emit(self._selectedKeys())
 
 # TODO: wtf, rename it please!
 class MyTableWidget(QTableWidget):
@@ -285,6 +423,9 @@ class MyTableWidget(QTableWidget):
 		self._descs = descs
 		self._tableBuilder = tableBuilder
 		self._tableInfos: list[TableColumnInfo] = tableBuilder.GetTableColumnInfo()
+		# Active filters per column (logical index -> set of selected target keys). Not persisted to disk.
+		self._activeFilters: dict[int, set[str]] = {}
+		self._filterPopup: TableColumnFilterPopup | None = None
 
 		headers: list[str] = list(map(lambda info: info.title, self._tableInfos))
 
@@ -483,8 +624,91 @@ class MyTableWidget(QTableWidget):
 			self._adjustRowHeight(row)
 
 	def _onSortIndicatorChanged(self, logicalIndex: int, order: Qt.SortOrder):
-		# Defer until after QTableWidget finishes reordering items, then realign cell widgets.
-		QTimer.singleShot(0, self._rebuildCellWidgets)
+		# Defer until after QTableWidget finishes reordering items, then realign cell widgets and
+		# re-apply the active filters (row-hidden flags are tied to row index, not to the moved items).
+		def _afterSort():
+			self._rebuildCellWidgets()
+			self._applyFilters()
+		QTimer.singleShot(0, _afterSort)
+
+	def _collectColumnFilterTargets(self, logicalIndex: int) -> list[tuple[str, object]]:
+		""" Returns the de-duplicated (key, target) pairs contributed by all descriptors for a column,
+		ordered by key for a stable menu layout. """
+		uniqueTargets: dict[str, object] = {}
+		for desc in self._descs:
+			targets = self._tableBuilder.GetColumnFilterTargets(desc, logicalIndex)
+			if not targets:
+				continue
+			for target in targets:
+				key: str = _filterKeyOf(target)
+				if key not in uniqueTargets:
+					uniqueTargets[key] = target
+		return sorted(uniqueTargets.items(), key=lambda kv: kv[0].lower())
+
+	def _openFilterMenu(self, logicalIndex: int):
+		""" Opens the filter popup for the given (filterable) column, preselecting its active targets. """
+		if not (0 <= logicalIndex < len(self._tableInfos)):
+			return
+		if not self._tableInfos[logicalIndex].isFilterable:
+			return
+
+		targets: list[tuple[str, object]] = self._collectColumnFilterTargets(logicalIndex)
+		if not targets:
+			return
+
+		selectedKeys: set = set(self._activeFilters.get(logicalIndex, set()))
+		popup = TableColumnFilterPopup(targets, selectedKeys, parent=self)
+		popup.selectionChanged.connect(partial(self._onColumnFilterChanged, logicalIndex))
+		self._filterPopup = popup
+
+		header = self.horizontalHeader()
+		x: int = header.sectionViewportPosition(logicalIndex)
+		globalPos: QPoint = header.mapToGlobal(QPoint(x, header.height()))
+		popup.adjustSize()
+		popup.move(globalPos)
+		popup.show()
+
+	def _onColumnFilterChanged(self, logicalIndex: int, selectedKeys: set):
+		if selectedKeys:
+			self._activeFilters[logicalIndex] = set(selectedKeys)
+		else:
+			self._activeFilters.pop(logicalIndex, None)
+		self._applyFilters()
+		self.horizontalHeader().viewport().update()  # refresh funnel indicator
+
+	def _applyFilters(self):
+		""" Hides rows whose descriptor does not satisfy every active column filter. Within a column the
+		selected targets are OR'd; across columns they are AND'd. """
+		descIdxColumn: int = len(self._tableInfos)
+		for row in range(self.rowCount()):
+			item = self.item(row, descIdxColumn)
+			if item is None:
+				continue
+			try:
+				descIdx: int = int(item.text())
+			except ValueError:
+				continue
+			desc: BaseDescriptor = self._descs[descIdx]
+			visible: bool = True
+			for col, keys in self._activeFilters.items():
+				if not keys:
+					continue
+				if not any(self._tableBuilder.DescriptorCompliesWithFilterTarget(desc, col, k) for k in keys):
+					visible = False
+					break
+			self.setRowHidden(row, not visible)
+
+	def IsColumnFiltered(self, col: int) -> bool:
+		""" Whether the given column currently has an active filter (used to draw the funnel indicator). """
+		return bool(self._activeFilters.get(col))
+
+	def SetColumnHidden(self, col: int, hidden: bool):
+		""" Hides/shows a column, clearing its filter when it is hidden. """
+		self.setColumnHidden(col, hidden)
+		if hidden and col in self._activeFilters:
+			self._activeFilters.pop(col, None)
+			self._applyFilters()
+			self.horizontalHeader().viewport().update()
 
 	def GetViewState(self) -> dict:
 		""" Returns the persistable UI state of the table (sorting, column order/visibility/widths). """
@@ -573,6 +797,9 @@ class MyTableWidget(QTableWidget):
 		self.setSortingEnabled(False)
 		self._populateRow(targetRow, desc, descIdx)
 		self.setSortingEnabled(sortingEnabled)
+		# A data change (e.g. tags) can alter filter compliance for this row.
+		if self._activeFilters:
+			self._applyFilters()
 
 	def _onTableItemDoubleClickedLeft(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
