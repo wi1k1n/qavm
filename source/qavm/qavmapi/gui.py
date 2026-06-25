@@ -736,9 +736,9 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 		event.ignore()
 
 	def mousePressEvent(self, event: QMouseEvent):
-		isCtrlLeft: bool = (event.button() == Qt.MouseButton.LeftButton
-							and bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier))
-		if isCtrlLeft:
+		isAltLeft: bool = (event.button() == Qt.MouseButton.LeftButton
+							and bool(event.modifiers() & Qt.KeyboardModifier.AltModifier))
+		if isAltLeft:
 			idx: int = self._tagIndexAt(event.pos())
 			if idx >= 0:
 				self._CancelTooltip()
@@ -844,7 +844,7 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 		if not self._acceptsTagDrop(event):
 			event.ignore()
 			return
-		from qavm.utils_widgets import TAG_MIME_TYPE, AssignTagUIDToDescriptor
+		from qavm.utils_widgets import TAG_MIME_TYPE, AssignTagUIDToDescriptor, UnassignTagUIDFromDescriptor
 
 		draggedUID: str = bytes(event.mimeData().data(TAG_MIME_TYPE).data()).decode('utf-8')
 		sourceDescUID: str = ''
@@ -861,8 +861,18 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 				tagsManager = QApplication.instance().GetTagsManager()
 				QTimer.singleShot(0, lambda: tagsManager.ReorderDescriptorTags(desc, newOrder))
 		else:
-			# Dropped from another descriptor's cell (or the Tags palette): copy the assignment over.
-			QTimer.singleShot(0, lambda: AssignTagUIDToDescriptor(desc, draggedUID))
+			# Dropped from another descriptor's cell (or the Tags palette). Hold Ctrl to copy the tag;
+			# without Ctrl the tag is moved (assigned here and unassigned from the source descriptor).
+			ctrlHeld: bool = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+			sourceWidget = event.source()
+			sourceDesc = sourceWidget._descriptor if isinstance(sourceWidget, TagBubblesFlowWidget) else None
+			isMove: bool = (not ctrlHeld and sourceDesc is not None
+							and sourceDescUID == sourceDesc.GetUID() and sourceDesc is not desc)
+			def _applyDrop():
+				AssignTagUIDToDescriptor(desc, draggedUID)
+				if isMove:
+					UnassignTagUIDFromDescriptor(sourceDesc, draggedUID)
+			QTimer.singleShot(0, _applyDrop)
 		event.acceptProposedAction()
 
 	def _computeDropIndex(self, pos: QPoint) -> int:
