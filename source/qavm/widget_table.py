@@ -217,7 +217,7 @@ class TableColumnFilterPopup(QWidget):
 	def __init__(self, targets: list[tuple[str, object]], selectedKeys: set, parent=None):
 		super().__init__(parent, Qt.WindowType.Popup)
 		self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-		self.setFrameShape(QFrame.Shape.StyledPanel)
+		# self.setFrameShape(QFrame.Shape.StyledPanel)
 
 		self._checkboxes: dict[str, QCheckBox] = {}
 
