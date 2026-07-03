@@ -368,6 +368,10 @@ def GetPluginLogsPath(pluginID: str, pluginVersion: str, create=True) -> Path:
 	if create: CreateDir(path)
 	return path
 
+def IsFrozen() -> bool:
+	"""Returns True when running from a PyInstaller bundle (release), False when running from source (dev)."""
+	return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+
 def GetQAVMExecutablePath() -> Path:
 	""" Returns the absolute path to the QAVM executable. For example: qavm\\source\\qavm.py"""
 	if PlatformWindows() or PlatformMacOS():
@@ -383,6 +387,14 @@ def GetQAVMRootPath() -> Path:
 		raise Exception('Not implemented')
 	raise Exception('Unsupported platform')
 
+def GetQAVMResPath() -> Path:
+	""" Returns the absolute path to the QAVM resources folder.
+	Release (PyInstaller): the 'res' folder sits next to the executable, i.e. <rootPath>/res.
+	Development (running qavm.py): the executable lives in 'qavm/source', while the 'res' folder
+	is one level up in the repository root, i.e. qavm/res."""
+	if IsFrozen():
+		return GetQAVMRootPath()/'res'
+	return GetQAVMRootPath().parent/'res'
 
 
 
