@@ -84,6 +84,7 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 		self.setStyleSheet(f'color: {textColor.name()};')
 
 		self._ctrlHeldOnPress: bool = False
+		self._altHeldOnPress: bool = False
 		self._shiftHeldOnPress: bool = False
 
 		self._InitHoverTooltip(persistentTooltip=True)
@@ -120,6 +121,7 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 		if event.button() == Qt.MouseButton.LeftButton:
 			self._dragStartPos = event.pos()
 			self._ctrlHeldOnPress = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+			self._altHeldOnPress = bool(event.modifiers() & Qt.KeyboardModifier.AltModifier)
 			self._shiftHeldOnPress = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
 		super().mousePressEvent(event)
 
@@ -129,11 +131,12 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 			if self._shiftHeldOnPress and self._dragStartPos is not None:
 				self._CancelTooltip()
 				self.deleteRequested.emit(self.tag)
-			# Ctrl+click (released without having started a drag) → open editor
-			elif self._ctrlHeldOnPress and self._dragStartPos is not None:
+			# Alt+click (released without having started a drag) → open editor
+			elif self._altHeldOnPress and self._dragStartPos is not None:
 				self.editRequested.emit(self.tag)
 			self._dragStartPos = None
 			self._ctrlHeldOnPress = False
+			self._altHeldOnPress = False
 			self._shiftHeldOnPress = False
 		super().mouseReleaseEvent(event)
 
@@ -142,6 +145,7 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 			self._CancelTooltip()
 			self._dragStartPos = None
 			self._ctrlHeldOnPress = False
+			self._altHeldOnPress = False
 			self._shiftHeldOnPress = False
 			self.editRequested.emit(self.tag)
 			event.accept()
@@ -161,6 +165,7 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 		# Drag threshold exceeded - commit to dragging; prevent editRequested on release.
 		self._dragStartPos = None
 		self._ctrlHeldOnPress = False
+		self._altHeldOnPress = False
 		self._shiftHeldOnPress = False
 
 		self._CancelTooltip()
