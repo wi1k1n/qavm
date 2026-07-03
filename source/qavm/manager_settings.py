@@ -3,12 +3,12 @@ from pathlib import Path
 from typing import Any
 from functools import partial
 
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QKeyEvent, QColor, QPainter, QBrush
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRect
+from PyQt6.QtGui import QKeyEvent, QColor, QPainter, QBrush, QIcon
 from PyQt6.QtWidgets import (
 	QWidget, QFormLayout, QCheckBox, QLineEdit, QApplication, QListWidget, QListWidgetItem,
 	QVBoxLayout, QPushButton, QLabel, QFileDialog, QHBoxLayout, QTabWidget, QSizePolicy, QSpinBox,
-	QMessageBox, QComboBox,
+	QMessageBox, QComboBox, QStyle, QStyleOptionTab, QStylePainter, QTabBar,
 )
 
 import qavm.qavmapi.utils as qutils
@@ -81,6 +81,56 @@ class ColorButton(QPushButton):
 	def SetRoundRadius(self, radius: int):
 		self.roundRadius = radius
 		self.setStyleSheet(self._generateStyleSheet())
+
+class CenteredIconTabBar(QTabBar):
+	"""
+	Tab bar optimized for icon-only tabs (see experiments/tabwidget_hovericon.py).
+
+	Custom-paints centered icons so qt_material stylesheets don't affect the icon layout.
+	"""
+	def __init__(self, parent=None):
+		super().__init__(parent)
+		self._tabIcons: dict[int, QIcon] = {}
+		# Increase default icon dimensions to make theme icons more visible
+		self.setIconSize(QSize(120, 80))
+
+	def SetTabIcon(self, index: int, icon: QIcon, tooltip: str = ''):
+		self._tabIcons[index] = icon
+		# Keep the real tab text/icon empty because painting is custom.
+		self.setTabText(index, '')
+		self.setTabIcon(index, QIcon())
+		if tooltip:
+			self.setTabToolTip(index, tooltip)
+		self.update()
+
+	def paintEvent(self, event):
+		painter = QStylePainter(self)
+		for index in range(self.count()):
+			option = QStyleOptionTab()
+			self.initStyleOption(option, index)
+
+			# Draw only the tab background/shape via the active style.
+			shapeOption = QStyleOptionTab(option)
+			shapeOption.text = ''
+			shapeOption.icon = QIcon()
+			painter.drawControl(QStyle.ControlElement.CE_TabBarTabShape, shapeOption)
+
+			contentRect = self.style().subElementRect(QStyle.SubElement.SE_TabBarTabText, option, self)
+			if not contentRect.isValid():
+				contentRect = option.rect.adjusted(8, 4, -8, -4)
+
+			self._drawCenteredIcon(painter, contentRect, self._tabIcons.get(index, QIcon()))
+
+	def _drawCenteredIcon(self, painter: QPainter, rect: QRect, icon: QIcon):
+		if icon.isNull():
+			return
+		iconSize = self.iconSize()
+		maxWidth = min(iconSize.width(), rect.width())
+		maxHeight = min(iconSize.height(), rect.height())
+		pixmap = icon.pixmap(QSize(maxWidth, maxHeight))
+		x = rect.x() + (rect.width() - pixmap.width()) // 2
+		y = rect.y() + (rect.height() - pixmap.height()) // 2
+		painter.drawPixmap(x, y, pixmap)
 
 class QAVMGlobalSettings(BaseSettings):
 	CONTAINER_DEFAULTS: dict[str, Any] = {
@@ -423,6 +473,13 @@ class QAVMGlobalSettings(BaseSettings):
 		self.tabWidget.setTabPosition(QTabWidget.TabPosition.North)
 		self.tabWidget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
+		iconTabBar = CenteredIconTabBar()
+		# Use a larger icon size and ensure tabs are big enough to display them
+		iconTabBar.setIconSize(QSize(120, 80))
+		self.tabWidget.setTabBar(iconTabBar)
+		# Make tab minimums match the icon size so icons aren't clipped
+		self.tabWidget.setStyleSheet("QTabBar::tab { min-width: 40px; min-height: 28px; padding: 2px 3px; }")
+
 		lightTab = QWidget()
 		self.lightSwatchesLayout = QHBoxLayout()
 		self.lightSwatchesLayout.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -437,8 +494,11 @@ class QAVMGlobalSettings(BaseSettings):
 
 		self._initSwatches()  # Fill swatches once
 
-		self.tabWidget.addTab(lightTab, "Light")
-		self.tabWidget.addTab(darkTab, "Dark")
+		lightIndex = self.tabWidget.addTab(lightTab, '')
+		darkIndex = self.tabWidget.addTab(darkTab, '')
+
+		iconTabBar.SetTabIcon(lightIndex, QIcon(str(qutils.GetQAVMResPath()/'yoda-1.png')), 'Light')
+		iconTabBar.SetTabIcon(darkIndex, QIcon(str(qutils.GetQAVMResPath()/'dv-1.png')), 'Dark')
 
 		# Set active tab based on current theme
 		darkMode, _ = self._parseThemeName(gui_utils.GetThemeName())
