@@ -47,6 +47,12 @@ The following items have been implemented:
   - Show a tooltip indicating the source of version detection (binary parse, cmdline, cache)
   - For Redshift in C4D: display **two separate version columns** — RS-plugin and RS-core
   - Improve overall UX of version representation (more readable formatting)
+ 
+### Performance & Caching
+
+- [ ] **Global scan caching & avoid unnecessary rescans** — Keep calculated scan results (in-memory and optional on-disk cache) and avoid full rescans when switching between software unless the user requests it or the underlying binaries have changed.
+- [ ] **Tile creation performance** — Use caching for expensive metadata (icons, parsed manifests, computed version strings) and provide optional parallelization primitives/APIs so plugins can build tiles concurrently when safe.
+- [*] **Persist UI state** — Store the last-opened tab using a stable tab identifier (not array index). Persist table widget sorting, column visibility, and other view-state settings across runs.
 
 ### Tag System
 
@@ -64,11 +70,13 @@ The following items have been implemented:
 - [ ] **C4D context menu: folder (show/copy)** — Add "Show Folder" and "Copy Path" actions to the C4D context menu
 - [ ] **C4D software settings** — Expose Cinema 4D preferences/settings within QAVM
 - [ ] **Prefs combo boxes setting** — Allow configuring run mode: `run` ↔ `runw/console`, `run/wconsole` ↔ `run`, flat
+- [ ] **Table multiselection support** — Support multiselection on the table widget (e.g., for context menu batch actions)
 
 ### Plugin Management
 
 - [ ] **Import custom plugins** — Provide a menu action (and optionally drag-and-drop support) so users can import custom plugins as a folder or zip file; QAVM automatically installs them into its plugins folder
 - [ ] **Custom plugins machine key** — Store a machine-unique key encrypted with QAVM's internal SSL key for custom plugin licensing/identification
+- [ ] **Plugin collision handling** — Detect collisions between built-in and external plugins and resolve them using configurable precedence (prefer built-in, prefer external, or prompt the user). Provide clear warnings and a UI to manage conflicting plugins.
 
 ### Example Plugin
 
