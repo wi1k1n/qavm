@@ -28,7 +28,7 @@ from qavm.qavmapi import (
 from qavm.qavmapi.utils import PlatformMacOS, PlatformWindows, PlatformLinux
 from qavm.qavmapi.gui import TagBubblesFlowWidget, GetThemeData, IsThemeDark
 from qavm.utils_gui import FlowLayout
-from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptor, TAG_MIME_TYPE
+from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptorWithScopeCheck, TAG_MIME_TYPE
 from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion, GetQAVMVersionVariant
 
 import qavm.logs as logs
@@ -350,7 +350,7 @@ class MyTableWidget(QTableWidget):
 			event.ignore()
 			return
 		desc: BaseDescriptor = self._descs[descIdx]
-		AssignTagUIDToDescriptor(desc, tagUID)
+		AssignTagUIDToDescriptorWithScopeCheck(desc, tagUID, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID, self)
 		event.acceptProposedAction()
 
 	def _tagUnderCursor(self, viewportPos: QPoint) -> BaseTagImpl | None:

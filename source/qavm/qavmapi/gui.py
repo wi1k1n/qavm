@@ -540,11 +540,16 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 	# for the initial row-height estimate, so the host (e.g. the table) must re-measure the row.
 	contentHeightChanged = pyqtSignal()
 
-	def __init__(self, tags: list, maxHeight: int, parent: QWidget | None = None, descriptor=None):
+	def __init__(self, tags: list, maxHeight: int, parent: QWidget | None = None, descriptor=None,
+				pluginID: str = '', softwareID: str = '', viewUID: str = ''):
 		super().__init__(parent, persistentTooltip=True)
 		self._maxHeight: int = max(maxHeight, 1)
 		self._lastContentHeight: int = -1
 		self._descriptor = descriptor  # BaseDescriptor this cell represents; enables drag reorder/copy
+		# Context of the view this cell lives in; used to scope-check tags dropped from the Tags palette.
+		self._pluginID: str = pluginID
+		self._softwareID: str = softwareID
+		self._viewUID: str = viewUID
 		self.setAutoFillBackground(False)
 
 		self._tags: list = list(tags)
@@ -844,7 +849,7 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 		if not self._acceptsTagDrop(event):
 			event.ignore()
 			return
-		from qavm.utils_widgets import TAG_MIME_TYPE, AssignTagUIDToDescriptor, UnassignTagUIDFromDescriptor
+		from qavm.utils_widgets import TAG_MIME_TYPE, AssignTagUIDToDescriptorWithScopeCheck, UnassignTagUIDFromDescriptor
 
 		draggedUID: str = bytes(event.mimeData().data(TAG_MIME_TYPE).data()).decode('utf-8')
 		sourceDescUID: str = ''
@@ -868,8 +873,10 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 			sourceDesc = sourceWidget._descriptor if isinstance(sourceWidget, TagBubblesFlowWidget) else None
 			isMove: bool = (not ctrlHeld and sourceDesc is not None
 							and sourceDescUID == sourceDesc.GetUID() and sourceDesc is not desc)
+			pluginID, softwareID, viewUID = self._pluginID, self._softwareID, self._viewUID
 			def _applyDrop():
-				AssignTagUIDToDescriptor(desc, draggedUID)
+				if not AssignTagUIDToDescriptorWithScopeCheck(desc, draggedUID, pluginID, softwareID, viewUID, self):
+					return  # user declined assigning an out-of-scope tag
 				if isMove:
 					UnassignTagUIDFromDescriptor(sourceDesc, draggedUID)
 			QTimer.singleShot(0, _applyDrop)

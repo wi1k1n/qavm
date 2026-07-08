@@ -58,6 +58,30 @@ def UnassignTagUIDFromDescriptor(desc: BaseDescriptor, tagUID: str) -> bool:
 	tagsManager.RemoveTag(desc, tag)
 	return True
 
+def AssignTagUIDToDescriptorWithScopeCheck(desc: BaseDescriptor, tagUID: str, pluginID: str, softwareID: str,
+										viewUID: str, parent: QWidget | None = None) -> bool:
+	""" Assigns the tag to the descriptor, but when the tag's scope doesn't apply to the given
+	plugin/software/view context it first asks the user to confirm (the tag stays visible on the item
+	but is normally filtered out of this view). Returns True if the tag was assigned. """
+	app = QApplication.instance()
+	tagsManager = app.GetTagsManager()
+	tag: BaseTagImpl | None = tagsManager.GetTag(tagUID)
+	if tag is None:
+		logger.warning(f"Cannot assign tag: unknown tag UID {tagUID}")
+		return False
+	if not tag.IsApplicableInContext(pluginID, softwareID, viewUID):
+		reply = QMessageBox.question(
+			parent, "Assign Out-of-Scope Tag",
+			f"The tag '{tag.GetName()}' has wrong scope for this assignment.\n\n"
+			f"Assign it anyway?",
+			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+			QMessageBox.StandardButton.No,
+		)
+		if reply != QMessageBox.StandardButton.Yes:
+			return False
+	tagsManager.AssignTag(desc, tag)
+	return True
+
 class _MenuActionClickFilter(QObject):
 	""" Event filter that invokes a handler when a specific (submenu) action in a plain QMenu is clicked.
 

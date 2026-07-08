@@ -19,7 +19,7 @@ from qavm.qavmapi import (
 from qavm.qavmapi.gui import TagBubblesFlowWidget
 from qavm.manager_plugin import SoftwareHandler
 from qavm.utils_gui import FlowLayout
-from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptor, TAG_MIME_TYPE
+from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptorWithScopeCheck, TAG_MIME_TYPE
 
 if TYPE_CHECKING:
 	from qavm.window_main import MainWindow
@@ -71,7 +71,7 @@ class TilesWidget(QWidget):
 		if desc is None:
 			event.ignore()
 			return
-		AssignTagUIDToDescriptor(desc, tagUID)
+		AssignTagUIDToDescriptorWithScopeCheck(desc, tagUID, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID, self)
 		event.acceptProposedAction()
 
 	def _findDescriptorForChild(self, widget: QWidget | None) -> BaseDescriptor | None:
