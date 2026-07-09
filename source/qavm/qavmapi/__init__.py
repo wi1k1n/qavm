@@ -624,8 +624,13 @@ class BaseBuilder(QWidget):
 		""" Prepares a list of descriptors for further elements creation. """
 		return descriptors
 	
-	def GetContextMenu(self, desc: BaseDescriptor) -> Optional[QMenu]:
-		""" Is called when the context menu is requested for a certain descriptor. """
+	def GetContextMenu(self, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> Optional[QMenu]:
+		""" Is called when the context menu is requested for a certain descriptor.
+
+		`modifiers` carries the keyboard modifiers (Shift/Ctrl/Alt/Meta) held at the moment the menu is
+		built. QAVM re-invokes this method and re-shows the menu at the same position whenever the user
+		presses or releases a modifier key while the menu is open, so builders may return different entries
+		depending on `modifiers`. """
 		return None
 
 class BaseTileBuilder(BaseBuilder):

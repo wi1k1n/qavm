@@ -112,7 +112,7 @@ class ExampleDescriptorPNG(ExampleDescriptorBase):
 		return '*.png'
 	
 class ExampleContextMenuBase(object):
-	def _getContextMenu(self, desc: ExampleDescriptorEXE) -> QMenu:
+	def _getContextMenu(self, desc: ExampleDescriptorEXE, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu:
 		menu = QMenu()
 
 		titleLabel: QLabel = QLabel(f'{desc.dirPath.name}')
@@ -142,8 +142,8 @@ class ExampleTileBuilderBoth(BaseTileBuilder, ExampleContextMenuBase):
 		# self.settings: SoftwareBaseSettings
 		# self.themeData: dict
 
-	def GetContextMenu(self, desc: BaseDescriptor) -> QMenu | None:
-		return self._getContextMenu(desc)
+	def GetContextMenu(self, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu | None:
+		return self._getContextMenu(desc, modifiers)
 
 	def GetName(self) -> str:
 		return 'Example Tiles EXE/PNG'

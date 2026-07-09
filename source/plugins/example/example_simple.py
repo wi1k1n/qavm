@@ -31,7 +31,7 @@ class SimpleDescriptor(BaseDescriptor):
 		self.foldersCount: int = len(list(self.dirPath.glob('*/')))
 
 class ContextBase(object):
-	def _getContextMenu(self, desc: BaseDescriptor) -> QMenu | None:
+	def _getContextMenu(self, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu | None:
 		menu = QMenu()
 
 		titleLabel: QLabel = QLabel(f'{desc.dirPath.name}')
@@ -62,15 +62,15 @@ class SimpleTableBuilder(BaseTableBuilder, ContextBase):
 			TableColumnInfo('Path', lambda desc: PathTableWidgetItem(desc.dirPath)),
 		]
 	
-	def GetContextMenu(self, desc: BaseDescriptor) -> Optional[QMenu]:
-		return self._getContextMenu(desc)
+	def GetContextMenu(self, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> Optional[QMenu]:
+		return self._getContextMenu(desc, modifiers)
 	
 class SimpleTileBuilder(BaseTileBuilder, ContextBase):
 	def GetName(self) -> str:
 		return 'Simple Tiles'
 	
-	def GetContextMenu(self, desc: BaseDescriptor) -> Optional[QMenu]:
-		return self._getContextMenu(desc)
+	def GetContextMenu(self, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> Optional[QMenu]:
+		return self._getContextMenu(desc, modifiers)
 	
 class SimpleSettings(SoftwareBaseSettings):
 	def GetSettingsVersion(self) -> int:

@@ -77,7 +77,7 @@ class ExampleDescriptorImages(BaseDescriptor):
 		return self.__str__()
 	
 class ExampleContextMenuBase(object):
-	def _getContextMenu(self, desc: ExampleDescriptorImages) -> QMenu:
+	def _getContextMenu(self, desc: ExampleDescriptorImages, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu:
 		menu = QMenu()
 
 		titleLabel: QLabel = QLabel(f'{desc.dirPath.name}')
@@ -111,8 +111,8 @@ class ExampleTileBuilderImages(BaseTileBuilder, ExampleContextMenuBase):
 
 		self.settings.settingChanged.connect(self._onSettingsChanged)
 
-	def GetContextMenu(self, desc: ExampleDescriptorImages) -> QMenu | None:
-		return self._getContextMenu(desc)
+	def GetContextMenu(self, desc: ExampleDescriptorImages, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu | None:
+		return self._getContextMenu(desc, modifiers)
 	
 	def GetName(self) -> str:
 		return '(Example) Tiles Images'

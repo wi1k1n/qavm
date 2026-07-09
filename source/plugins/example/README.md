@@ -121,9 +121,11 @@ class ExampleTileBuilderEXE(BaseTileBuilder):
     def GetSupportedDescriptorTypes(self, descriptorTypes: list[str]) -> list[str]:
         return ['exe']  # Only handle 'exe' descriptors
 
-    def GetContextMenu(self, desc: BaseDescriptor) -> Optional[QMenu]:
+    def GetContextMenu(self, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> Optional[QMenu]:
         menu = QMenu()
         menu.addAction('Open folder', partial(OpenFolderInExplorer, desc.dirPath))
+        if modifiers & Qt.KeyboardModifier.AltModifier:
+            menu.addAction('Open folder (Alt entry)', partial(OpenFolderInExplorer, desc.dirPath.parent))
         return menu
 
     def CreateTileWidget(self, descriptor: ExampleDescriptorEXE, parent) -> QWidget:
@@ -136,7 +138,7 @@ class ExampleTileBuilderEXE(BaseTileBuilder):
 Key methods:
 - **`GetName()`** — Display name for this tile view
 - **`GetSupportedDescriptorTypes()`** — Which descriptor types this builder handles
-- **`GetContextMenu()`** — Right-click context menu for a descriptor
+- **`GetContextMenu()`** — Right-click context menu for a descriptor. Receives the keyboard `modifiers` held when the menu is requested; QAVM re-invokes it and re-shows the menu whenever the user presses/releases a modifier key while the menu is open, so you can return different entries per modifier.
 - **`CreateTileWidget()`** — Create the visual tile widget
 - **`ProcessDescriptors()`** *(optional)* — Filter/transform descriptors before display
 
@@ -156,7 +158,7 @@ class ExampleTableBuilderEXE(BaseTableBuilder):
             TableColumnInfo('Path', lambda desc: PathTableWidgetItem(desc.dirPath)),
         ]
 
-    def GetContextMenu(self, desc: BaseDescriptor) -> Optional[QMenu]:
+    def GetContextMenu(self, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> Optional[QMenu]:
         return None  # Or return a QMenu with actions
 ```
 

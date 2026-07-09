@@ -1,5 +1,6 @@
+import inspect
 from functools import partial
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Optional
 
 from PyQt6.QtWidgets import QMenu, QWidget, QApplication, QMessageBox
 from PyQt6.QtGui import QAction, QColor, QDrag, QPainter, QPixmap, QMouseEvent
@@ -199,3 +200,88 @@ def PopulateContextMenuTagsAndNotes(menu: QMenu, desc: BaseDescriptor, mainWindo
 	# _InstallMenuActionClickHandler(menu, tagsAction, openTagsPalette)
 
 	menu.addAction(QAction("Note", parent, triggered=partial(mainWindow._showNoteEditorDialog, desc)))
+
+
+# Modifier keys we care about for context-menu rebuilding, mapped from their Qt key code to the modifier.
+_MODIFIER_KEYS: dict[int, Qt.KeyboardModifier] = {
+	int(Qt.Key.Key_Shift): Qt.KeyboardModifier.ShiftModifier,
+	int(Qt.Key.Key_Control): Qt.KeyboardModifier.ControlModifier,
+	int(Qt.Key.Key_Alt): Qt.KeyboardModifier.AltModifier,
+	int(Qt.Key.Key_AltGr): Qt.KeyboardModifier.AltModifier,
+	int(Qt.Key.Key_Meta): Qt.KeyboardModifier.MetaModifier,
+}
+# Only these modifiers are considered when deciding whether to rebuild the context menu.
+_RELEVANT_MODIFIERS: Qt.KeyboardModifier = (
+	Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier
+	| Qt.KeyboardModifier.AltModifier | Qt.KeyboardModifier.MetaModifier
+)
+
+
+def CallBuilderGetContextMenu(builder, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier) -> Optional[QMenu]:
+	""" Invokes builder.GetContextMenu, passing `modifiers` when the override accepts it.
+
+	Older plugins may still define GetContextMenu(self, desc) without the `modifiers` parameter; those are
+	called with a single argument so they keep working. """
+	method = builder.GetContextMenu
+	acceptsModifiers = True
+	try:
+		params = list(inspect.signature(method).parameters.values())
+		# `method` is bound, so `self` is already excluded. Anything beyond `desc` (an extra positional
+		# parameter, a `modifiers` keyword, or *args/**kwargs) means the override can receive the modifiers.
+		positional = [p for p in params if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
+		hasVarArgs = any(p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p in params)
+		hasModifiersKw = any(p.name == 'modifiers' for p in params)
+		acceptsModifiers = hasVarArgs or hasModifiersKw or len(positional) >= 2
+	except (TypeError, ValueError):
+		acceptsModifiers = True
+	if acceptsModifiers:
+		return method(desc, modifiers)
+	return method(desc)
+
+
+class _ModifierChangeMenuCloser(QObject):
+	""" Application-wide event filter that closes `menu` when the set of held modifier keys changes.
+
+	Modifier presses/releases are tracked starting from `baseModifiers`; on the first change it records the
+	new modifier set in `newModifiers` and closes the menu (making the blocking exec() return) so the caller
+	can rebuild and re-show the menu for the new modifiers. """
+	def __init__(self, menu: QMenu, baseModifiers: Qt.KeyboardModifier):
+		super().__init__()
+		self._menu: QMenu = menu
+		self._modifiers: Qt.KeyboardModifier = baseModifiers & _RELEVANT_MODIFIERS
+		self.newModifiers: Qt.KeyboardModifier | None = None
+
+	def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+		etype = event.type()
+		if etype in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease) and not self._menu.isHidden():
+			mod = _MODIFIER_KEYS.get(event.key())
+			if mod is not None:
+				updated = (self._modifiers | mod) if etype == QEvent.Type.KeyPress else (self._modifiers & ~mod)
+				if updated != self._modifiers:
+					self.newModifiers = updated
+					self._menu.close()
+		return False
+
+
+def ShowDynamicContextMenu(menuBuilder: Callable[[Qt.KeyboardModifier], Optional[QMenu]], globalPos: QPoint) -> None:
+	""" Shows a context menu built by `menuBuilder(modifiers)` at `globalPos`, rebuilding and re-showing it
+	whenever the user presses/releases a modifier key while the menu is open.
+
+	`menuBuilder` receives the currently held keyboard modifiers and must return a freshly-built QMenu (or
+	None to show nothing). It is invoked again for every modifier change until the menu is dismissed or one
+	of its actions is triggered. """
+	app = QApplication.instance()
+	modifiers: Qt.KeyboardModifier = QApplication.keyboardModifiers() & _RELEVANT_MODIFIERS
+	while True:
+		menu = menuBuilder(modifiers)
+		if menu is None:
+			return
+		closer = _ModifierChangeMenuCloser(menu, modifiers)
+		app.installEventFilter(closer)
+		try:
+			menu.exec(globalPos)
+		finally:
+			app.removeEventFilter(closer)
+		if closer.newModifiers is None:
+			return  # menu dismissed or one of its actions was triggered
+		modifiers = closer.newModifiers
