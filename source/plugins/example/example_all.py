@@ -148,9 +148,9 @@ class ExampleTileBuilderBoth(BaseTileBuilder, ExampleContextMenuBase):
 	def GetContextMenu(self, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu | None:
 		return self._getContextMenu(desc, modifiers)
 
-	def UpdateContextMenu(self, menu: QMenu, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu | None:
-		self._populateContextMenu(menu, desc, modifiers)
-		return menu
+	def UpdateContextMenu(self, menu: QMenu, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> tuple[Optional[QMenu], bool]:
+		# self._populateContextMenu(menu, desc, modifiers)
+		return menu, False
 
 	def GetName(self) -> str:
 		return 'Example Tiles EXE/PNG'

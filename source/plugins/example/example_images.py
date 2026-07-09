@@ -117,9 +117,9 @@ class ExampleTileBuilderImages(BaseTileBuilder, ExampleContextMenuBase):
 	def GetContextMenu(self, desc: ExampleDescriptorImages, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu | None:
 		return self._getContextMenu(desc, modifiers)
 
-	def UpdateContextMenu(self, menu: QMenu, desc: ExampleDescriptorImages, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu | None:
-		self._populateContextMenu(menu, desc, modifiers)
-		return menu
+	def UpdateContextMenu(self, menu: QMenu, desc: ExampleDescriptorImages, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> tuple[Optional[QMenu], bool]:
+		# self._populateContextMenu(menu, desc, modifiers)
+		return menu, False
 	
 	def GetName(self) -> str:
 		return '(Example) Tiles Images'

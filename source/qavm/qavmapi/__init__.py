@@ -633,7 +633,7 @@ class BaseBuilder(QWidget):
 		when in-place updating is not available. """
 		return None
 
-	def UpdateContextMenu(self, menu: QMenu, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> Optional[QMenu]:
+	def UpdateContextMenu(self, menu: QMenu, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> tuple[Optional[QMenu], bool]:
 		""" Is called instead of `GetContextMenu` when the user changes the keyboard modifiers while the
 		context menu is already shown.
 
@@ -643,8 +643,10 @@ class BaseBuilder(QWidget):
 		and drop the currently highlighted entry.
 
 		Return None (the default) if in-place updating is not supported: QAVM then falls back to closing the
-		menu and rebuilding it from scratch via `GetContextMenu`. """
-		return None
+		menu and rebuilding it from scratch via `GetContextMenu`.
+		
+		The second return value indicates whether the menu was updated in place (True) or not (False). """
+		return None, False
 
 class BaseTileBuilder(BaseBuilder):
 	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:

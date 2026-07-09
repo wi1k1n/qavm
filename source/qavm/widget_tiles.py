@@ -93,8 +93,10 @@ class TilesWidget(QWidget):
 			menu = CallBuilderGetContextMenu(self.tileBuilder, desc, modifiers)
 			return populate(menu) if menu is not None else None
 		def updateMenu(menu: QMenu, modifiers: Qt.KeyboardModifier) -> QMenu | None:
-			result = self.tileBuilder.UpdateContextMenu(menu, desc, modifiers)
-			return populate(result) if result is not None else None
+			result, changed = self.tileBuilder.UpdateContextMenu(menu, desc, modifiers)
+			if changed:
+				menu = populate(result) if result is not None else None
+			return menu
 		ShowDynamicContextMenu(buildMenu, updateMenu, globalPos)
 
 	def _tagUnderCursor(self) -> 'BaseTagImpl | None':
