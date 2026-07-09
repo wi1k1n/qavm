@@ -1036,6 +1036,62 @@ class DescNotesWidget(HoverFadeTooltipWidget):
 		return ''.join(parts)
 
 
+class VersionTooltipWidget(HoverFadeTooltipWidget):
+	""" Compact table/tile cell widget that shows a short text (e.g. a version string) and, on hover, an
+	interactive rich-text FadeTooltip 
+
+	In the common case it renders just like a plain label. Mouse interactions other than hover are
+	forwarded to the underlying table/tile so row selection, context menus and drag-n-drop keep working.
+	GetSortKey enables sorting the hosting column. """
+	
+	def __init__(self, text: str, tooltipText: str = '', sortKey: str | None = None,
+				parent: QWidget | None = None,
+				alignment: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+				font: QFont | None = None, persistentTooltip: bool = True):
+		super().__init__(parent, persistentTooltip=persistentTooltip)
+		self._text: str = text or ''
+		self._tooltipText: str = tooltipText or ''
+		self._sortKey: str = sortKey if sortKey is not None else self._text
+
+		self._label: QLabel = QLabel(self._text, self)
+		self._label.setAlignment(alignment)
+		if font is not None:
+			self._label.setFont(font)
+		# The label is decorative; all mouse events go through the container (and on to the table/tile).
+		self._label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+
+	def resizeEvent(self, event):
+		""" Stretch the label to cover the full widget rect so alignment applies to the whole cell area.
+		This matters in table cells where setCellWidget sizes the widget to the row height. """
+		self._label.setGeometry(self.rect())
+		super().resizeEvent(event)
+
+	def sizeHint(self) -> QSize:
+		return self._label.sizeHint()
+
+	def minimumSizeHint(self) -> QSize:
+		return self._label.minimumSizeHint()
+
+	def GetSortKey(self) -> str:
+		""" Returns the stable key used to sort the hosting column. """
+		return self._sortKey
+
+	def mouseMoveEvent(self, event: QMouseEvent):
+		if self._tooltipText:
+			self._ScheduleTooltip()
+		# Let the underlying table/tile keep handling hover and rubber-band selection.
+		event.ignore()
+
+	def mousePressEvent(self, event: QMouseEvent):
+		# Clicks, context menus and drags belong to the table/tile underneath.
+		event.ignore()
+
+	def _GetTooltipHtml(self) -> str | None:
+		if not self._tooltipText:
+			return None
+		return f'<div>{self._tooltipText}</div>'
+
+
 _ANCHOR_RE = re.compile(r'<a\b[^>]*>.*?</a>', re.IGNORECASE | re.DOTALL)
 _TAG_RE = re.compile(r'<[^>]+>')
 _URL_RE = re.compile(r'(?:https?://|www\.)[^\s<>"\'\)\]]+', re.IGNORECASE)
