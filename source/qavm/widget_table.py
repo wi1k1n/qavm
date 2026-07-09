@@ -152,14 +152,15 @@ class MyTableViewHeader(QHeaderView):
 		if event.button() == Qt.MouseButton.LeftButton:
 			self._mousePressedPos = event.pos()
 			self._mousePressedSection = self.logicalIndexAt(self._mousePressedPos)
-		elif event.button() == Qt.MouseButton.MiddleButton:
-			# MMB on a header section is the entry point to the column filter mode.
-			section = self.logicalIndexAt(event.pos())
-			tableWidget = self.parent()
-			if section >= 0 and hasattr(tableWidget, '_openFilterMenu'):
-				tableWidget._openFilterMenu(section)
-				event.accept()
-				return
+		# TODO: this is disabled as experimental feature
+		# elif event.button() == Qt.MouseButton.MiddleButton:
+		# 	# MMB on a header section is the entry point to the column filter mode.
+		# 	section = self.logicalIndexAt(event.pos())
+		# 	tableWidget = self.parent()
+		# 	if section >= 0 and hasattr(tableWidget, '_openFilterMenu'):
+		# 		tableWidget._openFilterMenu(section)
+		# 		event.accept()
+		# 		return
 		super().mousePressEvent(event)
 		
 	def mouseReleaseEvent(self, event):
