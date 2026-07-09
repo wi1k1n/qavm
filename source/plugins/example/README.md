@@ -138,7 +138,8 @@ class ExampleTileBuilderEXE(BaseTileBuilder):
 Key methods:
 - **`GetName()`** — Display name for this tile view
 - **`GetSupportedDescriptorTypes()`** — Which descriptor types this builder handles
-- **`GetContextMenu()`** — Right-click context menu for a descriptor. Receives the keyboard `modifiers` held when the menu is requested; QAVM re-invokes it and re-shows the menu whenever the user presses/releases a modifier key while the menu is open, so you can return different entries per modifier.
+- **`GetContextMenu()`** — Right-click context menu for a descriptor. Receives the keyboard `modifiers` held when the menu is requested, so you can return different entries per modifier.
+- **`UpdateContextMenu()`** — Optional. Called instead of `GetContextMenu()` when the user changes modifiers while the menu is already open. Rebuild the passed-in menu in place (e.g. `menu.clear()` then re-add actions) and return it, so QAVM refreshes the menu without closing/reopening it (avoiding a flash). Return None to fall back to a close-and-rebuild.
 - **`CreateTileWidget()`** — Create the visual tile widget
 - **`ProcessDescriptors()`** *(optional)* — Filter/transform descriptors before display
 

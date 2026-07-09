@@ -473,13 +473,16 @@ class MyTableWidget(QTableWidget):
 				descIdx: int = int(item.text())
 				desc: BaseDescriptor = descs[descIdx]
 				tagUnderCursor: BaseTagImpl | None = self._tagUnderCursor(pos)
-				def buildMenu(modifiers: Qt.KeyboardModifier) -> QMenu | None:
-					menu = CallBuilderGetContextMenu(tableBuilder, desc, modifiers)
-					if menu is None:
-						return None
+				def populate(menu: QMenu) -> QMenu:
 					PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID, tagUnderCursor)
 					return menu
-				ShowDynamicContextMenu(buildMenu, QCursor.pos())
+				def buildMenu(modifiers: Qt.KeyboardModifier) -> QMenu | None:
+					menu = CallBuilderGetContextMenu(tableBuilder, desc, modifiers)
+					return populate(menu) if menu is not None else None
+				def updateMenu(menu: QMenu, modifiers: Qt.KeyboardModifier) -> QMenu | None:
+					result = tableBuilder.UpdateContextMenu(menu, desc, modifiers)
+					return populate(result) if result is not None else None
+				ShowDynamicContextMenu(buildMenu, updateMenu, QCursor.pos())
 
 		for r, desc in enumerate(descs):
 			self._populateRow(r, desc, r)

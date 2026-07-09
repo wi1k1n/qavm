@@ -79,6 +79,11 @@ class ExampleDescriptorImages(BaseDescriptor):
 class ExampleContextMenuBase(object):
 	def _getContextMenu(self, desc: ExampleDescriptorImages, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu:
 		menu = QMenu()
+		self._populateContextMenu(menu, desc, modifiers)
+		return menu
+
+	def _populateContextMenu(self, menu: QMenu, desc: ExampleDescriptorImages, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> None:
+		menu.clear()
 
 		titleLabel: QLabel = QLabel(f'{desc.dirPath.name}')
 		titleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -92,8 +97,6 @@ class ExampleContextMenuBase(object):
 		# 	menu.addAction(f'Run "{desc.targetPaths[0].name}"', partial(self._run, desc))
 		# 	menu.addSeparator()
 		# menu.addAction('Open folder', partial(OpenFolderInExplorer, desc.dirPath))
-
-		return menu
 
 	# def _run(self, desc: ExampleDescriptorImages, arguments: list[str] = []):
 	# 	if desc.targetPaths:
@@ -113,6 +116,10 @@ class ExampleTileBuilderImages(BaseTileBuilder, ExampleContextMenuBase):
 
 	def GetContextMenu(self, desc: ExampleDescriptorImages, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu | None:
 		return self._getContextMenu(desc, modifiers)
+
+	def UpdateContextMenu(self, menu: QMenu, desc: ExampleDescriptorImages, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu | None:
+		self._populateContextMenu(menu, desc, modifiers)
+		return menu
 	
 	def GetName(self) -> str:
 		return '(Example) Tiles Images'

@@ -3,7 +3,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Callable, Optional
 
 from PyQt6.QtWidgets import QMenu, QWidget, QApplication, QMessageBox
-from PyQt6.QtGui import QAction, QColor, QDrag, QPainter, QPixmap, QMouseEvent
+from PyQt6.QtGui import QAction, QColor, QCursor, QDrag, QPainter, QPixmap, QMouseEvent
 from PyQt6.QtCore import Qt, QMimeData, QPoint, QObject, QEvent, pyqtSignal
 
 from qavm.manager_tags import BaseTagImpl, TagScope
@@ -239,17 +239,20 @@ def CallBuilderGetContextMenu(builder, desc: BaseDescriptor, modifiers: Qt.Keybo
 	return method(desc)
 
 
-class _ModifierChangeMenuCloser(QObject):
-	""" Application-wide event filter that closes `menu` when the set of held modifier keys changes.
+class _ModifierChangeMenuHandler(QObject):
+	""" Application-wide event filter that reacts to modifier-key changes while `menu` is open.
 
-	Modifier presses/releases are tracked starting from `baseModifiers`; on the first change it records the
-	new modifier set in `newModifiers` and closes the menu (making the blocking exec() return) so the caller
-	can rebuild and re-show the menu for the new modifiers. """
-	def __init__(self, menu: QMenu, baseModifiers: Qt.KeyboardModifier):
+	Modifier presses/releases are tracked starting from `baseModifiers`. On each change it asks `updater`
+	to rebuild the menu in place (avoiding a close/reopen flash). If the updater declines (returns None),
+	the new modifier set is recorded in `rebuildModifiers` and the menu is closed so the caller can rebuild
+	it from scratch. """
+	def __init__(self, menu: QMenu, baseModifiers: Qt.KeyboardModifier,
+				updater: Callable[[QMenu, Qt.KeyboardModifier], Optional[QMenu]]):
 		super().__init__()
 		self._menu: QMenu = menu
 		self._modifiers: Qt.KeyboardModifier = baseModifiers & _RELEVANT_MODIFIERS
-		self.newModifiers: Qt.KeyboardModifier | None = None
+		self._updater = updater
+		self.rebuildModifiers: Qt.KeyboardModifier | None = None
 
 	def eventFilter(self, obj: QObject, event: QEvent) -> bool:
 		etype = event.type()
@@ -258,30 +261,50 @@ class _ModifierChangeMenuCloser(QObject):
 			if mod is not None:
 				updated = (self._modifiers | mod) if etype == QEvent.Type.KeyPress else (self._modifiers & ~mod)
 				if updated != self._modifiers:
-					self.newModifiers = updated
-					self._menu.close()
+					result: Optional[QMenu] = None
+					try:
+						result = self._updater(self._menu, updated)
+					except Exception:
+						logger.exception("In-place context menu update failed")
+					if result is None:
+						# Updater declined: fall back to closing and rebuilding the menu from scratch.
+						self.rebuildModifiers = updated
+						self._menu.close()
+					else:
+						self._modifiers = updated
+						_RestoreActiveActionUnderCursor(self._menu)
 		return False
 
 
-def ShowDynamicContextMenu(menuBuilder: Callable[[Qt.KeyboardModifier], Optional[QMenu]], globalPos: QPoint) -> None:
-	""" Shows a context menu built by `menuBuilder(modifiers)` at `globalPos`, rebuilding and re-showing it
-	whenever the user presses/releases a modifier key while the menu is open.
+def _RestoreActiveActionUnderCursor(menu: QMenu) -> None:
+	""" After rebuilding a menu in place, re-highlights whichever action is currently under the cursor so
+	the selection doesn't visually reset while the pointer hasn't moved. """
+	pos: QPoint = menu.mapFromGlobal(QCursor.pos())
+	menu.setActiveAction(menu.actionAt(pos) if menu.rect().contains(pos) else None)
 
-	`menuBuilder` receives the currently held keyboard modifiers and must return a freshly-built QMenu (or
-	None to show nothing). It is invoked again for every modifier change until the menu is dismissed or one
-	of its actions is triggered. """
+
+def ShowDynamicContextMenu(
+		menuBuilder: Callable[[Qt.KeyboardModifier], Optional[QMenu]],
+		menuUpdater: Callable[[QMenu, Qt.KeyboardModifier], Optional[QMenu]],
+		globalPos: QPoint) -> None:
+	""" Shows a context menu at `globalPos` and keeps it in sync with the keyboard modifiers.
+
+	`menuBuilder(modifiers)` builds a fresh menu (used for the initial show and whenever an in-place update
+	is unavailable). `menuUpdater(menu, modifiers)` rebuilds the currently-shown menu in place and returns
+	it; returning None makes QAVM fall back to closing and rebuilding the menu via `menuBuilder`. Either way
+	the menu tracks modifier changes until it is dismissed or one of its actions is triggered. """
 	app = QApplication.instance()
 	modifiers: Qt.KeyboardModifier = QApplication.keyboardModifiers() & _RELEVANT_MODIFIERS
 	while True:
 		menu = menuBuilder(modifiers)
 		if menu is None:
 			return
-		closer = _ModifierChangeMenuCloser(menu, modifiers)
-		app.installEventFilter(closer)
+		handler = _ModifierChangeMenuHandler(menu, modifiers, menuUpdater)
+		app.installEventFilter(handler)
 		try:
 			menu.exec(globalPos)
 		finally:
-			app.removeEventFilter(closer)
-		if closer.newModifiers is None:
+			app.removeEventFilter(handler)
+		if handler.rebuildModifiers is None:
 			return  # menu dismissed or one of its actions was triggered
-		modifiers = closer.newModifiers
+		modifiers = handler.rebuildModifiers

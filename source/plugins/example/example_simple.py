@@ -33,6 +33,11 @@ class SimpleDescriptor(BaseDescriptor):
 class ContextBase(object):
 	def _getContextMenu(self, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> QMenu | None:
 		menu = QMenu()
+		self._populateContextMenu(menu, desc, modifiers)
+		return menu
+
+	def _populateContextMenu(self, menu: QMenu, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> None:
+		menu.clear()
 
 		titleLabel: QLabel = QLabel(f'{desc.dirPath.name}')
 		titleLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -46,8 +51,6 @@ class ContextBase(object):
 		menu.addSeparator()
 		menu.addAction('Show info', partial(self._showDescriptor, desc))
 		menu.addAction('Open folder', partial(OpenFolderInExplorer, desc.dirPath))
-
-		return menu
 	
 	def _showDescriptor(self, desc: SimpleDescriptor):
 		# This method can be used to show the descriptor in a custom way, e.g. open a dialog with details.
@@ -64,6 +67,10 @@ class SimpleTableBuilder(BaseTableBuilder, ContextBase):
 	
 	def GetContextMenu(self, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> Optional[QMenu]:
 		return self._getContextMenu(desc, modifiers)
+
+	def UpdateContextMenu(self, menu: QMenu, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> Optional[QMenu]:
+		self._populateContextMenu(menu, desc, modifiers)
+		return menu
 	
 class SimpleTileBuilder(BaseTileBuilder, ContextBase):
 	def GetName(self) -> str:
@@ -71,6 +78,10 @@ class SimpleTileBuilder(BaseTileBuilder, ContextBase):
 	
 	def GetContextMenu(self, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> Optional[QMenu]:
 		return self._getContextMenu(desc, modifiers)
+
+	def UpdateContextMenu(self, menu: QMenu, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> Optional[QMenu]:
+		self._populateContextMenu(menu, desc, modifiers)
+		return menu
 	
 class SimpleSettings(SoftwareBaseSettings):
 	def GetSettingsVersion(self) -> int:
