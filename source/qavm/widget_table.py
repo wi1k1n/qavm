@@ -373,11 +373,13 @@ class MyTableWidget(QTableWidget):
 		# TODO: should probably have better system here
 		# this is to avoid the default behavior of toggling row selection
 		if QApplication.keyboardModifiers() & Qt.KeyboardModifier.ControlModifier:
-			rowClick = self.indexAt(event.pos()).row()
-			rowCurrent = self.currentRow()
-			# print('rowClick', rowClick, 'currentRow', rowCurrent)
-			if rowClick == rowCurrent:
-				return # if the user clicked on the current row, we don't want to unselect it
+			index = self.indexAt(event.pos())
+			if index.isValid():
+				rowClick = index.row()
+				rowCurrent = self.currentRow()
+				# print('rowClick', rowClick, 'currentRow', rowCurrent)
+				if rowClick == rowCurrent:
+					return # if the user clicked on the current row, we don't want to unselect it
 		
 		super().mousePressEvent(event)
 
