@@ -273,6 +273,14 @@ class _ModifierChangeMenuHandler(QObject):
 					else:
 						self._modifiers = updated
 						_RestoreActiveActionUnderCursor(self._menu)
+				# Consume modifier-key events (especially Alt) so the default
+				# behavior (activating the menubar / closing the context menu)
+				# does not run while we're handling modifier-driven rebuilds.
+				try:
+					event.accept()
+				except Exception:
+					pass
+				return True
 		return False
 
 
