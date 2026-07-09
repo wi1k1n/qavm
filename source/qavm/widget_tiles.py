@@ -92,7 +92,9 @@ class TilesWidget(QWidget):
 				return None
 			PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID, tagUnderCursor)
 			return menu
-		ShowDynamicContextMenu(buildMenu, globalPos)
+		def shouldRebuild(oldModifiers: Qt.KeyboardModifier, newModifiers: Qt.KeyboardModifier) -> bool:
+			return self.tileBuilder.IsContextMenuUpdateRequired(desc, oldModifiers, newModifiers)
+		ShowDynamicContextMenu(buildMenu, shouldRebuild, globalPos)
 
 	def _tagUnderCursor(self) -> 'BaseTagImpl | None':
 		""" Returns the tag whose bubble is under the cursor (where the context menu was invoked), or None. """

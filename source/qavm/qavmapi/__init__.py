@@ -628,10 +628,20 @@ class BaseBuilder(QWidget):
 		""" Is called when the context menu is requested for a certain descriptor.
 
 		`modifiers` carries the keyboard modifiers (Shift/Ctrl/Alt/Meta) held at the moment the menu is
-		built. QAVM re-invokes this method and re-shows the menu at the same position whenever the user
-		presses or releases a modifier key while the menu is open, so builders may return different entries
-		depending on `modifiers`. """
+		built. While the menu is open and the user changes the held modifiers, QAVM asks
+		`IsContextMenuUpdateRequired` whether to rebuild; only if that returns True is this method invoked
+		again (and the menu re-shown at the same position) with the new `modifiers`. """
 		return None
+
+	def IsContextMenuUpdateRequired(self, desc: BaseDescriptor, oldModifiers: Qt.KeyboardModifier, newModifiers: Qt.KeyboardModifier) -> bool:
+		""" Called while a context menu (built by `GetContextMenu`) is open and the user changes the held
+		keyboard modifiers. Return True to have QAVM rebuild and re-show the menu via `GetContextMenu` with
+		`newModifiers`; return False (the default) to keep the currently shown menu unchanged.
+
+		`oldModifiers` are the modifiers the currently shown menu was built with; `newModifiers` are the
+		modifiers now held. Builders whose menu contents depend on modifiers should override this to opt in
+		to rebuilding (e.g. `return oldModifiers != newModifiers`). """
+		return False
 
 class BaseTileBuilder(BaseBuilder):
 	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:

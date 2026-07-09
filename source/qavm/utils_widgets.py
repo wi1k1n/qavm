@@ -3,8 +3,8 @@ from functools import partial
 from typing import TYPE_CHECKING, Callable, Optional
 
 from PyQt6.QtWidgets import QMenu, QWidget, QApplication, QMessageBox
-from PyQt6.QtGui import QAction, QColor, QDrag, QPainter, QPixmap, QMouseEvent
-from PyQt6.QtCore import Qt, QMimeData, QPoint, QObject, QEvent, pyqtSignal
+from PyQt6.QtGui import QAction, QColor, QDrag, QPainter, QPixmap, QMouseEvent, QCursor
+from PyQt6.QtCore import Qt, QMimeData, QPoint, QObject, QEvent, QTimer, pyqtSignal
 
 from qavm.manager_tags import BaseTagImpl, TagScope
 from qavm.qavmapi import BaseDescriptor
@@ -240,15 +240,20 @@ def CallBuilderGetContextMenu(builder, desc: BaseDescriptor, modifiers: Qt.Keybo
 
 
 class _ModifierChangeMenuCloser(QObject):
-	""" Application-wide event filter that closes `menu` when the set of held modifier keys changes.
+	""" Application-wide event filter that closes `menu` when a modifier change should rebuild it.
 
-	Modifier presses/releases are tracked starting from `baseModifiers`; on the first change it records the
-	new modifier set in `newModifiers` and closes the menu (making the blocking exec() return) so the caller
-	can rebuild and re-show the menu for the new modifiers. """
-	def __init__(self, menu: QMenu, baseModifiers: Qt.KeyboardModifier):
+	Modifier presses/releases are tracked starting from `builtModifiers` (the modifiers the currently shown
+	menu was built with). On each change `shouldRebuild(builtModifiers, liveModifiers)` is consulted; only
+	when it returns True does the filter record the new modifier set in `newModifiers` and close the menu
+	(making the blocking exec() return) so the caller can rebuild and re-show it. When it returns False the
+	menu is left untouched and tracking continues. """
+	def __init__(self, menu: QMenu, builtModifiers: Qt.KeyboardModifier,
+			  shouldRebuild: Callable[[Qt.KeyboardModifier, Qt.KeyboardModifier], bool]):
 		super().__init__()
 		self._menu: QMenu = menu
-		self._modifiers: Qt.KeyboardModifier = baseModifiers & _RELEVANT_MODIFIERS
+		self._builtModifiers: Qt.KeyboardModifier = builtModifiers & _RELEVANT_MODIFIERS
+		self._liveModifiers: Qt.KeyboardModifier = builtModifiers & _RELEVANT_MODIFIERS
+		self._shouldRebuild = shouldRebuild
 		self.newModifiers: Qt.KeyboardModifier | None = None
 
 	def eventFilter(self, obj: QObject, event: QEvent) -> bool:
@@ -256,28 +261,46 @@ class _ModifierChangeMenuCloser(QObject):
 		if etype in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease) and not self._menu.isHidden():
 			mod = _MODIFIER_KEYS.get(event.key())
 			if mod is not None:
-				updated = (self._modifiers | mod) if etype == QEvent.Type.KeyPress else (self._modifiers & ~mod)
-				if updated != self._modifiers:
-					self.newModifiers = updated
-					self._menu.close()
+				updated = (self._liveModifiers | mod) if etype == QEvent.Type.KeyPress else (self._liveModifiers & ~mod)
+				if updated != self._liveModifiers:
+					self._liveModifiers = updated
+					if self._shouldRebuild(self._builtModifiers, updated):
+						self.newModifiers = updated
+						self._menu.close()
 		return False
 
 
-def ShowDynamicContextMenu(menuBuilder: Callable[[Qt.KeyboardModifier], Optional[QMenu]], globalPos: QPoint) -> None:
-	""" Shows a context menu built by `menuBuilder(modifiers)` at `globalPos`, rebuilding and re-showing it
-	whenever the user presses/releases a modifier key while the menu is open.
+def _HighlightMenuActionUnderCursor(menu: QMenu) -> None:
+	""" Highlights (activates) the menu entry currently under the mouse cursor, if any. Used after a menu
+	is (re-)shown so the item the cursor rests on appears selected without requiring a cursor move. """
+	if menu is None or not menu.isVisible():
+		return
+	action = menu.actionAt(menu.mapFromGlobal(QCursor.pos()))
+	if action is not None and action.isEnabled() and not action.isSeparator():
+		menu.setActiveAction(action)
+
+
+def ShowDynamicContextMenu(menuBuilder: Callable[[Qt.KeyboardModifier], Optional[QMenu]],
+		shouldRebuild: Callable[[Qt.KeyboardModifier, Qt.KeyboardModifier], bool], globalPos: QPoint) -> None:
+	""" Shows a context menu built by `menuBuilder(modifiers)` at `globalPos`.
+
+	While the menu is open and the user changes the held keyboard modifiers, `shouldRebuild(oldModifiers,
+	newModifiers)` is consulted; only when it returns True is the menu rebuilt (via `menuBuilder`) and
+	re-shown at the same position for the new modifiers. After every (re-)show the entry under the cursor
+	is highlighted so it appears selected without requiring a cursor move.
 
 	`menuBuilder` receives the currently held keyboard modifiers and must return a freshly-built QMenu (or
-	None to show nothing). It is invoked again for every modifier change until the menu is dismissed or one
-	of its actions is triggered. """
+	None to show nothing). """
 	app = QApplication.instance()
 	modifiers: Qt.KeyboardModifier = QApplication.keyboardModifiers() & _RELEVANT_MODIFIERS
 	while True:
 		menu = menuBuilder(modifiers)
 		if menu is None:
 			return
-		closer = _ModifierChangeMenuCloser(menu, modifiers)
+		closer = _ModifierChangeMenuCloser(menu, modifiers, shouldRebuild)
 		app.installEventFilter(closer)
+		# Once the menu is shown (exec() starts its event loop), highlight the entry under the cursor.
+		QTimer.singleShot(0, partial(_HighlightMenuActionUnderCursor, menu))
 		try:
 			menu.exec(globalPos)
 		finally:

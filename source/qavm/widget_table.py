@@ -479,7 +479,9 @@ class MyTableWidget(QTableWidget):
 						return None
 					PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID, tagUnderCursor)
 					return menu
-				ShowDynamicContextMenu(buildMenu, QCursor.pos())
+				def shouldRebuild(oldModifiers: Qt.KeyboardModifier, newModifiers: Qt.KeyboardModifier) -> bool:
+					return tableBuilder.IsContextMenuUpdateRequired(desc, oldModifiers, newModifiers)
+				ShowDynamicContextMenu(buildMenu, shouldRebuild, QCursor.pos())
 
 		for r, desc in enumerate(descs):
 			self._populateRow(r, desc, r)
