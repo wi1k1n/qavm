@@ -1,7 +1,4 @@
-import os  # TODO: Get rid of os.path in favor of pathlib
-from pathlib import Path
 from functools import partial
-from typing import Type, Optional
 
 from PyQt6.QtCore import Qt, QMargins, QPoint, QRect, pyqtSignal, QTimer
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QPen, QPolygon, QMouseEvent, QPaintEvent
@@ -365,19 +362,27 @@ class MyTableWidget(QTableWidget):
 		return None
 
 	def mousePressEvent(self, event: QMouseEvent):
+		# print('mousePressEvent')
 		if event.button() == Qt.MouseButton.LeftButton:
-			# print("Left button clicked")
 			self.clickedLeft.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
 		elif event.button() == Qt.MouseButton.RightButton:
-			# print("Right button clicked")
 			self.clickedRight.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
 		elif event.button() == Qt.MouseButton.MiddleButton:
-			# print("Middle button clicked")
 			self.clickedMiddle.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
 
+		# TODO: should probably have better system here
+		# this is to avoid the default behavior of toggling row selection
+		if QApplication.keyboardModifiers() & Qt.KeyboardModifier.ControlModifier:
+			rowClick = self.indexAt(event.pos()).row()
+			rowCurrent = self.currentRow()
+			# print('rowClick', rowClick, 'currentRow', rowCurrent)
+			if rowClick == rowCurrent:
+				return # if the user clicked on the current row, we don't want to unselect it
+		
 		super().mousePressEvent(event)
 
 	def mouseDoubleClickEvent(self, event: QMouseEvent):
+		# print('mouseDoubleClickEvent')
 		index = self.indexAt(event.pos())
 		if not index.isValid():
 			return
@@ -391,14 +396,8 @@ class MyTableWidget(QTableWidget):
 			self.doubleClickedRight.emit(row, col, QApplication.keyboardModifiers())
 		elif event.button() == Qt.MouseButton.MiddleButton:
 			self.doubleClickedMiddle.emit(row, col, QApplication.keyboardModifiers())
-
+		
 		super().mouseDoubleClickEvent(event)
-
-	def _restoreSelectedRows(self, rows: set[int]):
-		""" Restores the row selection to `rows` (used to keep double-click actions from moving the selection). """
-		self.clearSelection()
-		for r in rows:
-			self.selectRow(r)
 
 	def keyPressEvent(self, event):
 		if event.key() == Qt.Key.Key_N and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
@@ -458,6 +457,7 @@ class MyTableWidget(QTableWidget):
 
 		self._applyRowSelectionStyle()
 
+		# TODO: do these need to be signals if they are only used internally? Could just call the methods directly.
 		self.doubleClickedLeft.connect(partial(self._onTableItemDoubleClickedLeft, self, tableBuilder))
 		self.clickedMiddle.connect(partial(self._onTableItemClickedMiddle, self, tableBuilder))
 
