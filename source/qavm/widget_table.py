@@ -386,16 +386,19 @@ class MyTableWidget(QTableWidget):
 		col = index.column()
 
 		if event.button() == Qt.MouseButton.LeftButton:
-			print("Left button double clicked")
 			self.doubleClickedLeft.emit(row, col, QApplication.keyboardModifiers())
 		elif event.button() == Qt.MouseButton.RightButton:
-			print("Right button double clicked")
 			self.doubleClickedRight.emit(row, col, QApplication.keyboardModifiers())
 		elif event.button() == Qt.MouseButton.MiddleButton:
-			print("Middle button double clicked")
 			self.doubleClickedMiddle.emit(row, col, QApplication.keyboardModifiers())
 
 		super().mouseDoubleClickEvent(event)
+
+	def _restoreSelectedRows(self, rows: set[int]):
+		""" Restores the row selection to `rows` (used to keep double-click actions from moving the selection). """
+		self.clearSelection()
+		for r in rows:
+			self.selectRow(r)
 
 	def keyPressEvent(self, event):
 		if event.key() == Qt.Key.Key_N and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
@@ -805,16 +808,28 @@ class MyTableWidget(QTableWidget):
 	def _onTableItemDoubleClickedLeft(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
 			return
-		# app = QApplication.instance()
-		# descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
-		# tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, True, 0, QApplication.keyboardModifiers())
+		desc: BaseDescriptor | None = self._descriptorForRow(row)
+		if desc is None:
+			return
+		tableBuilder.HandleClick(desc, row, col, True, 0, modifiers)
 
 	def _onTableItemClickedMiddle(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
 			return
-		# app = QApplication.instance()
-		# descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
-		# tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
+		desc: BaseDescriptor | None = self._descriptorForRow(row)
+		if desc is None:
+			return
+		tableBuilder.HandleClick(desc, row, col, False, 2, modifiers)
+
+	def _descriptorForRow(self, row: int) -> BaseDescriptor | None:
+		""" Returns the descriptor backing the given visual row, or None if the row has no valid descriptor. """
+		descIdxItem = self.item(row, len(self._tableInfos))
+		if descIdxItem is None:
+			return None
+		descIdx: int = int(descIdxItem.text())
+		if descIdx < 0 or descIdx >= len(self._descs):
+			return None
+		return self._descs[descIdx]
 
 	def showEvent(self, event):
 		# When the table becomes visible/activated (for example when switching tabs),
