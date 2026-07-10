@@ -409,6 +409,29 @@ class MyTableWidget(QTableWidget):
 		
 		super().mouseDoubleClickEvent(event)
 
+	def wheelEvent(self, event):
+		"""Enable Shift+wheel to scroll horizontally (common convention)."""
+		# Determine delta in pixels or angle units
+		pdelta = event.pixelDelta()
+		adelta = event.angleDelta()
+		dx = pdelta.x() if not pdelta.isNull() else adelta.x()
+		dy = pdelta.y() if not pdelta.isNull() else adelta.y()
+
+		# If Shift is held, treat vertical wheel as horizontal scroll
+		if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+			hbar = self.horizontalScrollBar()
+			# Prefer vertical delta for Shift+wheel behavior (common UX)
+			if dy:
+				hbar.setValue(hbar.value() - dy)
+				event.accept()
+				return
+			elif dx:
+				hbar.setValue(hbar.value() - dx)
+				event.accept()
+				return
+
+		super().wheelEvent(event)
+
 	def keyPressEvent(self, event):
 		if event.key() == Qt.Key.Key_N and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
 			desc: BaseDescriptor | None = self._selectedRowDescriptor()
