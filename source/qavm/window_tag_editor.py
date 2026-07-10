@@ -1,4 +1,5 @@
 from __future__ import annotations
+import html
 import uuid
 from typing import TYPE_CHECKING
 
@@ -10,10 +11,10 @@ from PyQt6.QtWidgets import (
 	QMessageBox, QDialogButtonBox,
 )
 
-from qavm.manager_tags import TagsManager, BaseTagImpl, TagScope
+from qavm.manager_tags import TagsManager, BaseTagImpl, TagScope, TAG_SCOPE_VIEWS_ENABLED
 from qavm.manager_plugin import PluginManager, QAVMWorkspace, SoftwareHandler
 from qavm.utils_gui import DistinguishableColorGenerator
-from qavm.qavmapi.gui import PickContrastingTextColor
+from qavm.qavmapi.gui import PickContrastingTextColor, HoverFadeTooltipMixin
 
 if TYPE_CHECKING:
 	pass
@@ -24,25 +25,72 @@ logger = logs.logger
 EMPTY_OPTION_LABEL: str = '<all>'
 
 
-class _ScopeRowWidget(QWidget):
-	""" A single editable tag scope row: plugin / software / view selectors + remove button. """
-	def __init__(self, pluginOptions: list[str], softwareOptions: list[str], viewOptions: list[str],
-				 scope: TagScope | None, onRemove, parent: QWidget | None = None):
+class _ScopeCombo(HoverFadeTooltipMixin, QComboBox):
+	""" Combobox that displays plugin/software names while storing their IDs, and shows the selected ID
+	as an app-style hover FadeTooltip (via HoverFadeTooltipMixin). """
+	def __init__(self, options: list[tuple[str, str]], current: str, parent: QWidget | None = None):
 		super().__init__(parent)
+		self._InitHoverTooltip()
+
+		self.addItem(EMPTY_OPTION_LABEL, '')
+		for optID, optName in options:
+			if optID:
+				self.addItem(optName, optID)
+		self._selectValue(current)
+
+	def _selectValue(self, value: str) -> None:
+		if not value:
+			self.setCurrentIndex(0)
+			return
+		idx: int = self.findData(value)
+		if idx < 0:
+			# The stored ID refers to an unloaded plugin/software: keep it selectable by showing the raw ID.
+			self.addItem(value, value)
+			idx = self.count() - 1
+		self.setCurrentIndex(idx)
+
+	def GetValue(self) -> str:
+		return self.currentData() or ''
+
+	def enterEvent(self, event):
+		self._ScheduleTooltip()
+		super().enterEvent(event)
+
+	def _GetTooltipHtml(self) -> str | None:
+		value: str = self.currentData() or ''
+		if not value:
+			return None
+		return f'<div>{html.escape(value)}</div>'
+
+
+class _ScopeRowWidget(QWidget):
+	""" A single editable tag scope row: plugin / software / (view) selectors + remove button.
+	Combos display plugin/software names but store their IDs (shown as hover tooltips). The view selector
+	is only shown when TAG_SCOPE_VIEWS_ENABLED is set; otherwise the scope's viewUID is preserved as-is. """
+	def __init__(self, pluginOptions: list[tuple[str, str]], softwareOptions: list[tuple[str, str]],
+				 viewOptions: list[tuple[str, str]], scope: TagScope | None, onRemove,
+				 parent: QWidget | None = None):
+		super().__init__(parent)
+
+		# When view scoping is hidden, keep whatever viewUID the scope already had (default '' = all views).
+		self._preservedViewUID: str = scope.viewUID if scope else ''
 
 		layout = QHBoxLayout(self)
 		layout.setContentsMargins(0, 0, 0, 0)
 
-		self.pluginCombo: QComboBox = self._makeCombo(pluginOptions, scope.pluginID if scope else '')
-		self.softwareCombo: QComboBox = self._makeCombo(softwareOptions, scope.softwareID if scope else '')
-		self.viewCombo: QComboBox = self._makeCombo(viewOptions, scope.viewUID if scope else '')
+		self.pluginCombo: _ScopeCombo = _ScopeCombo(pluginOptions, scope.pluginID if scope else '')
+		self.softwareCombo: _ScopeCombo = _ScopeCombo(softwareOptions, scope.softwareID if scope else '')
 
 		layout.addWidget(QLabel("Plugin:"))
 		layout.addWidget(self.pluginCombo, 1)
 		layout.addWidget(QLabel("Software:"))
 		layout.addWidget(self.softwareCombo, 1)
-		layout.addWidget(QLabel("View:"))
-		layout.addWidget(self.viewCombo, 1)
+
+		self.viewCombo: _ScopeCombo | None = None
+		if TAG_SCOPE_VIEWS_ENABLED:
+			self.viewCombo = _ScopeCombo(viewOptions, scope.viewUID if scope else '')
+			layout.addWidget(QLabel("View:"))
+			layout.addWidget(self.viewCombo, 1)
 
 		removeBtn = QPushButton("X")
 		removeBtn.setFixedWidth(48)
@@ -50,35 +98,13 @@ class _ScopeRowWidget(QWidget):
 		removeBtn.clicked.connect(lambda: onRemove(self))
 		layout.addWidget(removeBtn)
 
-	def _makeCombo(self, options: list[str], current: str) -> QComboBox:
-		combo = QComboBox(self)
-		combo.setEditable(True)
-		combo.addItem(EMPTY_OPTION_LABEL)
-		for opt in options:
-			if opt:
-				combo.addItem(opt)
-		if current:
-			idx = combo.findText(current)
-			if idx >= 0:
-				combo.setCurrentIndex(idx)
-			else:
-				combo.setEditText(current)
-		else:
-			combo.setCurrentIndex(0)
-		return combo
-
-	def _comboValue(self, combo: QComboBox) -> str:
-		text: str = combo.currentText().strip()
-		if text == EMPTY_OPTION_LABEL:
-			return ''
-		return text
-
 	def GetScope(self) -> TagScope:
 		return TagScope(
-			pluginID=self._comboValue(self.pluginCombo),
-			softwareID=self._comboValue(self.softwareCombo),
-			viewUID=self._comboValue(self.viewCombo),
+			pluginID=self.pluginCombo.GetValue(),
+			softwareID=self.softwareCombo.GetValue(),
+			viewUID=self.viewCombo.GetValue() if self.viewCombo is not None else self._preservedViewUID,
 		)
+
 
 """
 # TODO: create markdown text edit widget that supports conventional markdown shortcuts
@@ -191,22 +217,29 @@ class TagEditorDialog(QDialog):
 		QShortcut(QKeySequence('Ctrl+Return'), self, activated=self.accept)
 		QShortcut(QKeySequence('Ctrl+Enter'), self, activated=self.accept)
 
-	def _collectScopeOptions(self) -> tuple[list[str], list[str], list[str]]:
-		pluginOptions: set[str] = set()
-		softwareOptions: set[str] = set()
-		viewOptions: set[str] = set()
+	def _collectScopeOptions(self) -> tuple[list[tuple[str, str]], list[tuple[str, str]], list[tuple[str, str]]]:
+		""" Returns (pluginOptions, softwareOptions, viewOptions), each a list of (id, displayName) tuples
+		sorted by display name. Plugin/software show human-friendly names; views have no separate name. """
+		pluginOptions: dict[str, str] = {}
+		softwareOptions: dict[str, str] = {}
+		viewOptions: dict[str, str] = {}
 		for pluginID, softwareID, swHandler in self.pluginManager.GetSoftwareHandlers():
-			pluginOptions.add(pluginID)
-			softwareOptions.add(softwareID)
+			plugin = self.pluginManager.GetPlugin(pluginID)
+			pluginOptions[pluginID] = plugin.GetName() if plugin else pluginID
+			softwareOptions[softwareID] = swHandler.GetName()
 			for dataPath in swHandler.GetTileBuilderClasses().keys():
-				viewOptions.add(dataPath)
+				viewOptions[dataPath] = dataPath
 			for dataPath in swHandler.GetTableBuilderClasses().keys():
-				viewOptions.add(dataPath)
+				viewOptions[dataPath] = dataPath
 			for dataPath in swHandler.GetCustomViewClasses().keys():
-				viewOptions.add(dataPath)
+				viewOptions[dataPath] = dataPath
 		# Add common wildcard helpers for views
-		viewOptions.update({'views/tiles/*', 'views/table/*', 'views/custom/*'})
-		return sorted(pluginOptions), sorted(softwareOptions), sorted(viewOptions)
+		for wildcard in ('views/tiles/*', 'views/table/*', 'views/custom/*'):
+			viewOptions.setdefault(wildcard, wildcard)
+
+		def _sortedByName(options: dict[str, str]) -> list[tuple[str, str]]:
+			return sorted(options.items(), key=lambda kv: kv[1].lower())
+		return _sortedByName(pluginOptions), _sortedByName(softwareOptions), _sortedByName(viewOptions)
 
 	def _addScopeRow(self, scope: TagScope | None):
 		row = _ScopeRowWidget(self._pluginOptions, self._softwareOptions, self._viewOptions, scope, self._removeScopeRow)
