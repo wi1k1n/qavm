@@ -217,8 +217,19 @@ class MigrationManager:
 			f'data (both QAVM\'s and the plugins\') so it is used with the new version. Your previous data is left '
 			f'untouched either way.'
 		)
-		# Make the shown path selectable so it can be copied.
-		box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard)
+
+		# Make the shown path selectable so it can be copied: set interaction flags on internal QLabel children.
+		# QMessageBox uses QLabel instances for `text` and `informativeText`; setting the flags on the
+		# child labels makes the path selectable on most platforms.
+		from PyQt6.QtWidgets import QLabel
+		flags = Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard
+		for lbl in box.findChildren(QLabel):
+			try:
+				lbl.setTextInteractionFlags(flags)
+			except Exception:
+				# If a label doesn't support the call for some reason, keep going.
+				pass
+		
 		freshBtn = box.addButton('Start fresh (Recommended)', QMessageBox.ButtonRole.AcceptRole)
 		copyBtn = box.addButton('Copy previous data', QMessageBox.ButtonRole.ActionRole)
 		quitBtn = box.addButton('Quit', QMessageBox.ButtonRole.RejectRole)
