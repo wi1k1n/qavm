@@ -378,7 +378,9 @@ class QAVMGlobalSettings(BaseSettings):
 
 		# Experimental: table view filtering
 		self.experimentalTableViewFilteringCheckbox = QCheckBox('Enable table view filtering (Experimental)', widget)
-		self.experimentalTableViewFilteringCheckbox.setToolTip('Enable the experimental column filtering mode in table views')
+		self.experimentalTableViewFilteringCheckbox.setToolTip(
+			'Clicking Middle Mouse on a table column header will show a filter input for that column.'
+			'\nThis is an experimental feature and may not work correctly in all cases.')
 		self.experimentalTableViewFilteringCheckbox.setChecked(self.GetExperimentalTableViewFiltering())
 		self.experimentalTableViewFilteringCheckbox.toggled.connect(self._onExperimentalTableViewFilteringToggled)
 		layout.addWidget(self.experimentalTableViewFilteringCheckbox)
