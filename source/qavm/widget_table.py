@@ -149,15 +149,23 @@ class MyTableViewHeader(QHeaderView):
 		if event.button() == Qt.MouseButton.LeftButton:
 			self._mousePressedPos = event.pos()
 			self._mousePressedSection = self.logicalIndexAt(self._mousePressedPos)
-		# TODO: this is disabled as experimental feature
-		# elif event.button() == Qt.MouseButton.MiddleButton:
-		# 	# MMB on a header section is the entry point to the column filter mode.
-		# 	section = self.logicalIndexAt(event.pos())
-		# 	tableWidget = self.parent()
-		# 	if section >= 0 and hasattr(tableWidget, '_openFilterMenu'):
-		# 		tableWidget._openFilterMenu(section)
-		# 		event.accept()
-		# 		return
+		# Middle-click on a header opens the column filter popup when the experimental
+		# tableview filtering feature is enabled in QAVM settings.
+		elif event.button() == Qt.MouseButton.MiddleButton:
+			app = QApplication.instance()
+			if app is not None and hasattr(app, 'GetSettingsManager'):
+				try:
+					qavmSettings = app.GetSettingsManager().GetQAVMSettings()
+					if qavmSettings.GetExperimentalTableViewFiltering():
+						section = self.logicalIndexAt(event.pos())
+						tableWidget = self.parent()
+						if section >= 0 and hasattr(tableWidget, '_openFilterMenu'):
+							tableWidget._openFilterMenu(section)
+							event.accept()
+							return
+				except Exception:
+					# Any error reading settings should silently fall back to disabled
+					pass
 		super().mousePressEvent(event)
 		
 	def mouseReleaseEvent(self, event):
