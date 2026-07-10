@@ -15,6 +15,12 @@ if TYPE_CHECKING:
 import qavm.logs as logs
 logger = logs.logger
 
+# TODO: figure out if we even need scopes granularity to views
+# Controls whether per-view tag scoping is exposed in the UI (tag editor scope rows, tags palette filter,
+# tag tooltips). When False, view scoping is hidden from the user but still fully functional under the hood:
+# tags keep their viewUID (defaulting to '' = all views), so behavior is unaffected. Flip to True to surface it.
+TAG_SCOPE_VIEWS_ENABLED: bool = False
+
 class TagScope(object):
 	def __init__(self, pluginID: str = '', softwareID: str = '', viewUID: str = ''):
 		"""
