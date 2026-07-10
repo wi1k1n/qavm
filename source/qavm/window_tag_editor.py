@@ -233,10 +233,19 @@ class TagEditorDialog(QDialog):
 				viewOptions[dataPath] = dataPath
 			for dataPath in swHandler.GetCustomViewClasses().keys():
 				viewOptions[dataPath] = dataPath
+		
 		# Add common wildcard helpers for views
 		for wildcard in ('views/tiles/*', 'views/table/*', 'views/custom/*'):
 			viewOptions.setdefault(wildcard, wildcard)
 
+		activePluginID, activeSoftwareID = self.parent()._getActiveContext()
+		# Apply visual prefix to active plugin/software names (avoid double-prefixing).
+		if activePluginID and activePluginID in pluginOptions:
+			if not pluginOptions[activePluginID].startswith('* '):
+				pluginOptions[activePluginID] = '* ' + pluginOptions[activePluginID]
+		if activeSoftwareID and activeSoftwareID in softwareOptions:
+			if not softwareOptions[activeSoftwareID].startswith('* '):
+				softwareOptions[activeSoftwareID] = '* ' + softwareOptions[activeSoftwareID]
 		def _sortedByName(options: dict[str, str]) -> list[tuple[str, str]]:
 			return sorted(options.items(), key=lambda kv: kv[1].lower())
 		return _sortedByName(pluginOptions), _sortedByName(softwareOptions), _sortedByName(viewOptions)
