@@ -152,6 +152,7 @@ class QAVMGlobalSettings(BaseSettings):
 		'update_check_last_time': '',  # ISO-8601 UTC timestamp of the last successful update check
 		'update_check_snooze_until': '',  # ISO-8601 UTC timestamp until which the update popup is suppressed, or 'startup' sentinel
 		'update_check_skip_signature': '',  # Signature of the last skipped update set (core + plugin versions)
+		'experimental_tableview_filtering': False,  # Off by default; enables experimental column filtering in table views
 	}
 
 	def __init__(self, prefName: str, defaultGlobalSearchPaths: list[str]):
@@ -319,6 +320,16 @@ class QAVMGlobalSettings(BaseSettings):
 	def SetUpdateCheckSkipSignature(self, signature: str) -> None:
 		self.SetSetting('update_check_skip_signature', signature)
 
+	# ----------------------------- Experimental features -----------------------------
+
+	def GetExperimentalTableViewFiltering(self) -> bool:
+		""" Returns whether experimental table view filtering is enabled. """
+		value = self.GetSetting('experimental_tableview_filtering')
+		return value if isinstance(value, bool) else False
+
+	def SetExperimentalTableViewFiltering(self, enabled: bool) -> None:
+		self.SetSetting('experimental_tableview_filtering', bool(enabled))
+
 
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:
 		settingsWidget: QWidget = QWidget(parent)
@@ -333,7 +344,8 @@ class QAVMGlobalSettings(BaseSettings):
 		searchPathsWidget = self._createSearchPathsWidget(parent)
 		layout.addRow('Search Paths (Global)', searchPathsWidget)
 
-		return [('Application', settingsWidget)]
+		experimentalWidget = self._createExperimentalWidget(parent)
+		return [('Application', settingsWidget), ('Experimental', experimentalWidget)]
 
 	def _createUpdateCheckWidget(self, parent: QWidget | None = None) -> QWidget:
 		widget = QWidget(parent)
@@ -359,7 +371,24 @@ class QAVMGlobalSettings(BaseSettings):
 		layout.addWidget(combo)
 		layout.addStretch()
 		return widget
-	
+
+	def _createExperimentalWidget(self, parent: QWidget | None = None) -> QWidget:
+		widget = QWidget(parent)
+		layout = QVBoxLayout(widget)
+
+		# Experimental: table view filtering
+		self.experimentalTableViewFilteringCheckbox = QCheckBox('Enable table view filtering (Experimental)', widget)
+		self.experimentalTableViewFilteringCheckbox.setToolTip('Enable the experimental column filtering mode in table views')
+		self.experimentalTableViewFilteringCheckbox.setChecked(self.GetExperimentalTableViewFiltering())
+		self.experimentalTableViewFilteringCheckbox.toggled.connect(self._onExperimentalTableViewFilteringToggled)
+		layout.addWidget(self.experimentalTableViewFilteringCheckbox)
+
+		layout.addStretch()
+		return widget
+
+	def _onExperimentalTableViewFilteringToggled(self, checked: bool):
+		self.SetExperimentalTableViewFiltering(checked)
+
 	# TODO: This is very similar to the one in SoftwareBaseSettings, consider refactoring
 	def _createSearchPathsWidget(self, parent: QWidget | None = None) -> QWidget:
 		widget = QWidget(parent)
