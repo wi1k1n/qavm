@@ -4,7 +4,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QShortcut, QKeySequence
+from PyQt6.QtGui import QColor, QShortcut, QKeySequence, QFont
 from PyQt6.QtWidgets import (
 	QApplication, QTextEdit, QWidget, QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel,
 	QLineEdit, QPushButton, QComboBox, QColorDialog, QScrollArea, QGroupBox,
@@ -25,17 +25,25 @@ logger = logs.logger
 EMPTY_OPTION_LABEL: str = '<all>'
 
 
+
 class _ScopeCombo(HoverFadeTooltipMixin, QComboBox):
 	""" Combobox that displays plugin/software names while storing their IDs, and shows the selected ID
-	as an app-style hover FadeTooltip (via HoverFadeTooltipMixin). """
-	def __init__(self, options: list[tuple[str, str]], current: str, parent: QWidget | None = None):
+	as an app-style hover FadeTooltip (via HoverFadeTooltipMixin). The provided options are
+	(id, displayName, isActive) tuples where active entries are shown in bold.
+	"""
+	def __init__(self, options: list[tuple[str, str, bool]], current: str, parent: QWidget | None = None):
 		super().__init__(parent)
 		self._InitHoverTooltip()
 
 		self.addItem(EMPTY_OPTION_LABEL, '')
-		for optID, optName in options:
+		for optID, optName, isActive in options:
 			if optID:
 				self.addItem(optName, optID)
+				if isActive:
+					idx = self.count() - 1
+					font: QFont = self.font()
+					font.setBold(True)
+					self.setItemData(idx, font, Qt.ItemDataRole.FontRole)
 		self._selectValue(current)
 
 	def _selectValue(self, value: str) -> None:
@@ -67,8 +75,8 @@ class _ScopeRowWidget(QWidget):
 	""" A single editable tag scope row: plugin / software / (view) selectors + remove button.
 	Combos display plugin/software names but store their IDs (shown as hover tooltips). The view selector
 	is only shown when TAG_SCOPE_VIEWS_ENABLED is set; otherwise the scope's viewUID is preserved as-is. """
-	def __init__(self, pluginOptions: list[tuple[str, str]], softwareOptions: list[tuple[str, str]],
-				 viewOptions: list[tuple[str, str]], scope: TagScope | None, onRemove,
+	def __init__(self, pluginOptions: list[tuple[str, str, bool]], softwareOptions: list[tuple[str, str, bool]],
+			 viewOptions: list[tuple[str, str, bool]], scope: TagScope | None, onRemove,
 				 parent: QWidget | None = None):
 		super().__init__(parent)
 
@@ -217,9 +225,11 @@ class TagEditorDialog(QDialog):
 		QShortcut(QKeySequence('Ctrl+Return'), self, activated=self.accept)
 		QShortcut(QKeySequence('Ctrl+Enter'), self, activated=self.accept)
 
-	def _collectScopeOptions(self) -> tuple[list[tuple[str, str]], list[tuple[str, str]], list[tuple[str, str]]]:
-		""" Returns (pluginOptions, softwareOptions, viewOptions), each a list of (id, displayName) tuples
-		sorted by display name. Plugin/software show human-friendly names; views have no separate name. """
+	def _collectScopeOptions(self) -> tuple[list[tuple[str, str, bool]], list[tuple[str, str, bool]], list[tuple[str, str, bool]]]:
+		""" Returns (pluginOptions, softwareOptions, viewOptions), each a list of
+		(id, displayName, isActive) tuples sorted by display name. Plugin/software show human-friendly
+		names; views have no separate name. The isActive flag marks the currently active context.
+		"""
 		pluginOptions: dict[str, str] = {}
 		softwareOptions: dict[str, str] = {}
 		viewOptions: dict[str, str] = {}
@@ -239,16 +249,16 @@ class TagEditorDialog(QDialog):
 			viewOptions.setdefault(wildcard, wildcard)
 
 		activePluginID, activeSoftwareID = self.parent()._getActiveContext()
-		# Apply visual prefix to active plugin/software names (avoid double-prefixing).
-		if activePluginID and activePluginID in pluginOptions:
-			if not pluginOptions[activePluginID].startswith('* '):
-				pluginOptions[activePluginID] = '* ' + pluginOptions[activePluginID]
-		if activeSoftwareID and activeSoftwareID in softwareOptions:
-			if not softwareOptions[activeSoftwareID].startswith('* '):
-				softwareOptions[activeSoftwareID] = '* ' + softwareOptions[activeSoftwareID]
-		def _sortedByName(options: dict[str, str]) -> list[tuple[str, str]]:
-			return sorted(options.items(), key=lambda kv: kv[1].lower())
-		return _sortedByName(pluginOptions), _sortedByName(softwareOptions), _sortedByName(viewOptions)
+
+		def _sortedByName(options: dict[str, str], activeID: str | None = None) -> list[tuple[str, str, bool]]:
+			items = sorted(options.items(), key=lambda kv: kv[1].lower())
+			return [(optID, optName, (optID == activeID)) for optID, optName in items]
+
+		return (
+			_sortedByName(pluginOptions, activePluginID),
+			_sortedByName(softwareOptions, activeSoftwareID),
+			_sortedByName(viewOptions, None),
+		)
 
 	def _addScopeRow(self, scope: TagScope | None):
 		row = _ScopeRowWidget(self._pluginOptions, self._softwareOptions, self._viewOptions, scope, self._removeScopeRow)
