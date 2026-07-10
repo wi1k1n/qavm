@@ -26,11 +26,22 @@ from PyQt6.QtGui import (
     QIcon, 
 )
 from PyQt6.QtWidgets import (
-	QApplication, QWidget, QMessageBox
+	QApplication, QWidget, QMessageBox, QProxyStyle, QStyle
 )
 
 import qavm.logs as logs
 logger = logs.logger
+
+class FastSubmenuStyle(QProxyStyle):
+	def __init__(self, base_style, delay_ms: int = 20):
+		super().__init__(base_style)
+		self.delay_ms = delay_ms
+
+	def styleHint(self, hint, option=None, widget=None, returnData=None):
+		if hint == QStyle.StyleHint.SH_Menu_SubMenuPopupDelay:
+			return self.delay_ms
+
+		return super().styleHint(hint, option, widget, returnData)
 
 # Extensive PyQt tutorial: https://realpython.com/python-menus-toolbars/#building-context-or-pop-up-menus-in-pyqt
 class QAVMApp(QApplication):
@@ -43,7 +54,13 @@ class QAVMApp(QApplication):
 		
 		self.iconApp: QIcon = QIcon(str(Path('res/qavm_icon.png').resolve()))
 		self.setWindowIcon(self.iconApp)
-		
+
+		# Apply FastSubmenuStyle to reduce submenu popup delay (make submenus show faster)
+		try:
+			self.setStyle(FastSubmenuStyle(self.style(), delay_ms=0))
+		except Exception as e:
+			logger.warning(f'Failed to apply FastSubmenuStyle: {e}')
+
 		self.installEventFilter(self)
 
 		self.pluginsFolderPaths: set[Path] = {utils.GetDefaultPluginsFolderPath()}
