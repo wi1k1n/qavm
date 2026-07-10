@@ -25,7 +25,7 @@ from qavm.qavmapi import (
 from qavm.qavmapi.utils import PlatformMacOS, PlatformWindows, PlatformLinux
 from qavm.qavmapi.gui import TagBubblesFlowWidget, GetThemeData, IsThemeDark
 from qavm.utils_gui import FlowLayout
-from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptorWithScopeCheck, TAG_MIME_TYPE
+from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptorWithScopeCheck, TAG_MIME_TYPE, ShowDynamicContextMenu, CallBuilderGetContextMenu
 from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion, GetQAVMVersionVariant
 
 import qavm.logs as logs
@@ -503,10 +503,19 @@ class MyTableWidget(QTableWidget):
 			if item:
 				descIdx: int = int(item.text())
 				desc: BaseDescriptor = descs[descIdx]
-				if menu := tableBuilder.GetContextMenu(desc):
-					tagUnderCursor: BaseTagImpl | None = self._tagUnderCursor(pos)
+				tagUnderCursor: BaseTagImpl | None = self._tagUnderCursor(pos)
+				def populate(menu: QMenu) -> QMenu:
 					PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID, tagUnderCursor)
-					menu.exec(QCursor.pos())
+					return menu
+				def buildMenu(modifiers: Qt.KeyboardModifier) -> QMenu | None:
+					menu = CallBuilderGetContextMenu(tableBuilder, desc, modifiers)
+					return populate(menu) if menu is not None else None
+				def updateMenu(menu: QMenu, modifiers: Qt.KeyboardModifier) -> QMenu | None:
+					result, changed = tableBuilder.UpdateContextMenu(menu, desc, modifiers)
+					if changed:
+						menu = populate(result) if result is not None else None
+					return menu
+				ShowDynamicContextMenu(buildMenu, updateMenu, QCursor.pos())
 
 		for r, desc in enumerate(descs):
 			self._populateRow(r, desc, r)

@@ -624,9 +624,29 @@ class BaseBuilder(QWidget):
 		""" Prepares a list of descriptors for further elements creation. """
 		return descriptors
 	
-	def GetContextMenu(self, desc: BaseDescriptor) -> Optional[QMenu]:
-		""" Is called when the context menu is requested for a certain descriptor. """
+	def GetContextMenu(self, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> Optional[QMenu]:
+		""" Is called when the context menu is requested for a certain descriptor.
+
+		`modifiers` carries the keyboard modifiers (Shift/Ctrl/Alt/Meta) held at the moment the menu is
+		built. When the user changes modifiers while the menu is open, QAVM prefers to refresh it in place
+		via `UpdateContextMenu` (to avoid the menu flashing); it only falls back to calling this method again
+		when in-place updating is not available. """
 		return None
+
+	def UpdateContextMenu(self, menu: QMenu, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier) -> tuple[Optional[QMenu], bool]:
+		""" Is called instead of `GetContextMenu` when the user changes the keyboard modifiers while the
+		context menu is already shown.
+
+		Implementations should rebuild the *existing* `menu` in place (e.g. `menu.clear()` followed by
+		re-adding the appropriate actions for `modifiers`) and return it. Reusing the same menu object lets
+		QAVM refresh the entries without closing and reopening the menu, which would otherwise make it flash
+		and drop the currently highlighted entry.
+
+		Return None (the default) if in-place updating is not supported: QAVM then falls back to closing the
+		menu and rebuilding it from scratch via `GetContextMenu`.
+		
+		The second return value indicates whether the menu was updated in place (True) or not (False). """
+		return None, False
 
 class BaseTileBuilder(BaseBuilder):
 	def CreateTileWidget(self, descriptor: BaseDescriptor, parent) -> QWidget:
