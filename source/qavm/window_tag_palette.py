@@ -516,19 +516,8 @@ class TagsPaletteWidget(QWidget):
 
 	# region Active context
 	def _getActiveContext(self) -> tuple[str, str]:
-		""" Returns (pluginID, softwareID) of the currently active view tab, or ('', '') if unavailable. """
-		try:
-			tabsWidget = getattr(self.mainWindow, 'tabsWidget', None)
-			if tabsWidget is None:
-				return '', ''
-			current = tabsWidget.currentWidget()
-			swHandler = getattr(current, 'swHandler', None)
-			if swHandler is None:
-				return '', ''
-			return swHandler.pluginID, swHandler.GetID()
-		except Exception as e:
-			logger.warning(f"Failed to resolve active tag context: {e}")
-			return '', ''
+		"""Delegate to the MainWindow implementation to resolve the active view context."""
+		return self.mainWindow._getActiveContext()
 
 	def _setCombo(self, combo: QComboBox, value: str):
 		idx = combo.findData(value)
