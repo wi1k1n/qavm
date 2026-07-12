@@ -128,8 +128,14 @@ class CenteredIconTabBar(QTabBar):
 		maxWidth = min(iconSize.width(), rect.width())
 		maxHeight = min(iconSize.height(), rect.height())
 		pixmap = icon.pixmap(QSize(maxWidth, maxHeight))
-		x = rect.x() + (rect.width() - pixmap.width()) // 2
-		y = rect.y() + (rect.height() - pixmap.height()) // 2
+		# On HiDPI/Retina displays the pixmap is rendered at the device pixel ratio, so pixmap.width()/
+		# height() return physical pixels (e.g. 2x). Center using the logical (device-independent) size,
+		# otherwise the icon is offset off-screen and appears clipped (only the lower-right part shows).
+		logicalSize = pixmap.deviceIndependentSize()
+		w = int(logicalSize.width())
+		h = int(logicalSize.height())
+		x = rect.x() + (rect.width() - w) // 2
+		y = rect.y() + (rect.height() - h) // 2
 		painter.drawPixmap(x, y, pixmap)
 
 class QAVMGlobalSettings(BaseSettings):
@@ -334,6 +340,10 @@ class QAVMGlobalSettings(BaseSettings):
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:
 		settingsWidget: QWidget = QWidget(parent)
 		layout: QFormLayout = QFormLayout(settingsWidget)
+		# On macOS the QFormLayout default field growth policy is FieldsStayAtSizeHint, which leaves fields
+		# at their size hint (appearing narrow/centered) instead of filling the available width like on
+		# Windows/Linux. Force AllNonFixedFieldsGrow so fields expand consistently across platforms.
+		layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
 		selectThemeWidget = self._createThemeSelectorWidget(parent)
 		layout.addRow('App Theme', selectThemeWidget)
