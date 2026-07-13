@@ -571,7 +571,7 @@ class TagBubblesFlowWidget(HoverFadeTooltipWidget):
 		if self._descriptor is not None:
 			self.setAcceptDrops(True)
 
-	def GetSortKey(self) -> str:
+	def GetSortKey(self) -> str | int | float:
 		""" Returns a stable key used to sort the Tags column (comma-joined, lower-cased tag names). """
 		SORT_WIDTH = 20  # enough for 64-bit unsigned integers
 		orders: list[int] = self._tagOrders if self._tagOrders else [pow(10, SORT_WIDTH) - 1]  # sort empty tags last
@@ -1008,7 +1008,7 @@ class DescNotesWidget(HoverFadeTooltipWidget):
 	def minimumSizeHint(self) -> QSize:
 		return self._label.minimumSizeHint()
 
-	def GetSortKey(self) -> str:
+	def GetSortKey(self) -> str | int | float:
 		""" Returns a stable key used to sort the Note column (lower-cased small note). """
 		return self._noteSmall.lower() if self._noteSmall else chr(127)  # sort empty notes last
 
@@ -1044,14 +1044,14 @@ class VersionTooltipWidget(HoverFadeTooltipWidget):
 	forwarded to the underlying table/tile so row selection, context menus and drag-n-drop keep working.
 	GetSortKey enables sorting the hosting column. """
 	
-	def __init__(self, text: str, tooltipText: str = '', sortKey: str | None = None,
+	def __init__(self, text: str, tooltipText: str = '', sortKey: str | int | float | None = None,
 				parent: QWidget | None = None,
 				alignment: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
 				font: QFont | None = None, persistentTooltip: bool = True):
 		super().__init__(parent, persistentTooltip=persistentTooltip)
 		self._text: str = text or ''
 		self._tooltipText: str = tooltipText or ''
-		self._sortKey: str = sortKey if sortKey is not None else self._text
+		self._sortKey: str | int | float = sortKey if sortKey is not None else self._text
 
 		self._label: QLabel = QLabel(self._text, self)
 		self._label.setAlignment(alignment)
@@ -1072,7 +1072,7 @@ class VersionTooltipWidget(HoverFadeTooltipWidget):
 	def minimumSizeHint(self) -> QSize:
 		return self._label.minimumSizeHint()
 
-	def GetSortKey(self) -> str:
+	def GetSortKey(self) -> str | int | float:
 		""" Returns the stable key used to sort the hosting column. """
 		return self._sortKey
 
