@@ -10,7 +10,7 @@ from PyQt6.QtCore import (
 )
 
 from qavm.qavm_version import (
-    GetQAVMVersionVariant, GetPackageVersion, GetBuildVersion, 
+    GetQAVMVersionVariant, GetPackageVersion, GetBuildVersion, GetQAVMWebsite, 
 )
 
 class AboutDialog(QDialog):
@@ -39,11 +39,15 @@ class AboutDialog(QDialog):
             f"<b>QAVM {GetQAVMVersionVariant()}</b><br>"
             f"Package: {GetPackageVersion()}<br>"
             f"Build: {GetBuildVersion()}<br><br>"
+            f"<b>Website:</b> <a href='{GetQAVMWebsite()}'>{GetQAVMWebsite()}</a>"
         )
-        versionLabel = QLabel(versionInfo)
-        versionLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        versionLabel = QLabel()
         versionLabel.setTextFormat(Qt.TextFormat.RichText)
+        versionLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        versionLabel.setOpenExternalLinks(True)
+        versionLabel.setWordWrap(True)
         versionLabel.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        versionLabel.setText(versionInfo)
         topLayout.addWidget(versionLabel)
 
         topLayout.addStretch()

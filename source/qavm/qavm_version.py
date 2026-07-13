@@ -6,6 +6,7 @@ QAVM_VERSION = '0.4.0'
 QAVM_VARIANT = 'dev'
 PACKAGE_VERSION = ''
 BUILD_VERSION = ''
+QAVM_WEBSITE = 'https://github.com/wi1k1n/qavm'
 
 def LoadVersionInfo(rootPath: Path):
 	global BUILD_VERSION, PACKAGE_VERSION, logger
@@ -44,3 +45,5 @@ def GetPackageVersion() -> str:
 	return PACKAGE_VERSION
 def GetBuildVersion() -> str:
 	return BUILD_VERSION
+def GetQAVMWebsite() -> str:
+	return QAVM_WEBSITE
