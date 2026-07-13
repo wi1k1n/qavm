@@ -193,8 +193,11 @@ def GetFileBirthtime(path: Path) -> float:
 
 def CalculateFolderSize(path: Path) -> int:
 	""" Returns the total size in bytes of `path` (recursively for folders).
-	Uses os.scandir on Windows and the `du` command on macOS for performance. Symlinks are not followed.
-	Returns 0 if the path does not exist or cannot be read. """
+	Uses `du` on macOS for performance and a safe `os.scandir` traversal elsewhere.
+	Does NOT follow symlinks. Prevents infinite recursion by tracking resolved
+	real paths (normalized) and skipping already-visited directories.
+	Returns 0 if the path does not exist or cannot be read.
+	"""
 	if not path.exists():
 		return 0
 
@@ -204,32 +207,61 @@ def CalculateFolderSize(path: Path) -> int:
 		except OSError:
 			return 0
 
+	# Try fast path on macOS using `du` (kilobytes -> bytes)
 	if PlatformMacOS():
 		try:
 			result = subprocess.run(['du', '-sk', str(path)], capture_output=True, text=True)
 			return int(result.stdout.split()[0]) * 1024
 		except Exception:
-			return 0
+			# Fall through to Python scanner on error
+			pass
 
-	# Windows (and any other platform): recursive os.scandir traversal.
 	total: int = 0
+	visited: set[str] = set()
 
-	def scan(folder):
+	def _realpath_str(p: str) -> str:
+		try:
+			real = os.path.realpath(p)
+		except Exception:
+			try:
+				real = str(Path(p).resolve())
+			except Exception:
+				real = str(Path(p).absolute())
+		# Normalize case to avoid duplicates on case-insensitive filesystems
+		return os.path.normcase(real)
+
+	def scan(folder: str):
 		nonlocal total
 		try:
+			real = _realpath_str(folder)
+			if real in visited:
+				return
+			visited.add(real)
+
 			with os.scandir(folder) as it:
 				for entry in it:
 					try:
+						# Explicitly skip symlinks (do not follow)
+						if entry.is_symlink():
+							continue
 						if entry.is_file(follow_symlinks=False):
-							total += entry.stat(follow_symlinks=False).st_size
+							try:
+								total += entry.stat(follow_symlinks=False).st_size
+							except OSError:
+								pass
 						elif entry.is_dir(follow_symlinks=False):
+							child_real = _realpath_str(entry.path)
+							if child_real in visited:
+								continue
 							scan(entry.path)
 					except OSError:
+						# Can't access this entry, skip it
 						pass
 		except OSError:
+			# Can't access folder, skip
 			pass
 
-	scan(path)
+	scan(str(path))
 	return total
 
 
