@@ -14,7 +14,7 @@ a = Analysis(
     datas=[
         (f'build/{APP_NAME}/build.txt', './.'),
         (f'build/{APP_NAME}/builtin_plugins', './builtin_plugins/.'),
-        (f'{PATH_RES}/qavm_icon.png', './res/.'),
+        (f'{PATH_RES}', './res'),
     ],
     hiddenimports=['qavm.qavmapi',
         'pyperclip',  # TODO: can this by dynamically linked on the target system?
