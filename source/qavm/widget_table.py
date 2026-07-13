@@ -687,9 +687,12 @@ class MyTableWidget(QTableWidget):
 	def _collectColumnFilterTargets(self, logicalIndex: int) -> list[tuple[str, object]]:
 		""" Returns the de-duplicated (key, target) pairs contributed by all descriptors for a column,
 		ordered by key for a stable menu layout. """
+		getFilterTargets = self._tableInfos[logicalIndex].getFilterTargets
+		if getFilterTargets is None:
+			return []
 		uniqueTargets: dict[str, object] = {}
 		for desc in self._descs:
-			targets = self._tableBuilder.GetColumnFilterTargets(desc, logicalIndex)
+			targets = getFilterTargets(desc)
 			if not targets:
 				continue
 			for target in targets:
@@ -702,7 +705,7 @@ class MyTableWidget(QTableWidget):
 		""" Opens the filter popup for the given (filterable) column, preselecting its active targets. """
 		if not (0 <= logicalIndex < len(self._tableInfos)):
 			return
-		if not self._tableInfos[logicalIndex].isFilterable:
+		if self._tableInfos[logicalIndex].getFilterTargets is None:
 			return
 
 		targets: list[tuple[str, object]] = self._collectColumnFilterTargets(logicalIndex)
@@ -746,7 +749,11 @@ class MyTableWidget(QTableWidget):
 			for col, keys in self._activeFilters.items():
 				if not keys:
 					continue
-				if not any(self._tableBuilder.DescriptorCompliesWithFilterTarget(desc, col, k) for k in keys):
+				getFilterTargets = self._tableInfos[col].getFilterTargets
+				if getFilterTargets is None:
+					continue
+				descKeys: set = {_filterKeyOf(t) for t in (getFilterTargets(desc) or [])}
+				if descKeys.isdisjoint(keys):
 					visible = False
 					break
 			self.setRowHidden(row, not visible)
