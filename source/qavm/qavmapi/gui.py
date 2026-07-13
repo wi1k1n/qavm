@@ -414,6 +414,18 @@ def PickContrastingTextColor(bgColor: QColor | None) -> QColor:
 	return QColor('black') if luminance > 0.55 else QColor('white')
 
 
+class TagFilterBubble(BubbleWidget):
+	""" A single tag bubble shown in the table column filter popup. Exposes GetFilterKey() so QAVM can
+	de-duplicate targets and identify the tag by its UID. """
+	def __init__(self, tagUID: str, text: str, bgColor: QColor | None):
+		super().__init__(text, bgColor=bgColor, rounding=10.0, margin=5)
+		self._tagUID: str = tagUID
+		self.setStyleSheet(f'color: {PickContrastingTextColor(bgColor).name()};')
+
+	def GetFilterKey(self) -> str:
+		return self._tagUID
+
+
 class HoverFadeTooltipMixin(QWidget if TYPE_CHECKING else object):
 	""" Mixin that lazily shows a rich-text FadeTooltip after the mouse hovers for TOOLTIP_DELAY_MS.
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from functools import partial
 import json, enum
 
@@ -13,11 +13,11 @@ from PyQt6.QtWidgets import (
 	QLineEdit, QComboBox, QApplication, QCheckBox, QSpinBox, QStackedLayout,
 )
 from PyQt6.QtGui import (
-	QKeyEvent, QAction,
+	QKeyEvent, QAction, QColor,
 )
 
 from qavm.qavmapi import utils
-from qavm.qavmapi.gui import DescNotesWidget, GetThemeData, FolderPathsListWidget, TagBubblesFlowWidget
+from qavm.qavmapi.gui import DescNotesWidget, GetThemeData, FolderPathsListWidget, TagBubblesFlowWidget, TagFilterBubble
 
 # import qavm.logs as logs
 # logger = logs.logger
@@ -661,15 +661,23 @@ class TableColumnInfo(object):
 			  minWidth: int = 0,
 			  defaultWidth: int = 0,
 			  isResizable: bool = True,
-			  isFilterable: bool = False
+			  getFilterTargets: Optional[Callable[[BaseDescriptor], list]] = None
 			  ):
+		"""
+		- getFilterTargets: optional callback `getFilterTargets(desc) -> list` returning the filter targets
+		  this descriptor contributes for this column. Each target is either a plain string or a QWidget
+		  (e.g. a colorful tag bubble) exposing a `GetFilterKey() -> str` method that provides a stable
+		  identity used for de-duplication and compliance checks (for string targets the string itself is
+		  the key). A descriptor stays visible under an active filter when any of its target keys is
+		  selected. When the callback is None the column is not filterable (the default).
+		"""
 		self.title = title
 		self.cellDataGetter = cellDataGetter
 		self.tooltip = tooltip
 		self.minWidth = minWidth
 		self.defaultWidth = defaultWidth
 		self.isResizable = isResizable
-		self.isFilterable = isFilterable  # Whether the column supports MMB filter mode
+		self.getFilterTargets = getFilterTargets  # None -> column not filterable
 
 class BaseTableBuilder(BaseBuilder):
 	def GetItemDelegateClass(self) -> QStyledItemDelegate.__class__:
@@ -692,19 +700,13 @@ class BaseTableBuilder(BaseBuilder):
 		variable-height widget (e.g. wrapping tag bubbles). Content exceeding this is collapsed/clipped. """
 		return 96
 
-	def GetColumnFilterTargets(self, desc: BaseDescriptor, columnIndex: int) -> list:
-		""" Returns the filter targets this descriptor contributes for the given (filterable) column.
-
-		Each target is either a plain string or a QWidget (e.g. a colorful tag bubble). QWidget targets
-		should expose a `GetFilterKey() -> str` method providing a stable identity used for de-duplication
-		and passed back to `DescriptorCompliesWithFilterTarget`. For string targets the string itself is
-		the key. QAVM collects the union of all targets across descriptors to populate the filter menu. """
-		return []
-
-	def DescriptorCompliesWithFilterTarget(self, desc: BaseDescriptor, columnIndex: int, targetKey: str) -> bool:
-		""" Returns True if `desc` should remain visible when the filter target identified by `targetKey`
-		is active for the given column. Called once per (descriptor, active target). """
-		return False
+	def FilterTargetsGetterDefault_Tags(self, desc: BaseDescriptor, pluginID: str, softwareID: str, viewUID: str) -> list:
+		""" Default `getFilterTargets` implementation for a tags column: returns a colored bubble per
+		scoped tag (keyed by tag UID), or a single 'No tags' string target when the descriptor has none. """
+		tags = self.descDataAccessor.GetDescriptorData(desc).GetTagsScoped(pluginID, softwareID, viewUID)
+		if not tags:
+			return ['No tags']
+		return [TagFilterBubble(t.GetUID(), t.GetName(), QColor(t.GetColor()) if t.GetColor() else None) for t in tags]
 
 	# TODO: change key from int to enum. Currently 0 - LMB, 1 - RMB, 2 - MMB
 	def HandleClick(self, desc: BaseDescriptor, row: int, col: int, isDouble: bool, key: int, modifiers: Qt.KeyboardModifier):
