@@ -193,15 +193,17 @@ class MyTableViewHeader(QHeaderView):
 class _CellWidgetSortItem(QTableWidgetItem):
 	""" Invisible placeholder item placed under a cell widget. Provides a stable sort key for the
 	column while displaying no text, so nothing renders behind a transparent cell widget. """
-	def __init__(self, sortKey: str):
+	def __init__(self, sortKey: str | int | float):
 		super().__init__('')
-		self._sortKey: str = sortKey
+		self._sortKey: str | int | float = sortKey
 
 	def __lt__(self, other):
 		if isinstance(other, _CellWidgetSortItem):
-			return not other._sortKey or self._sortKey < other._sortKey
+			if isinstance(other._sortKey, (int, float)) and isinstance(self._sortKey, (int, float)):
+				return self._sortKey < other._sortKey
+			return str(self._sortKey) < str(other._sortKey)
 		elif isinstance(other, QTableWidgetItem):
-			return not other.text() or self._sortKey < other.text()
+			return not other.text() or str(self._sortKey) < other.text()
 		return super().__lt__(other)
 
 def _filterKeyOf(target) -> str:
@@ -586,7 +588,12 @@ class MyTableWidget(QTableWidget):
 			cellValue = tableInfo.cellDataGetter(desc) if callable(tableInfo.cellDataGetter) else ''
 			if isinstance(cellValue, QWidget):
 				getSortKey = getattr(cellValue, 'GetSortKey', None)
-				sortKey: str = str(getSortKey()) if callable(getSortKey) else ''
+				sortKey: str | int | float = ''
+				if callable(getSortKey):
+					sortKey = getSortKey()
+					if not isinstance(sortKey, (str, int, float)):
+						sortKey = str(sortKey)
+				
 				self.setItem(row, c, _CellWidgetSortItem(sortKey))
 				self.setCellWidget(row, c, cellValue)
 				self._connectCellWidgetAutoHeight(cellValue)
