@@ -191,26 +191,44 @@ def GetFileBirthtime(path: Path) -> float:
 	elif PlatformLinux():
 		raise NotImplementedError('Not implemented')
 
-def CalculateFolderSize(path: Path) -> int:
+def CalculateFolderSize(path: Path, follow_symlinks: bool = False) -> int:
 	""" Returns the total size in bytes of `path` (recursively for folders).
 	Uses `du` on macOS for performance and a safe `os.scandir` traversal elsewhere.
-	Does NOT follow symlinks. Prevents infinite recursion by tracking resolved
-	real paths (normalized) and skipping already-visited directories.
-	Returns 0 if the path does not exist or cannot be read.
+	Does NOT follow symlinks by default. Prevents infinite recursion by tracking
+	resolved real paths (normalized) and skipping already-visited directories.
+	When `follow_symlinks` is True the function will follow symlinks but will
+	still avoid infinite loops by tracking resolved targets. Returns 0 if the
+	path does not exist or cannot be read.
 	"""
+	# If the path doesn't exist (including broken symlinks), nothing to do.
 	if not path.exists():
 		return 0
 
-	if IsPathFile(path):
-		try:
-			return path.stat().st_size
-		except OSError:
+	# If the path itself is a symlink and we're allowed to follow it,
+	# resolve and treat the target accordingly. If not following, return 0.
+	start_path: str
+	if path.is_symlink():
+		if not follow_symlinks:
 			return 0
+		try:
+			target = path.resolve()
+		except Exception:
+			return 0
+		# If it points to a file, return that file's size.
+		if target.is_file():
+			try:
+				return target.stat().st_size
+			except OSError:
+				return 0
+		# If it points to a directory, scan the resolved directory.
+		start_path = str(target)
+	else:
+		start_path = str(path)
 
 	# Try fast path on macOS using `du` (kilobytes -> bytes)
 	if PlatformMacOS():
 		try:
-			result = subprocess.run(['du', '-sk', str(path)], capture_output=True, text=True)
+			result = subprocess.run(['du', '-sk', start_path], capture_output=True, text=True)
 			return int(result.stdout.split()[0]) * 1024
 		except Exception:
 			# Fall through to Python scanner on error
@@ -241,19 +259,39 @@ def CalculateFolderSize(path: Path) -> int:
 			with os.scandir(folder) as it:
 				for entry in it:
 					try:
-						# Explicitly skip symlinks (do not follow)
-						if entry.is_symlink():
-							continue
-						if entry.is_file(follow_symlinks=False):
-							try:
-								total += entry.stat(follow_symlinks=False).st_size
-							except OSError:
-								pass
-						elif entry.is_dir(follow_symlinks=False):
+						# Determine file/dir status honoring follow_symlinks flag.
+						# Some filesystems may raise OSError; fall back to non-following checks.
+						try:
+							is_file = entry.is_file(follow_symlinks=follow_symlinks)
+							is_dir = entry.is_dir(follow_symlinks=follow_symlinks)
+						except Exception:
+							is_file = entry.is_file(follow_symlinks=False)
+							is_dir = entry.is_dir(follow_symlinks=False)
+
+						if is_file:
+							if follow_symlinks:
+								child_real = _realpath_str(entry.path)
+								if child_real in visited:
+									continue
+								visited.add(child_real)
+								try:
+									total += entry.stat(follow_symlinks=True).st_size
+								except OSError:
+									pass
+							else:
+								try:
+									total += entry.stat(follow_symlinks=False).st_size
+								except OSError:
+									pass
+						elif is_dir:
 							child_real = _realpath_str(entry.path)
 							if child_real in visited:
 								continue
+							# Recurse into directory. If this entry is a symlink and
+							# follow_symlinks is True, `scan` will resolve its real path
+							# and avoid cycles.
 							scan(entry.path)
+						# other types (sockets, device nodes) ignored
 					except OSError:
 						# Can't access this entry, skip it
 						pass
@@ -261,7 +299,7 @@ def CalculateFolderSize(path: Path) -> int:
 			# Can't access folder, skip
 			pass
 
-	scan(str(path))
+	scan(start_path)
 	return total
 
 
