@@ -1092,6 +1092,34 @@ class VersionTooltipWidget(HoverFadeTooltipWidget):
 		return f'<div>{self._tooltipText}</div>'
 
 
+def FormatSizeHumanReadable(sizeBytes: int) -> str:
+	""" Formats a byte count into a human-readable string using binary units (B, KB, MB, GB, ...). """
+	size: float = float(max(0, int(sizeBytes)))
+	for unit in ('B', 'KB', 'MB', 'GB', 'TB', 'PB'):
+		if size < 1024.0 or unit == 'PB':
+			if unit == 'B':
+				return f'{int(size)} {unit}'
+			return f'{size:.2f} {unit}'
+		size /= 1024.0
+	return f'{size:.2f} PB'
+
+
+class FileSizeWidget(VersionTooltipWidget):
+	""" Reusable table/tile cell widget showing a human-readable file/folder size (B, KB, MB, ...) with a
+	tooltip revealing the exact byte count. Sorts numerically by the raw byte count. """
+
+	def __init__(self, sizeBytes: int, parent: QWidget | None = None,
+				alignment: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+				font: QFont | None = None, persistentTooltip: bool = True):
+		self._sizeBytes: int = max(0, int(sizeBytes))
+		super().__init__(
+			FormatSizeHumanReadable(self._sizeBytes),
+			tooltipText=f'{self._sizeBytes:,} bytes',
+			sortKey=f'{self._sizeBytes:020d}',  # zero-padded for correct lexicographic (numeric) sorting
+			parent=parent, alignment=alignment, font=font, persistentTooltip=persistentTooltip,
+		)
+
+
 _ANCHOR_RE = re.compile(r'<a\b[^>]*>.*?</a>', re.IGNORECASE | re.DOTALL)
 _TAG_RE = re.compile(r'<[^>]+>')
 _URL_RE = re.compile(r'(?:https?://|www\.)[^\s<>"\'\)\]]+', re.IGNORECASE)

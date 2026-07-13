@@ -191,6 +191,47 @@ def GetFileBirthtime(path: Path) -> float:
 	elif PlatformLinux():
 		raise NotImplementedError('Not implemented')
 
+def CalculateFolderSize(path: Path) -> int:
+	""" Returns the total size in bytes of `path` (recursively for folders).
+	Uses os.scandir on Windows and the `du` command on macOS for performance. Symlinks are not followed.
+	Returns 0 if the path does not exist or cannot be read. """
+	if not path.exists():
+		return 0
+
+	if IsPathFile(path):
+		try:
+			return path.stat().st_size
+		except OSError:
+			return 0
+
+	if PlatformMacOS():
+		try:
+			result = subprocess.run(['du', '-sk', str(path)], capture_output=True, text=True)
+			return int(result.stdout.split()[0]) * 1024
+		except Exception:
+			return 0
+
+	# Windows (and any other platform): recursive os.scandir traversal.
+	total: int = 0
+
+	def scan(folder):
+		nonlocal total
+		try:
+			with os.scandir(folder) as it:
+				for entry in it:
+					try:
+						if entry.is_file(follow_symlinks=False):
+							total += entry.stat(follow_symlinks=False).st_size
+						elif entry.is_dir(follow_symlinks=False):
+							scan(entry.path)
+					except OSError:
+						pass
+		except OSError:
+			pass
+
+	scan(path)
+	return total
+
 
 
 def OpenFolderInExplorer(folderPath: Path):
