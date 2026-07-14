@@ -158,8 +158,11 @@ class DeletableListWidget(QListWidget):
 	itemDeleted = pyqtSignal(QListWidgetItem)
 
 	def keyPressEvent(self, event: QKeyEvent) -> None:
-		if event.key() == Qt.Key.Key_Delete:
-			for item in self.selectedItems():
+		# Accept both Delete and Backspace so macOS keyboards (no forward Delete key)
+		# can also remove selected items.
+		if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+			# copy to list to avoid mutation issues while iterating
+			for item in list(self.selectedItems()):
 				self.takeItem(self.row(item))
 				self.itemDeleted.emit(item)
 		else:
