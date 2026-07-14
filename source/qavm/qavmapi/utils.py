@@ -269,6 +269,16 @@ def GetAppDataPath() -> Path:
 	if PlatformWindows():
 		return Path(str(os.getenv('APPDATA')))
 	if PlatformMacOS():
+		return Path.home()/'Library/Preferences'
+	# if PlatformLinux():
+	# 	return os.path.expanduser('~')
+	raise Exception('Unsupported platform')
+
+def GetLocalAppDataPath() -> Path:
+	"""Returns the path to the Local AppData folder for the current user. For example: C:\\Users\\myself\\AppData\\Local"""
+	if PlatformWindows():
+		return Path(str(os.getenv('LOCALAPPDATA')))
+	if PlatformMacOS():
 		return Path.home()/'Library/Application Support'
 	# if PlatformLinux():
 	# 	return os.path.expanduser('~')
