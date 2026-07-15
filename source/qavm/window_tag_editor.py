@@ -162,10 +162,16 @@ class TagEditorDialog(QDialog):
 		mainLayout = QVBoxLayout(self)
 
 		formLayout = QFormLayout()
+		formLayout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+		formLayout.setContentsMargins(0, 0, 0, 0)
+		formLayout.setSpacing(5)
+
 		nameRow = QHBoxLayout()
+		nameRow.setContentsMargins(0, 0, 0, 0)
 		self.nameField: QLineEdit = QLineEdit(tag.GetName() if tag else '')
 		self.nameField.setPlaceholderText("Tag name...")
-		nameRow.addWidget(self.nameField)
+		# Give the name field stretch so it expands while the color button keeps its fixed size.
+		nameRow.addWidget(self.nameField, 1)
 		self.colorButton: QPushButton = QPushButton()
 		self.colorButton.setFixedWidth(96)
 		self.colorButton.clicked.connect(self._pickColor)
