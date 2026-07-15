@@ -3,6 +3,7 @@ import html
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
+from warnings import deprecated
 import markdown
 
 from PyQt6.QtCore import (
@@ -46,6 +47,7 @@ class DateTimeTableWidgetItem(QTableWidgetItem):
 			return self.date < other.date
 		return super().__lt__(other)
 	
+@deprecated("Use PathTableWidgetItem instead")
 class PathTableWidgetItem(QTableWidgetItem):
 	def __init__(self, path: Path, showExpandLinks: bool = True):
 		self.path: Path = path
