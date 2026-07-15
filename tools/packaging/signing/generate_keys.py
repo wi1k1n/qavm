@@ -3,6 +3,8 @@ from cryptography.hazmat.primitives import serialization
 import argparse
 from pathlib import Path
 
+from deploy_keys import deploy_keys
+
 def main():
 	parser = argparse.ArgumentParser(description="Generate RSA private and public keys.")
 	parser.add_argument("--private", type=str, default="private.pem", help="Path to save the private key (default: private.pem)")
@@ -43,15 +45,8 @@ def main():
 
 	if args.deployPath:
 		# Create a verification key script
-		deployPath: Path = Path(args.deployPath)
-		if not deployPath.parent.exists():
-			deployPath.parent.mkdir(parents=True, exist_ok=True)
-		with open(deployPath, "w") as f:
-			f.write(f"""\
-# This script contains the public key for signature verification.
-VERIFICATION_KEY = \"\"\"{public_key_bytes.decode('utf-8')}\"\"\"
-""")
-		print(f"Verification key saved to: {deployPath.resolve().absolute()}")
+		deployedPath = deploy_keys(publicPath, Path(args.deployPath))
+		print(f"Verification key saved to: {deployedPath}")
 
 if __name__ == "__main__":
 	main()
