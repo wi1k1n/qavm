@@ -3,7 +3,7 @@ import html
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
-from warnings import deprecated
+from typing_extensions import deprecated
 import markdown
 
 from PyQt6.QtCore import (
