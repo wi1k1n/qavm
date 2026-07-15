@@ -1107,6 +1107,78 @@ class VersionTooltipWidget(HoverFadeTooltipWidget):
 		return f'<div>{self._tooltipText}</div>'
 
 
+class PathTooltipWidget(HoverFadeTooltipWidget):
+	""" Table/tile cell widget that shows a filesystem path and, on hover, a FadeTooltip with the full
+	path (and the resolved link target when the path is a symlink/junction/shortcut).
+
+	Mirrors PathTableWidgetItem's display (an (S)/(L)/(J)/(C) prefix and a ' ( → target)' postfix for
+	links) but as a widget so that the full path is available via a hover tooltip when the cell text is
+	elided. Mouse interactions other than hover are forwarded to the underlying table/tile so row
+	selection, context menus and drag-n-drop keep working. GetSortKey enables sorting the Path column. """
+
+	def __init__(self, path: Path, showExpandLinks: bool = True, parent: QWidget | None = None,
+				alignment: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+				font: QFont | None = None, persistentTooltip: bool = True):
+		super().__init__(parent, persistentTooltip=persistentTooltip)
+		self._path: Path = path
+
+		dirPrefix: str = ''
+		dirPostfix: str = ''
+		if showExpandLinks:
+			if qutils.IsPathSymlinkF(self._path):
+				dirPrefix = '(S) '
+				if target := qutils.GetSymlinkFTarget(self._path):
+					dirPostfix = f' ( → {target})'
+			elif qutils.IsPathSymlinkD(self._path):
+				dirPrefix = '(L) '
+				if target := qutils.GetSymlinkDTarget(self._path):
+					dirPostfix = f' ( → {target})'
+			elif qutils.IsPathJunction(self._path):
+				dirPrefix = '(J) '
+				if target := qutils.GetJunctionTarget(self._path):
+					dirPostfix = f' ( → {target})'
+			elif qutils.IsPathShortcut(self._path):
+				dirPrefix = '(C) '
+				if target := qutils.GetShortcutTarget(self._path):
+					dirPostfix = f' ( → {target})'
+		self._text: str = f'{dirPrefix}{str(self._path)}{dirPostfix}'
+
+		self._label: QLabel = QLabel(self._text, self)
+		self._label.setAlignment(alignment)
+		if font is not None:
+			self._label.setFont(font)
+		# The label is decorative; all mouse events go through the container (and on to the table/tile).
+		self._label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+
+	def resizeEvent(self, event):
+		""" Stretch the label to cover the full widget rect so alignment applies to the whole cell area.
+		This matters in table cells where setCellWidget sizes the widget to the row height. """
+		self._label.setGeometry(self.rect())
+		super().resizeEvent(event)
+
+	def sizeHint(self) -> QSize:
+		return self._label.sizeHint()
+
+	def minimumSizeHint(self) -> QSize:
+		return self._label.minimumSizeHint()
+
+	def GetSortKey(self) -> str | int | float:
+		""" Returns the stable key used to sort the Path column (lower-cased path string). """
+		return str(self._path).lower()
+
+	def mouseMoveEvent(self, event: QMouseEvent):
+		self._ScheduleTooltip()
+		# Let the underlying table/tile keep handling hover and rubber-band selection.
+		event.ignore()
+
+	def mousePressEvent(self, event: QMouseEvent):
+		# Clicks, context menus and drags belong to the table/tile underneath.
+		event.ignore()
+
+	def _GetTooltipHtml(self) -> str | None:
+		return f'<div>{html.escape(self._text)}</div>'
+
+
 _ANCHOR_RE = re.compile(r'<a\b[^>]*>.*?</a>', re.IGNORECASE | re.DOTALL)
 _TAG_RE = re.compile(r'<[^>]+>')
 _URL_RE = re.compile(r'(?:https?://|www\.)[^\s<>"\'\)\]]+', re.IGNORECASE)
