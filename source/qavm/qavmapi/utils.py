@@ -183,16 +183,6 @@ def CopyPath(src: Path, dst: Path, exist_overwrite: bool = False):
 
 
 
-def GetFileBirthtime(path: Path) -> float:
-	if PlatformWindows():
-		return path.stat().st_ctime
-	elif PlatformMacOS():
-		return path.stat().st_birthtime
-	elif PlatformLinux():
-		raise NotImplementedError('Not implemented')
-
-
-
 def OpenFolderInExplorer(folderPath: Path):
 	if PlatformWindows():
 		os.startfile(folderPath)
