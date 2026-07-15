@@ -183,16 +183,6 @@ def CopyPath(src: Path, dst: Path, exist_overwrite: bool = False):
 
 
 
-def GetFileBirthtime(path: Path) -> float:
-	if PlatformWindows():
-		return path.stat().st_ctime
-	elif PlatformMacOS():
-		return path.stat().st_birthtime
-	elif PlatformLinux():
-		raise NotImplementedError('Not implemented')
-
-
-
 def OpenFolderInExplorer(folderPath: Path):
 	if PlatformWindows():
 		os.startfile(folderPath)
@@ -268,6 +258,16 @@ def GetAppDataPath() -> Path:
 	"""Returns the path to the AppData folder for the current user. For example: C:\\Users\\myself\\AppData\\Roaming"""
 	if PlatformWindows():
 		return Path(str(os.getenv('APPDATA')))
+	if PlatformMacOS():
+		return Path.home()/'Library/Preferences'
+	# if PlatformLinux():
+	# 	return os.path.expanduser('~')
+	raise Exception('Unsupported platform')
+
+def GetLocalAppDataPath() -> Path:
+	"""Returns the path to the Local AppData folder for the current user. For example: C:\\Users\\myself\\AppData\\Local"""
+	if PlatformWindows():
+		return Path(str(os.getenv('LOCALAPPDATA')))
 	if PlatformMacOS():
 		return Path.home()/'Library/Application Support'
 	# if PlatformLinux():
