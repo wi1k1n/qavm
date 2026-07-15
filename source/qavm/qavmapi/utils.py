@@ -393,6 +393,10 @@ def GetQAVMResPath() -> Path:
 	Development (running qavm.py): the executable lives in 'qavm/source', while the 'res' folder
 	is one level up in the repository root, i.e. qavm/res."""
 	if IsFrozen():
+		if PlatformWindows():
+			return GetQAVMRootPath()/'res'
+		if PlatformMacOS():
+			return GetQAVMRootPath().parent/'Resources/res'
 		return GetQAVMRootPath()/'res'
 	return GetQAVMRootPath().parent/'res'
 
