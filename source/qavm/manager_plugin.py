@@ -553,6 +553,9 @@ class QAVMPlugin:
 		self.pluginVersion = ''
 		self.pluginPackageName = self.module.__name__
 
+		self.pluginPackageInfo = ''  # first line of build.txt (e.g. datetime or pipeline ID)
+		self.pluginBuildInfo = ''  # second line of build.txt (e.g. commit ID or perforce CL)
+
 		self.softwareHandlers: dict[str, SoftwareHandler] = dict()  # softwareID: SoftwareHandler
 		# self.settingsHandlers: dict[str, SettingsHandler] = dict()  # moduleID: SettingsHandler
 
@@ -574,8 +577,26 @@ class QAVMPlugin:
 
 		self.pluginWorkspaces: list[QAVMWorkspace] = []
 
+		self._loadBuildInfo()
 		self._loadPluginSoftware()
 	
+	def _loadBuildInfo(self) -> None:
+		""" Loads the optional build.txt file from the plugin's root folder.
+		The file contains two lines: the first is the package info (e.g. datetime or pipeline ID),
+		the second is the build info (e.g. commit ID or perforce CL). """
+		buildFilePath = self.pluginExecutablePath.parent / 'build.txt'
+		if not buildFilePath.exists():
+			return
+		try:
+			with open(buildFilePath, 'r') as f:
+				lines = [line.rstrip() for line in f.readlines() if line.strip()]
+			if len(lines) >= 1:
+				self.pluginPackageInfo = lines[0]
+			if len(lines) >= 2:
+				self.pluginBuildInfo = lines[1]
+		except Exception as e:
+			logger.exception(f'Failed to load build info from build.txt for plugin: {self.pluginID}')
+
 	def _loadPluginSoftware(self) -> None:
 		pluginSoftwareRegisterFunc = getattr(self.module, 'RegisterPluginSoftware', None)
 		if pluginSoftwareRegisterFunc is None or not callable(pluginSoftwareRegisterFunc):
@@ -722,6 +743,14 @@ class QAVMPlugin:
 	def GetPluginWebsite(self) -> str:
 		""" Returns the website of the plugin (can be empty), e.g. 'https://example.com/plugin' """
 		return self.pluginWebsite
+	
+	def GetPluginPackageInfo(self) -> str:
+		""" Returns the package info loaded from build.txt (can be empty), e.g. a datetime or pipeline ID. """
+		return self.pluginPackageInfo
+	
+	def GetPluginBuildInfo(self) -> str:
+		""" Returns the build info loaded from build.txt (can be empty), e.g. a commit ID or perforce CL. """
+		return self.pluginBuildInfo
 	
 	@staticmethod
 	def IsVersionValid(version: str) -> bool:
