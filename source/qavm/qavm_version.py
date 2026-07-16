@@ -13,7 +13,7 @@ def LoadVersionInfo(rootPath: Path):
 	
 	buildFilePath = rootPath / 'build.txt'
 	if not buildFilePath.exists():
-		logger.exception('Failed to load build info from build.txt file')
+		logger.exception(f'Failed to load build info from build.txt file from {buildFilePath}')
 		return
 	
 	try:

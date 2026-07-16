@@ -1,6 +1,5 @@
 from PyQt6.QtWidgets import (
 	QDialog, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QWidget, QDialogButtonBox,
-    
 )
 from PyQt6.QtGui import (
 	QIcon, 
@@ -9,6 +8,7 @@ from PyQt6.QtCore import (
 	Qt, 
 )
 
+import qavm.qavmapi.utils as qutils
 from qavm.qavm_version import (
     GetQAVMVersionVariant, GetPackageVersion, GetBuildVersion, GetQAVMWebsite, 
 )
@@ -28,7 +28,7 @@ class AboutDialog(QDialog):
         topLayout = QHBoxLayout()
 
         # App icon
-        icon = QIcon("res/qavm_icon.png")  # Replace with your icon path or Qt resource
+        icon = QIcon(str(qutils.GetQAVMResPath()/"qavm_icon.png"))  # Replace with your icon path or Qt resource
         pixmap = icon.pixmap(64, 64)
         iconLabel = QLabel()
         iconLabel.setPixmap(pixmap)

@@ -1,4 +1,5 @@
 import sys, os, argparse
+from pathlib import Path
 
 import cProfile, pstats
 
@@ -44,7 +45,8 @@ def ParseArgs() -> argparse.Namespace:
 	return args
 
 def main():
-	LoadVersionInfo(utils.GetQAVMRootPath())
+	buildFileFolderPath: Path = utils.GetQAVMRootPath() if utils.PlatformWindows() else utils.GetQAVMRootPath().parent/'Resources'
+	LoadVersionInfo(buildFileFolderPath)
 	print(f'QAVM Version: {GetQAVMVersion()}')
 	print(f'QAVM Variant: {GetQAVMVariant()}')
 	print(f'Package Version: {GetPackageVersion()}')
