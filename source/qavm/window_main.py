@@ -99,6 +99,7 @@ class MainWindow(QMainWindow):
 		self._setupTagsDock()
 
 		self._restoreWindowGeometry()
+		self._restoreTagsDockState()
 
 	def _setupActions(self):
 		self.actionPrefs = QAction("&Preferences", self)
@@ -313,6 +314,9 @@ class MainWindow(QMainWindow):
 			logger.warning(f"Failed to resolve active tag context: {e}")
 			return '', ''
 
+	def _restoreTagsDockState(self):
+		""" Restores the tags palette dock layout (visibility / floating / docked side) and
+		its filter state from the last session. """
 		# Restore the tags palette dock layout (visibility / floating / docked side) from the last session.
 		savedWindowState: str = self.qavmSettings.GetMainWindowState()
 		if savedWindowState:
