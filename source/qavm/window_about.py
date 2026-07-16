@@ -65,15 +65,23 @@ class AboutDialog(QDialog):
             pluginVariant: str = plugin.GetPluginVariant()
             if pluginVariant:
                 pluginVersion += f" ({pluginVariant})"
-            pluginText = (
-                f"<b>Plugin:</b> {plugin.GetName()}"
-                f"<br><b>Version:</b> {pluginVersion}"
-                f"<br><b>UID:</b> {plugin.GetUID()}"
-                f"<br><b>Description:</b> {PlainTextToTooltipHtml(plugin.GetDescription())}" if plugin.GetDescription() else ""
-                f"<br><b>Executable:</b> <code>{plugin.GetExecutablePath()}</code>"
-                f"<br><b>Developer:</b> {plugin.GetPluginDeveloper()}"
-                f"<br><b>Website:</b> <a href='{plugin.GetPluginWebsite()}'>{plugin.GetPluginWebsite()}</a>"
-            )
+            pluginTextParts = [
+                f"<b>Plugin:</b> {plugin.GetName()}",
+                f"<b>Version:</b> {pluginVersion}",
+                f"<b>UID:</b> {plugin.GetUID()}",
+            ]
+            if plugin.GetPluginPackageInfo():
+                pluginTextParts.append(f"<b>Package:</b> {plugin.GetPluginPackageInfo()}")
+            if plugin.GetPluginBuildInfo():
+                pluginTextParts.append(f"<b>Build:</b> {plugin.GetPluginBuildInfo()}")
+            pluginTextParts.extend([
+                f"<b>Executable:</b> <code>{plugin.GetExecutablePath()}</code>",
+                f"<b>Developer:</b> {plugin.GetPluginDeveloper()}",
+                f"<b>Website:</b> <a href='{plugin.GetPluginWebsite()}'>{plugin.GetPluginWebsite()}</a>",
+            ])
+            if plugin.GetDescription():
+                pluginTextParts.append(f"<b>Description:</b> {PlainTextToTooltipHtml(plugin.GetDescription())}")
+            pluginText = "<br>".join(pluginTextParts)
             pluginLabel = QLabel()
             pluginLabel.setTextFormat(Qt.TextFormat.RichText)
             pluginLabel.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
