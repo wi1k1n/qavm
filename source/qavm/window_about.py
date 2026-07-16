@@ -12,6 +12,7 @@ from PyQt6.QtCore import (
 from qavm.qavm_version import (
     GetQAVMVersionVariant, GetPackageVersion, GetBuildVersion, GetQAVMWebsite, 
 )
+from qavm.qavmapi.gui import PlainTextToTooltipHtml
 
 class AboutDialog(QDialog):
     def __init__(self, parent, pluginManager):
@@ -68,6 +69,7 @@ class AboutDialog(QDialog):
                 f"<b>Plugin:</b> {plugin.GetName()}"
                 f"<br><b>Version:</b> {pluginVersion}"
                 f"<br><b>UID:</b> {plugin.GetUID()}"
+                f"<br><b>Description:</b> {PlainTextToTooltipHtml(plugin.GetDescription())}" if plugin.GetDescription() else ""
                 f"<br><b>Executable:</b> <code>{plugin.GetExecutablePath()}</code>"
                 f"<br><b>Developer:</b> {plugin.GetPluginDeveloper()}"
                 f"<br><b>Website:</b> <a href='{plugin.GetPluginWebsite()}'>{plugin.GetPluginWebsite()}</a>"

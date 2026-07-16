@@ -568,6 +568,7 @@ class QAVMPlugin:
 		# These are optional
 		self.pluginVariant = getattr(self.module, 'PLUGIN_VARIANT', '')
 		self.pluginName = getattr(self.module, 'PLUGIN_NAME', self.pluginPackageName)
+		self.pluginDescription = getattr(self.module, 'PLUGIN_DESCRIPTION', '')
 		self.pluginDeveloper = getattr(self.module, 'PLUGIN_DEVELOPER', 'Unknown')
 		self.pluginWebsite = getattr(self.module, 'PLUGIN_WEBSITE', '')
 
@@ -689,6 +690,10 @@ class QAVMPlugin:
 	def GetName(self) -> str:
 		""" Returns the name of the plugin, e.g. 'Example Plugin'. Returns Package name if not set. """
 		return self.pluginName
+	
+	def GetDescription(self) -> str:
+		""" Returns the description of the plugin, e.g. 'This is an example plugin.'. Returns empty string if not set. """
+		return self.pluginDescription
 	
 	def GetVersionStr(self) -> str:
 		""" Returns the version of the plugin as a string, e.g. '0.1.0' """
