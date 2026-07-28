@@ -2,7 +2,7 @@ from pathlib import Path
 import qavm.logs as logs
 logger = logs.logger
 
-QAVM_VERSION = '0.4.0'
+QAVM_VERSION = '0.4.1'
 QAVM_VARIANT = ''
 PACKAGE_VERSION = ''
 BUILD_VERSION = ''
