@@ -128,8 +128,14 @@ class CenteredIconTabBar(QTabBar):
 		maxWidth = min(iconSize.width(), rect.width())
 		maxHeight = min(iconSize.height(), rect.height())
 		pixmap = icon.pixmap(QSize(maxWidth, maxHeight))
-		x = rect.x() + (rect.width() - pixmap.width()) // 2
-		y = rect.y() + (rect.height() - pixmap.height()) // 2
+		# On HiDPI/Retina displays the pixmap is rendered at the device pixel ratio, so pixmap.width()/
+		# height() return physical pixels (e.g. 2x). Center using the logical (device-independent) size,
+		# otherwise the icon is offset off-screen and appears clipped (only the lower-right part shows).
+		logicalSize = pixmap.deviceIndependentSize()
+		w = int(logicalSize.width())
+		h = int(logicalSize.height())
+		x = rect.x() + (rect.width() - w) // 2
+		y = rect.y() + (rect.height() - h) // 2
 		painter.drawPixmap(x, y, pixmap)
 
 class QAVMGlobalSettings(BaseSettings):
@@ -152,6 +158,7 @@ class QAVMGlobalSettings(BaseSettings):
 		'update_check_last_time': '',  # ISO-8601 UTC timestamp of the last successful update check
 		'update_check_snooze_until': '',  # ISO-8601 UTC timestamp until which the update popup is suppressed, or 'startup' sentinel
 		'update_check_skip_signature': '',  # Signature of the last skipped update set (core + plugin versions)
+		'experimental_tableview_filtering': False,  # Off by default; enables experimental column filtering in table views
 	}
 
 	def __init__(self, prefName: str, defaultGlobalSearchPaths: list[str]):
@@ -319,10 +326,24 @@ class QAVMGlobalSettings(BaseSettings):
 	def SetUpdateCheckSkipSignature(self, signature: str) -> None:
 		self.SetSetting('update_check_skip_signature', signature)
 
+	# ----------------------------- Experimental features -----------------------------
+
+	def GetExperimentalTableViewFiltering(self) -> bool:
+		""" Returns whether experimental table view filtering is enabled. """
+		value = self.GetSetting('experimental_tableview_filtering')
+		return value if isinstance(value, bool) else False
+
+	def SetExperimentalTableViewFiltering(self, enabled: bool) -> None:
+		self.SetSetting('experimental_tableview_filtering', bool(enabled))
+
 
 	def CreateWidgets(self, parent: QWidget) -> list[tuple[str, QWidget | None]]:
 		settingsWidget: QWidget = QWidget(parent)
 		layout: QFormLayout = QFormLayout(settingsWidget)
+		# On macOS the QFormLayout default field growth policy is FieldsStayAtSizeHint, which leaves fields
+		# at their size hint (appearing narrow/centered) instead of filling the available width like on
+		# Windows/Linux. Force AllNonFixedFieldsGrow so fields expand consistently across platforms.
+		layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
 		selectThemeWidget = self._createThemeSelectorWidget(parent)
 		layout.addRow('App Theme', selectThemeWidget)
@@ -333,7 +354,8 @@ class QAVMGlobalSettings(BaseSettings):
 		searchPathsWidget = self._createSearchPathsWidget(parent)
 		layout.addRow('Search Paths (Global)', searchPathsWidget)
 
-		return [('Application', settingsWidget)]
+		experimentalWidget = self._createExperimentalWidget(parent)
+		return [('Application', settingsWidget), ('Experimental', experimentalWidget)]
 
 	def _createUpdateCheckWidget(self, parent: QWidget | None = None) -> QWidget:
 		widget = QWidget(parent)
@@ -359,7 +381,26 @@ class QAVMGlobalSettings(BaseSettings):
 		layout.addWidget(combo)
 		layout.addStretch()
 		return widget
-	
+
+	def _createExperimentalWidget(self, parent: QWidget | None = None) -> QWidget:
+		widget = QWidget(parent)
+		layout = QVBoxLayout(widget)
+
+		# Experimental: table view filtering
+		self.experimentalTableViewFilteringCheckbox = QCheckBox('Enable table view filtering (Experimental)', widget)
+		self.experimentalTableViewFilteringCheckbox.setToolTip(
+			'Clicking Middle Mouse on a table column header will show a filter input for that column.'
+			'\nThis is an experimental feature and may not work correctly in all cases.')
+		self.experimentalTableViewFilteringCheckbox.setChecked(self.GetExperimentalTableViewFiltering())
+		self.experimentalTableViewFilteringCheckbox.toggled.connect(self._onExperimentalTableViewFilteringToggled)
+		layout.addWidget(self.experimentalTableViewFilteringCheckbox)
+
+		layout.addStretch()
+		return widget
+
+	def _onExperimentalTableViewFilteringToggled(self, checked: bool):
+		self.SetExperimentalTableViewFiltering(checked)
+
 	# TODO: This is very similar to the one in SoftwareBaseSettings, consider refactoring
 	def _createSearchPathsWidget(self, parent: QWidget | None = None) -> QWidget:
 		widget = QWidget(parent)

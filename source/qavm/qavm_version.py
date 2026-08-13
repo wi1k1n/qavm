@@ -2,17 +2,18 @@ from pathlib import Path
 import qavm.logs as logs
 logger = logs.logger
 
-QAVM_VERSION = '0.4.0'
-QAVM_VARIANT = 'dev'
+QAVM_VERSION = '0.4.1'
+QAVM_VARIANT = ''
 PACKAGE_VERSION = ''
 BUILD_VERSION = ''
+QAVM_WEBSITE = 'https://github.com/wi1k1n/qavm'
 
 def LoadVersionInfo(rootPath: Path):
 	global BUILD_VERSION, PACKAGE_VERSION, logger
 	
 	buildFilePath = rootPath / 'build.txt'
 	if not buildFilePath.exists():
-		logger.exception('Failed to load build info from build.txt file')
+		logger.exception(f'Failed to load build info from build.txt file from {buildFilePath}')
 		return
 	
 	try:
@@ -44,3 +45,5 @@ def GetPackageVersion() -> str:
 	return PACKAGE_VERSION
 def GetBuildVersion() -> str:
 	return BUILD_VERSION
+def GetQAVMWebsite() -> str:
+	return QAVM_WEBSITE

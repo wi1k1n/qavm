@@ -14,7 +14,7 @@ a = Analysis(
     datas=[
         (f'build/{APP_NAME}/build.txt', './.'),
         (f'build/{APP_NAME}/builtin_plugins', './builtin_plugins/.'),
-        (f'{PATH_RES}/qavm_icon.png', './res/.'),
+        (f'{PATH_RES}', './res'),
     ],
     hiddenimports=['qavm.qavmapi',
         'pyperclip',  # TODO: can this by dynamically linked on the target system?
@@ -37,7 +37,7 @@ exe = EXE(
     contents_directory='.',
     exclude_binaries=True,
     name=APP_NAME,
-    icon=f'{PATH_RES}/qavm_icon.ico',
+    icon=f'{PATH_RES}/qavm_icon.png',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

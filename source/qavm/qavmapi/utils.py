@@ -183,16 +183,6 @@ def CopyPath(src: Path, dst: Path, exist_overwrite: bool = False):
 
 
 
-def GetFileBirthtime(path: Path) -> float:
-	if PlatformWindows():
-		return path.stat().st_ctime
-	elif PlatformMacOS():
-		return path.stat().st_birthtime
-	elif PlatformLinux():
-		raise NotImplementedError('Not implemented')
-
-
-
 def OpenFolderInExplorer(folderPath: Path):
 	if PlatformWindows():
 		os.startfile(folderPath)
@@ -268,6 +258,16 @@ def GetAppDataPath() -> Path:
 	"""Returns the path to the AppData folder for the current user. For example: C:\\Users\\myself\\AppData\\Roaming"""
 	if PlatformWindows():
 		return Path(str(os.getenv('APPDATA')))
+	if PlatformMacOS():
+		return Path.home()/'Library/Preferences'
+	# if PlatformLinux():
+	# 	return os.path.expanduser('~')
+	raise Exception('Unsupported platform')
+
+def GetLocalAppDataPath() -> Path:
+	"""Returns the path to the Local AppData folder for the current user. For example: C:\\Users\\myself\\AppData\\Local"""
+	if PlatformWindows():
+		return Path(str(os.getenv('LOCALAPPDATA')))
 	if PlatformMacOS():
 		return Path.home()/'Library/Application Support'
 	# if PlatformLinux():
@@ -393,6 +393,10 @@ def GetQAVMResPath() -> Path:
 	Development (running qavm.py): the executable lives in 'qavm/source', while the 'res' folder
 	is one level up in the repository root, i.e. qavm/res."""
 	if IsFrozen():
+		if PlatformWindows():
+			return GetQAVMRootPath()/'res'
+		if PlatformMacOS():
+			return GetQAVMRootPath().parent/'Resources/res'
 		return GetQAVMRootPath()/'res'
 	return GetQAVMRootPath().parent/'res'
 
@@ -456,19 +460,50 @@ def GetWinExeVersionInfo(execPath: Path) -> tuple[str, str]:
 
 # TODO: this is better to be an QAVMApp class variable
 processes: dict[str, subprocess.Popen] = dict()
-def StartProcess(uid: str, path: Path, args: list[str]) -> int:
+def StartProcess(uid: str, path: Path, args: list[str], clean_env: bool = True) -> int:
+	"""
+	Start a process and track it by `uid`.
+
+	Args:
+		uid: Unique identifier for the launched process.
+		path: Path to the executable to run.
+		args: List of arguments to pass to the process.
+		clean_env: When True (default) remove Qt-related and Python environment
+			variables from the child process environment to avoid DLL/plugin
+			collisions (e.g. when launching external apps that bundle Qt).
+	"""
 	p: subprocess.Popen | None = None
 
+	env_to_use = None
+	if clean_env:
+		env = os.environ.copy()
+		for key in [
+			"QT_PLUGIN_PATH",
+			"QML2_IMPORT_PATH",
+			"QT_QPA_PLATFORM_PLUGIN_PATH",
+			"PYTHONPATH",
+		]:
+			env.pop(key, None)
+		# Remove the current Python/app directory from PATH to avoid mixing DLLs.
+		app_dir = str(Path(sys.executable).parent)
+		path_entries = env.get("PATH", "").split(os.pathsep)
+		path_entries = [
+			p for p in path_entries
+			if os.path.normcase(os.path.normpath(p)) != os.path.normcase(os.path.normpath(app_dir))
+		]
+		env["PATH"] = os.pathsep.join(path_entries)
+		env_to_use = env
+
 	if PlatformWindows():
-		p = subprocess.Popen([str(path), *args])
+		p = subprocess.Popen([str(path), *args], env=env_to_use)
 	elif PlatformMacOS():
 		# TODO: open doesn't give a PID, so we can't track the process. need to find the PID by name or something else
-		p = subprocess.Popen(['open', '-a', str(path), '--args', *args])
+		p = subprocess.Popen(['open', '-a', str(path), '--args', *args], env=env_to_use)
 	# elif PlatformLinux():
 	# 	return subprocess.Popen([path, args]).pid
 	else:
 		raise Exception('Unsupported platform')
-	
+    
 	if p is None:
 		raise Exception('Failed to start process')
 

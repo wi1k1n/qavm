@@ -1,0 +1,11 @@
+#!/bin/bash
+
+source ../../venv/bin/activate
+
+# Generate signing keys
+python signing/deploy_keys.py --private signing/keys/private.pem --public signing/keys/public.pem --deployPath ../../source/qavm/generated/verification_key.py
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+echo "Keys deployed successfully."

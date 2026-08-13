@@ -1,5 +1,5 @@
 import argparse
-from typing import List, Type
+from typing import List, Type, Any, Callable, cast
 from pathlib import Path
 
 from qavm.manager_plugin import PluginManager, SoftwareHandler, QAVMWorkspace, QAVMPlugin
@@ -26,11 +26,49 @@ from PyQt6.QtGui import (
     QIcon, 
 )
 from PyQt6.QtWidgets import (
-	QApplication, QWidget, QMessageBox
+	QApplication, QWidget, QMessageBox, QProxyStyle, QStyle
 )
 
 import qavm.logs as logs
 logger = logs.logger
+
+# TODO: is this the correct way of handling it?
+# Workaround: On Python interpreter shutdown some threading module globals
+# may become `None`, causing `_DeleteDummyThreadOnDel.__del__` to raise
+# "TypeError: 'NoneType' object does not support the context manager protocol".
+# Patch the destructor at import time to silently ignore that TypeError.
+try:
+	import threading
+
+	_cls = getattr(threading, '_DeleteDummyThreadOnDel', None)
+	if _cls is not None:
+		_orig_del = getattr(_cls, '__del__', None)
+		if _orig_del is not None:
+			_callable_orig = cast(Callable[[Any], Any], _orig_del)
+
+			def _safe__del(self):
+				try:
+					_callable_orig(self)
+				except TypeError:
+					# Happens during interpreter shutdown when module globals
+					# are set to None; safe to ignore.
+					pass
+
+			_cls.__del__ = _safe__del
+except Exception:
+	# If anything goes wrong, don't prevent the application from starting.
+	pass
+
+class FastSubmenuStyle(QProxyStyle):
+	def __init__(self, base_style, delay_ms: int = 20):
+		super().__init__(base_style)
+		self.delay_ms = delay_ms
+
+	def styleHint(self, hint, option=None, widget=None, returnData=None):
+		if hint == QStyle.StyleHint.SH_Menu_SubMenuPopupDelay:
+			return self.delay_ms
+
+		return super().styleHint(hint, option, widget, returnData)
 
 # Extensive PyQt tutorial: https://realpython.com/python-menus-toolbars/#building-context-or-pop-up-menus-in-pyqt
 class QAVMApp(QApplication):
@@ -43,7 +81,13 @@ class QAVMApp(QApplication):
 		
 		self.iconApp: QIcon = QIcon(str(Path('res/qavm_icon.png').resolve()))
 		self.setWindowIcon(self.iconApp)
-		
+
+		# Apply FastSubmenuStyle to reduce submenu popup delay (make submenus show faster)
+		try:
+			self.setStyle(FastSubmenuStyle(self.style(), delay_ms=0))
+		except Exception as e:
+			logger.warning(f'Failed to apply FastSubmenuStyle: {e}')
+
 		self.installEventFilter(self)
 
 		self.pluginsFolderPaths: set[Path] = {utils.GetDefaultPluginsFolderPath()}

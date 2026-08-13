@@ -1,4 +1,5 @@
 from __future__ import annotations
+import html
 import uuid
 from enum import IntEnum
 from typing import TYPE_CHECKING
@@ -11,7 +12,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QAction, QColor, QDrag, QPainter, QPixmap, QMouseEvent
 
 from qavm.qavmapi import BaseDescriptor
-from qavm.manager_tags import TagsManager, BaseTagImpl, TagScope
+from qavm.manager_tags import TagsManager, BaseTagImpl, TagScope, TAG_SCOPE_VIEWS_ENABLED
 from qavm.manager_descriptor_data import DescriptorDataManager
 from qavm.manager_plugin import PluginManager, UID
 from qavm.qavmapi.gui import GetThemeData, HoverFadeTooltipMixin, PlainTextToTooltipHtml, PickContrastingTextColor
@@ -24,6 +25,27 @@ if TYPE_CHECKING:
 
 import qavm.logs as logs
 logger = logs.logger
+
+
+def _resolvePluginName(pluginID: str) -> str:
+	""" Returns the human-friendly plugin name for a plugin ID (falls back to the ID itself). """
+	if not pluginID:
+		return ''
+	pluginManager: PluginManager = QApplication.instance().GetPluginManager()
+	plugin = pluginManager.GetPlugin(pluginID)
+	return plugin.GetName() if plugin else pluginID
+
+
+def _resolveSoftwareName(pluginID: str, softwareID: str) -> str:
+	""" Returns the human-friendly software name for a software ID (falls back to the ID itself). """
+	if not softwareID:
+		return ''
+	pluginManager: PluginManager = QApplication.instance().GetPluginManager()
+	for pID, sID, swHandler in pluginManager.GetSoftwareHandlers():
+		if sID == softwareID and (not pluginID or pID == pluginID):
+			return swHandler.GetName()
+	return softwareID
+
 
 
 class ScopePreset(IntEnum):
@@ -201,9 +223,11 @@ class TagBubbleWidget(HoverFadeTooltipMixin, BubbleWidget):
 			
 			rows.append(f'<tr><td colspan="2" style="padding-top:6px; color:{colorPrimary.name()};"><i>Scopes:</i></td></tr>')
 			for scope in scopes:
-				rows.append(getScopeLine("plugin", scope.pluginID))
-				rows.append(getScopeLine("software", scope.softwareID))
-				rows.append(getScopeLine("view", scope.viewUID))
+				# Show human-friendly plugin/software names instead of raw IDs.
+				rows.append(getScopeLine("plugin", _resolvePluginName(scope.pluginID)))
+				rows.append(getScopeLine("software", _resolveSoftwareName(scope.pluginID, scope.softwareID)))
+				if TAG_SCOPE_VIEWS_ENABLED:
+					rows.append(getScopeLine("view", scope.viewUID))
 				# spacer between scopes
 				rows.append('<tr><td colspan="2" style="height:6px"></td></tr>')
 				
@@ -444,8 +468,14 @@ class TagsPaletteWidget(QWidget):
 		self.softwareCombo: QComboBox = self._makeFilterCombo(self._softwareOptions)
 		self.viewCombo: QComboBox = self._makeFilterCombo(self._viewOptions)
 
+		# The view filter is kept alive (so it still contributes '' = all to filtering) but only shown to the
+		# user when view scoping is enabled.
+		filterRows: list[tuple[str, QComboBox]] = [("Plugin:", self.pluginCombo), ("Software:", self.softwareCombo)]
+		if TAG_SCOPE_VIEWS_ENABLED:
+			filterRows.append(("View:", self.viewCombo))
+
 		filterCells: list[QWidget] = []
-		for labelText, combo in (("Plugin:", self.pluginCombo), ("Software:", self.softwareCombo), ("View:", self.viewCombo)):
+		for labelText, combo in filterRows:
 			cell = QWidget()
 			cellLayout = QHBoxLayout(cell)
 			cellLayout.setContentsMargins(0, 0, 0, 0)
@@ -486,19 +516,8 @@ class TagsPaletteWidget(QWidget):
 
 	# region Active context
 	def _getActiveContext(self) -> tuple[str, str]:
-		""" Returns (pluginID, softwareID) of the currently active view tab, or ('', '') if unavailable. """
-		try:
-			tabsWidget = getattr(self.mainWindow, 'tabsWidget', None)
-			if tabsWidget is None:
-				return '', ''
-			current = tabsWidget.currentWidget()
-			swHandler = getattr(current, 'swHandler', None)
-			if swHandler is None:
-				return '', ''
-			return swHandler.pluginID, swHandler.GetID()
-		except Exception as e:
-			logger.warning(f"Failed to resolve active tag context: {e}")
-			return '', ''
+		"""Delegate to the MainWindow implementation to resolve the active view context."""
+		return self.mainWindow._getActiveContext()
 
 	def _setCombo(self, combo: QComboBox, value: str):
 		idx = combo.findData(value)

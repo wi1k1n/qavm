@@ -99,6 +99,7 @@ class MainWindow(QMainWindow):
 		self._setupTagsDock()
 
 		self._restoreWindowGeometry()
+		self._restoreTagsDockState()
 
 	def _setupActions(self):
 		self.actionPrefs = QAction("&Preferences", self)
@@ -298,6 +299,24 @@ class MainWindow(QMainWindow):
 		# Keep the palette's active-context filter in sync with the current tab
 		self.tabsWidget.currentChanged.connect(lambda _idx: self.tagsPalette.OnActiveContextChanged())
 
+	def _getActiveContext(self) -> tuple[str, str]:
+		""" Returns (pluginID, softwareID) of the currently active view tab, or ('', '') if unavailable. """
+		try:
+			tabsWidget = getattr(self, 'tabsWidget', None)
+			if tabsWidget is None:
+				return '', ''
+			current = tabsWidget.currentWidget()
+			swHandler = getattr(current, 'swHandler', None)
+			if swHandler is None:
+				return '', ''
+			return swHandler.pluginID, swHandler.GetID()
+		except Exception as e:
+			logger.warning(f"Failed to resolve active tag context: {e}")
+			return '', ''
+
+	def _restoreTagsDockState(self):
+		""" Restores the tags palette dock layout (visibility / floating / docked side) and
+		its filter state from the last session. """
 		# Restore the tags palette dock layout (visibility / floating / docked side) from the last session.
 		savedWindowState: str = self.qavmSettings.GetMainWindowState()
 		if savedWindowState:

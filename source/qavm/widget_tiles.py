@@ -19,7 +19,7 @@ from qavm.qavmapi import (
 from qavm.qavmapi.gui import TagBubblesFlowWidget
 from qavm.manager_plugin import SoftwareHandler
 from qavm.utils_gui import FlowLayout
-from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptor, TAG_MIME_TYPE
+from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptorWithScopeCheck, TAG_MIME_TYPE, ShowDynamicContextMenu, CallBuilderGetContextMenu
 
 if TYPE_CHECKING:
 	from qavm.window_main import MainWindow
@@ -71,7 +71,7 @@ class TilesWidget(QWidget):
 		if desc is None:
 			event.ignore()
 			return
-		AssignTagUIDToDescriptor(desc, tagUID)
+		AssignTagUIDToDescriptorWithScopeCheck(desc, tagUID, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID, self)
 		event.acceptProposedAction()
 
 	def _findDescriptorForChild(self, widget: QWidget | None) -> BaseDescriptor | None:
@@ -84,10 +84,20 @@ class TilesWidget(QWidget):
 		return None
 
 	def _showContextMenu(self, desc: BaseDescriptor):
-		if menu := self.tileBuilder.GetContextMenu(desc):
-			tagUnderCursor: 'BaseTagImpl | None' = self._tagUnderCursor()
+		tagUnderCursor: 'BaseTagImpl | None' = self._tagUnderCursor()
+		globalPos = QCursor.pos()
+		def populate(menu: QMenu) -> QMenu:
 			PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID, tagUnderCursor)
-			menu.exec(QCursor.pos())
+			return menu
+		def buildMenu(modifiers: Qt.KeyboardModifier) -> QMenu | None:
+			menu = CallBuilderGetContextMenu(self.tileBuilder, desc, modifiers)
+			return populate(menu) if menu is not None else None
+		def updateMenu(menu: QMenu, modifiers: Qt.KeyboardModifier) -> QMenu | None:
+			result, changed = self.tileBuilder.UpdateContextMenu(menu, desc, modifiers)
+			if changed:
+				menu = populate(result) if result is not None else None
+			return menu
+		ShowDynamicContextMenu(buildMenu, updateMenu, globalPos)
 
 	def _tagUnderCursor(self) -> 'BaseTagImpl | None':
 		""" Returns the tag whose bubble is under the cursor (where the context menu was invoked), or None. """

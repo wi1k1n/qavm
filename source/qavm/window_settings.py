@@ -65,7 +65,7 @@ class PreferencesWindow(QWidget):
 					self.AddSettingsEntryContainer(swHandler.GetName(), swSettingsWidgets)
 
 		# self.menuWidget.expandAll()
-		self.menuWidget.expand(generalSettingsItem.index())
+		# self.menuWidget.expand(generalSettingsItem.index())
 		self.menuWidget.selectionModel().select(generalSettingsItem.index(), self.menuWidget.selectionModel().SelectionFlag.ClearAndSelect)
 	
 		minExtraWidth = 20

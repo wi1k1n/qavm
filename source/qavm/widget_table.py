@@ -1,7 +1,4 @@
-import os  # TODO: Get rid of os.path in favor of pathlib
-from pathlib import Path
 from functools import partial
-from typing import Type, Optional
 
 from PyQt6.QtCore import Qt, QMargins, QPoint, QRect, pyqtSignal, QTimer
 from PyQt6.QtGui import QAction, QIcon, QKeySequence, QCursor, QColor, QBrush, QPainter, QPen, QPolygon, QMouseEvent, QPaintEvent
@@ -28,7 +25,7 @@ from qavm.qavmapi import (
 from qavm.qavmapi.utils import PlatformMacOS, PlatformWindows, PlatformLinux
 from qavm.qavmapi.gui import TagBubblesFlowWidget, GetThemeData, IsThemeDark
 from qavm.utils_gui import FlowLayout
-from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptor, TAG_MIME_TYPE
+from qavm.utils_widgets import PopulateContextMenuTagsAndNotes, AssignTagUIDToDescriptorWithScopeCheck, TAG_MIME_TYPE, ShowDynamicContextMenu, CallBuilderGetContextMenu
 from qavm.qavm_version import GetBuildVersion, GetPackageVersion, GetQAVMVersion, GetQAVMVersionVariant
 
 import qavm.logs as logs
@@ -152,14 +149,23 @@ class MyTableViewHeader(QHeaderView):
 		if event.button() == Qt.MouseButton.LeftButton:
 			self._mousePressedPos = event.pos()
 			self._mousePressedSection = self.logicalIndexAt(self._mousePressedPos)
+		# Middle-click on a header opens the column filter popup when the experimental
+		# tableview filtering feature is enabled in QAVM settings.
 		elif event.button() == Qt.MouseButton.MiddleButton:
-			# MMB on a header section is the entry point to the column filter mode.
-			section = self.logicalIndexAt(event.pos())
-			tableWidget = self.parent()
-			if section >= 0 and hasattr(tableWidget, '_openFilterMenu'):
-				tableWidget._openFilterMenu(section)
-				event.accept()
-				return
+			app = QApplication.instance()
+			if app is not None and hasattr(app, 'GetSettingsManager'):
+				try:
+					qavmSettings = app.GetSettingsManager().GetQAVMSettings()
+					if qavmSettings.GetExperimentalTableViewFiltering():
+						section = self.logicalIndexAt(event.pos())
+						tableWidget = self.parent()
+						if section >= 0 and hasattr(tableWidget, '_openFilterMenu'):
+							tableWidget._openFilterMenu(section)
+							event.accept()
+							return
+				except Exception:
+					# Any error reading settings should silently fall back to disabled
+					pass
 		super().mousePressEvent(event)
 		
 	def mouseReleaseEvent(self, event):
@@ -187,15 +193,17 @@ class MyTableViewHeader(QHeaderView):
 class _CellWidgetSortItem(QTableWidgetItem):
 	""" Invisible placeholder item placed under a cell widget. Provides a stable sort key for the
 	column while displaying no text, so nothing renders behind a transparent cell widget. """
-	def __init__(self, sortKey: str):
+	def __init__(self, sortKey: str | int | float):
 		super().__init__('')
-		self._sortKey: str = sortKey
+		self._sortKey: str | int | float = sortKey
 
 	def __lt__(self, other):
 		if isinstance(other, _CellWidgetSortItem):
-			return not other._sortKey or self._sortKey < other._sortKey
+			if isinstance(other._sortKey, (int, float)) and isinstance(self._sortKey, (int, float)):
+				return self._sortKey < other._sortKey
+			return str(self._sortKey) < str(other._sortKey)
 		elif isinstance(other, QTableWidgetItem):
-			return not other.text() or self._sortKey < other.text()
+			return not other.text() or str(self._sortKey) < other.text()
 		return super().__lt__(other)
 
 def _filterKeyOf(target) -> str:
@@ -350,7 +358,7 @@ class MyTableWidget(QTableWidget):
 			event.ignore()
 			return
 		desc: BaseDescriptor = self._descs[descIdx]
-		AssignTagUIDToDescriptor(desc, tagUID)
+		AssignTagUIDToDescriptorWithScopeCheck(desc, tagUID, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID, self)
 		event.acceptProposedAction()
 
 	def _tagUnderCursor(self, viewportPos: QPoint) -> BaseTagImpl | None:
@@ -364,19 +372,29 @@ class MyTableWidget(QTableWidget):
 		return None
 
 	def mousePressEvent(self, event: QMouseEvent):
+		# print('mousePressEvent')
 		if event.button() == Qt.MouseButton.LeftButton:
-			# print("Left button clicked")
 			self.clickedLeft.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
 		elif event.button() == Qt.MouseButton.RightButton:
-			# print("Right button clicked")
 			self.clickedRight.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
 		elif event.button() == Qt.MouseButton.MiddleButton:
-			# print("Middle button clicked")
 			self.clickedMiddle.emit(self.currentRow(), self.currentColumn(), QApplication.keyboardModifiers())
 
+		# TODO: should probably have better system here
+		# this is to avoid the default behavior of toggling row selection
+		if QApplication.keyboardModifiers() & Qt.KeyboardModifier.ControlModifier:
+			index = self.indexAt(event.pos())
+			if index.isValid():
+				rowClick = index.row()
+				rowCurrent = self.currentRow()
+				# print('rowClick', rowClick, 'currentRow', rowCurrent)
+				if rowClick == rowCurrent:
+					return # if the user clicked on the current row, we don't want to unselect it
+		
 		super().mousePressEvent(event)
 
 	def mouseDoubleClickEvent(self, event: QMouseEvent):
+		# print('mouseDoubleClickEvent')
 		index = self.indexAt(event.pos())
 		if not index.isValid():
 			return
@@ -385,16 +403,36 @@ class MyTableWidget(QTableWidget):
 		col = index.column()
 
 		if event.button() == Qt.MouseButton.LeftButton:
-			print("Left button double clicked")
 			self.doubleClickedLeft.emit(row, col, QApplication.keyboardModifiers())
 		elif event.button() == Qt.MouseButton.RightButton:
-			print("Right button double clicked")
 			self.doubleClickedRight.emit(row, col, QApplication.keyboardModifiers())
 		elif event.button() == Qt.MouseButton.MiddleButton:
-			print("Middle button double clicked")
 			self.doubleClickedMiddle.emit(row, col, QApplication.keyboardModifiers())
-
+		
 		super().mouseDoubleClickEvent(event)
+
+	def wheelEvent(self, event):
+		"""Enable Shift+wheel to scroll horizontally (common convention)."""
+		# Determine delta in pixels or angle units
+		pdelta = event.pixelDelta()
+		adelta = event.angleDelta()
+		dx = pdelta.x() if not pdelta.isNull() else adelta.x()
+		dy = pdelta.y() if not pdelta.isNull() else adelta.y()
+
+		# If Shift is held, treat vertical wheel as horizontal scroll
+		if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+			hbar = self.horizontalScrollBar()
+			# Prefer vertical delta for Shift+wheel behavior (common UX)
+			if dy:
+				hbar.setValue(hbar.value() - dy)
+				event.accept()
+				return
+			elif dx:
+				hbar.setValue(hbar.value() - dx)
+				event.accept()
+				return
+
+		super().wheelEvent(event)
 
 	def keyPressEvent(self, event):
 		if event.key() == Qt.Key.Key_N and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
@@ -454,6 +492,7 @@ class MyTableWidget(QTableWidget):
 
 		self._applyRowSelectionStyle()
 
+		# TODO: do these need to be signals if they are only used internally? Could just call the methods directly.
 		self.doubleClickedLeft.connect(partial(self._onTableItemDoubleClickedLeft, self, tableBuilder))
 		self.clickedMiddle.connect(partial(self._onTableItemClickedMiddle, self, tableBuilder))
 
@@ -466,10 +505,19 @@ class MyTableWidget(QTableWidget):
 			if item:
 				descIdx: int = int(item.text())
 				desc: BaseDescriptor = descs[descIdx]
-				if menu := tableBuilder.GetContextMenu(desc):
-					tagUnderCursor: BaseTagImpl | None = self._tagUnderCursor(pos)
+				tagUnderCursor: BaseTagImpl | None = self._tagUnderCursor(pos)
+				def populate(menu: QMenu) -> QMenu:
 					PopulateContextMenuTagsAndNotes(menu, desc, self.mainWindow, self, self.swHandler.pluginID, self.swHandler.GetID(), self.viewUID, tagUnderCursor)
-					menu.exec(QCursor.pos())
+					return menu
+				def buildMenu(modifiers: Qt.KeyboardModifier) -> QMenu | None:
+					menu = CallBuilderGetContextMenu(tableBuilder, desc, modifiers)
+					return populate(menu) if menu is not None else None
+				def updateMenu(menu: QMenu, modifiers: Qt.KeyboardModifier) -> QMenu | None:
+					result, changed = tableBuilder.UpdateContextMenu(menu, desc, modifiers)
+					if changed:
+						menu = populate(result) if result is not None else None
+					return menu
+				ShowDynamicContextMenu(buildMenu, updateMenu, QCursor.pos())
 
 		for r, desc in enumerate(descs):
 			self._populateRow(r, desc, r)
@@ -540,7 +588,12 @@ class MyTableWidget(QTableWidget):
 			cellValue = tableInfo.cellDataGetter(desc) if callable(tableInfo.cellDataGetter) else ''
 			if isinstance(cellValue, QWidget):
 				getSortKey = getattr(cellValue, 'GetSortKey', None)
-				sortKey: str = str(getSortKey()) if callable(getSortKey) else ''
+				sortKey: str | int | float = ''
+				if callable(getSortKey):
+					sortKey = getSortKey()
+					if not isinstance(sortKey, (str, int, float)):
+						sortKey = str(sortKey)
+				
 				self.setItem(row, c, _CellWidgetSortItem(sortKey))
 				self.setCellWidget(row, c, cellValue)
 				self._connectCellWidgetAutoHeight(cellValue)
@@ -634,9 +687,12 @@ class MyTableWidget(QTableWidget):
 	def _collectColumnFilterTargets(self, logicalIndex: int) -> list[tuple[str, object]]:
 		""" Returns the de-duplicated (key, target) pairs contributed by all descriptors for a column,
 		ordered by key for a stable menu layout. """
+		getFilterTargets = self._tableInfos[logicalIndex].getFilterTargets
+		if getFilterTargets is None:
+			return []
 		uniqueTargets: dict[str, object] = {}
 		for desc in self._descs:
-			targets = self._tableBuilder.GetColumnFilterTargets(desc, logicalIndex)
+			targets = getFilterTargets(desc)
 			if not targets:
 				continue
 			for target in targets:
@@ -649,7 +705,7 @@ class MyTableWidget(QTableWidget):
 		""" Opens the filter popup for the given (filterable) column, preselecting its active targets. """
 		if not (0 <= logicalIndex < len(self._tableInfos)):
 			return
-		if not self._tableInfos[logicalIndex].isFilterable:
+		if self._tableInfos[logicalIndex].getFilterTargets is None:
 			return
 
 		targets: list[tuple[str, object]] = self._collectColumnFilterTargets(logicalIndex)
@@ -693,7 +749,11 @@ class MyTableWidget(QTableWidget):
 			for col, keys in self._activeFilters.items():
 				if not keys:
 					continue
-				if not any(self._tableBuilder.DescriptorCompliesWithFilterTarget(desc, col, k) for k in keys):
+				getFilterTargets = self._tableInfos[col].getFilterTargets
+				if getFilterTargets is None:
+					continue
+				descKeys: set = {_filterKeyOf(t) for t in (getFilterTargets(desc) or [])}
+				if descKeys.isdisjoint(keys):
 					visible = False
 					break
 			self.setRowHidden(row, not visible)
@@ -804,16 +864,28 @@ class MyTableWidget(QTableWidget):
 	def _onTableItemDoubleClickedLeft(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
 			return
-		# app = QApplication.instance()
-		# descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
-		# tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, True, 0, QApplication.keyboardModifiers())
+		desc: BaseDescriptor | None = self._descriptorForRow(row)
+		if desc is None:
+			return
+		tableBuilder.HandleClick(desc, row, col, True, 0, modifiers)
 
 	def _onTableItemClickedMiddle(self, tableWidget: QTableWidget, tableBuilder: BaseTableBuilder, row: int, col: int, modifiers: Qt.KeyboardModifier):
 		if row < 0 or col < 0:
 			return
-		# app = QApplication.instance()
-		# descIdx: int = int(tableWidget.item(row, len(tableBuilder.GetTableCaptions())).text())
-		# tableBuilder.HandleClick(app.GetSoftwareDescriptors()[descIdx], row, col, False, 2, QApplication.keyboardModifiers())
+		desc: BaseDescriptor | None = self._descriptorForRow(row)
+		if desc is None:
+			return
+		tableBuilder.HandleClick(desc, row, col, False, 2, modifiers)
+
+	def _descriptorForRow(self, row: int) -> BaseDescriptor | None:
+		""" Returns the descriptor backing the given visual row, or None if the row has no valid descriptor. """
+		descIdxItem = self.item(row, len(self._tableInfos))
+		if descIdxItem is None:
+			return None
+		descIdx: int = int(descIdxItem.text())
+		if descIdx < 0 or descIdx >= len(self._descs):
+			return None
+		return self._descs[descIdx]
 
 	def showEvent(self, event):
 		# When the table becomes visible/activated (for example when switching tabs),

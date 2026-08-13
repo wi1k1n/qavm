@@ -1,8 +1,9 @@
+import inspect
 from functools import partial
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Optional
 
 from PyQt6.QtWidgets import QMenu, QWidget, QApplication, QMessageBox
-from PyQt6.QtGui import QAction, QColor, QDrag, QPainter, QPixmap, QMouseEvent
+from PyQt6.QtGui import QAction, QColor, QCursor, QDrag, QPainter, QPixmap, QMouseEvent
 from PyQt6.QtCore import Qt, QMimeData, QPoint, QObject, QEvent, pyqtSignal
 
 from qavm.manager_tags import BaseTagImpl, TagScope
@@ -56,6 +57,30 @@ def UnassignTagUIDFromDescriptor(desc: BaseDescriptor, tagUID: str) -> bool:
 		logger.warning(f"Cannot unassign tag: unknown tag UID {tagUID}")
 		return False
 	tagsManager.RemoveTag(desc, tag)
+	return True
+
+def AssignTagUIDToDescriptorWithScopeCheck(desc: BaseDescriptor, tagUID: str, pluginID: str, softwareID: str,
+										viewUID: str, parent: QWidget | None = None) -> bool:
+	""" Assigns the tag to the descriptor, but when the tag's scope doesn't apply to the given
+	plugin/software/view context it first asks the user to confirm (the tag stays visible on the item
+	but is normally filtered out of this view). Returns True if the tag was assigned. """
+	app = QApplication.instance()
+	tagsManager = app.GetTagsManager()
+	tag: BaseTagImpl | None = tagsManager.GetTag(tagUID)
+	if tag is None:
+		logger.warning(f"Cannot assign tag: unknown tag UID {tagUID}")
+		return False
+	if not tag.IsApplicableInContext(pluginID, softwareID, viewUID):
+		reply = QMessageBox.question(
+			parent, "Assign Out-of-Scope Tag",
+			f"The tag '{tag.GetName()}' has wrong scope for this assignment.\n\n"
+			f"Assign it anyway?",
+			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+			QMessageBox.StandardButton.No,
+		)
+		if reply != QMessageBox.StandardButton.Yes:
+			return False
+	tagsManager.AssignTag(desc, tag)
 	return True
 
 class _MenuActionClickFilter(QObject):
@@ -175,3 +200,119 @@ def PopulateContextMenuTagsAndNotes(menu: QMenu, desc: BaseDescriptor, mainWindo
 	# _InstallMenuActionClickHandler(menu, tagsAction, openTagsPalette)
 
 	menu.addAction(QAction("Note", parent, triggered=partial(mainWindow._showNoteEditorDialog, desc)))
+
+
+# Modifier keys we care about for context-menu rebuilding, mapped from their Qt key code to the modifier.
+_MODIFIER_KEYS: dict[int, Qt.KeyboardModifier] = {
+	int(Qt.Key.Key_Shift): Qt.KeyboardModifier.ShiftModifier,
+	int(Qt.Key.Key_Control): Qt.KeyboardModifier.ControlModifier,
+	int(Qt.Key.Key_Alt): Qt.KeyboardModifier.AltModifier,
+	int(Qt.Key.Key_AltGr): Qt.KeyboardModifier.AltModifier,
+	int(Qt.Key.Key_Meta): Qt.KeyboardModifier.MetaModifier,
+}
+# Only these modifiers are considered when deciding whether to rebuild the context menu.
+_RELEVANT_MODIFIERS: Qt.KeyboardModifier = (
+	Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier
+	| Qt.KeyboardModifier.AltModifier | Qt.KeyboardModifier.MetaModifier
+)
+
+
+def CallBuilderGetContextMenu(builder, desc: BaseDescriptor, modifiers: Qt.KeyboardModifier) -> Optional[QMenu]:
+	""" Invokes builder.GetContextMenu, passing `modifiers` when the override accepts it.
+
+	Older plugins may still define GetContextMenu(self, desc) without the `modifiers` parameter; those are
+	called with a single argument so they keep working. """
+	method = builder.GetContextMenu
+	acceptsModifiers = True
+	try:
+		params = list(inspect.signature(method).parameters.values())
+		# `method` is bound, so `self` is already excluded. Anything beyond `desc` (an extra positional
+		# parameter, a `modifiers` keyword, or *args/**kwargs) means the override can receive the modifiers.
+		positional = [p for p in params if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
+		hasVarArgs = any(p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p in params)
+		hasModifiersKw = any(p.name == 'modifiers' for p in params)
+		acceptsModifiers = hasVarArgs or hasModifiersKw or len(positional) >= 2
+	except (TypeError, ValueError):
+		acceptsModifiers = True
+	if acceptsModifiers:
+		return method(desc, modifiers)
+	return method(desc)
+
+
+class _ModifierChangeMenuHandler(QObject):
+	""" Application-wide event filter that reacts to modifier-key changes while `menu` is open.
+
+	Modifier presses/releases are tracked starting from `baseModifiers`. On each change it asks `updater`
+	to rebuild the menu in place (avoiding a close/reopen flash). If the updater declines (returns None),
+	the new modifier set is recorded in `rebuildModifiers` and the menu is closed so the caller can rebuild
+	it from scratch. """
+	def __init__(self, menu: QMenu, baseModifiers: Qt.KeyboardModifier,
+				updater: Callable[[QMenu, Qt.KeyboardModifier], Optional[QMenu]]):
+		super().__init__()
+		self._menu: QMenu = menu
+		self._modifiers: Qt.KeyboardModifier = baseModifiers & _RELEVANT_MODIFIERS
+		self._updater = updater
+		self.rebuildModifiers: Qt.KeyboardModifier | None = None
+
+	def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+		etype = event.type()
+		if etype in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease) and not self._menu.isHidden():
+			mod = _MODIFIER_KEYS.get(event.key())
+			if mod is not None:
+				updated = (self._modifiers | mod) if etype == QEvent.Type.KeyPress else (self._modifiers & ~mod)
+				if updated != self._modifiers:
+					result: Optional[QMenu] = None
+					try:
+						result = self._updater(self._menu, updated)
+					except Exception:
+						logger.exception("In-place context menu update failed")
+					if result is None:
+						# Updater declined: fall back to closing and rebuilding the menu from scratch.
+						self.rebuildModifiers = updated
+						self._menu.close()
+					else:
+						self._modifiers = updated
+						_RestoreActiveActionUnderCursor(self._menu)
+				# Consume modifier-key events (especially Alt) so the default
+				# behavior (activating the menubar / closing the context menu)
+				# does not run while we're handling modifier-driven rebuilds.
+				try:
+					event.accept()
+				except Exception:
+					pass
+				return True
+		return False
+
+
+def _RestoreActiveActionUnderCursor(menu: QMenu) -> None:
+	""" After rebuilding a menu in place, re-highlights whichever action is currently under the cursor so
+	the selection doesn't visually reset while the pointer hasn't moved. """
+	pos: QPoint = menu.mapFromGlobal(QCursor.pos())
+	menu.setActiveAction(menu.actionAt(pos) if menu.rect().contains(pos) else None)
+
+
+def ShowDynamicContextMenu(
+		menuBuilder: Callable[[Qt.KeyboardModifier], Optional[QMenu]],
+		menuUpdater: Callable[[QMenu, Qt.KeyboardModifier], Optional[QMenu]],
+		globalPos: QPoint) -> None:
+	""" Shows a context menu at `globalPos` and keeps it in sync with the keyboard modifiers.
+
+	`menuBuilder(modifiers)` builds a fresh menu (used for the initial show and whenever an in-place update
+	is unavailable). `menuUpdater(menu, modifiers)` rebuilds the currently-shown menu in place and returns
+	it; returning None makes QAVM fall back to closing and rebuilding the menu via `menuBuilder`. Either way
+	the menu tracks modifier changes until it is dismissed or one of its actions is triggered. """
+	app = QApplication.instance()
+	modifiers: Qt.KeyboardModifier = QApplication.keyboardModifiers() & _RELEVANT_MODIFIERS
+	while True:
+		menu = menuBuilder(modifiers)
+		if menu is None:
+			return
+		handler = _ModifierChangeMenuHandler(menu, modifiers, menuUpdater)
+		app.installEventFilter(handler)
+		try:
+			menu.exec(globalPos)
+		finally:
+			app.removeEventFilter(handler)
+		if handler.rebuildModifiers is None:
+			return  # menu dismissed or one of its actions was triggered
+		modifiers = handler.rebuildModifiers
