@@ -3,7 +3,7 @@ import qavm.logs as logs
 logger = logs.logger
 
 QAVM_VERSION = '0.4.1'
-QAVM_VARIANT = ''
+QAVM_VARIANT = 'dev'
 PACKAGE_VERSION = ''
 BUILD_VERSION = ''
 QAVM_WEBSITE = 'https://github.com/wi1k1n/qavm'
